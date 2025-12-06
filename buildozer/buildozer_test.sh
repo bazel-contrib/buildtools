@@ -2306,6 +2306,91 @@ EOF
   diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
 }
 
+function test_use_repo_remap() {
+  cat > MODULE.bazel <<EOF
+module(
+    name = "foo",
+    version = "0.27.0",
+)
+
+bazel_dep(name = "gazelle", version = "0.30.0")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(go_deps, my_repo = "com_example_foo")
+EOF
+
+  cat > MODULE.bazel.expected <<EOF
+module(
+    name = "foo",
+    version = "0.27.0",
+)
+
+bazel_dep(name = "gazelle", version = "0.30.0")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(go_deps, "org_example_bar", my_repo = "org_example_foo")
+EOF
+
+  # Re-map an existing import by removing it and adding the new mapping in one invocation.
+  $buildozer \
+    'use_repo_remove @gazelle//:extensions.bzl go_deps com_example_foo' \
+    'use_repo_add @gazelle//:extensions.bzl go_deps my_repo=org_example_foo org_example_bar' \
+    //MODULE.bazel:all
+  diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
+}
+
+function test_use_repo_add_malformed() {
+  cat > MODULE.bazel <<EOF
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+use_repo(go_deps, "com_example_foo")
+EOF
+  cp MODULE.bazel MODULE.bazel.expected
+
+  ERROR=2 run_with_current_workspace "$buildozer" 'use_repo_add go_deps org_example_bar foo=' //MODULE.bazel:all
+  assert_err 'invalid repository "foo="'
+  diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
+}
+
+function test_use_repo_add_malformed_keep_going() {
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "a", version = "1")
+ext = use_extension("@foo//:e.bzl", "e")
+ext.tag()
+bazel_dep(name = "b", version = "1")
+bazel_dep(name = "c", version = "1")
+EOF
+
+  cat > MODULE.bazel.expected <<EOF
+bazel_dep(name = "a", version = "1")
+
+ext = use_extension("@foo//:e.bzl", "e")
+ext.tag()
+
+bazel_dep(name = "b", version = "1")
+bazel_dep(name = "c", version = "1")
+EOF
+
+  # A failing use_repo_add must not corrupt the file for subsequent commands.
+  ERROR=2 run_with_current_workspace "$buildozer" -k 'use_repo_add ext foo=' 'format' //MODULE.bazel:all
+  assert_err 'invalid repository "foo="'
+  diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
+}
+
+function test_use_repo_remap_local_name_taken() {
+  cat > MODULE.bazel <<EOF
+ext = use_extension("@foo//:e.bzl", "e")
+use_repo(ext, foo = "a", qux = "b")
+EOF
+  cp MODULE.bazel MODULE.bazel.expected
+
+  # qux already refers to b, so the add fails and the preceding remove isn't written either.
+  ERROR=2 run_with_current_workspace "$buildozer" 'use_repo_remove ext a' 'use_repo_add ext qux=a' //MODULE.bazel:all
+  assert_err '"qux" already refers to repository "b"'
+  diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
+}
+
 function test_use_repo_remove() {
   cat > MODULE.bazel <<EOF
 module(

@@ -18,7 +18,10 @@ limitations under the License.
 package bzlmod
 
 import (
+	"fmt"
 	"path"
+	"slices"
+	"strings"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
 	"github.com/bazel-contrib/buildtools/v10/labels"
@@ -113,43 +116,115 @@ func NewUseRepo(f *build.File, proxies []string) (*build.File, *build.CallExpr) 
 			&build.Ident{Name: proxy},
 		},
 	}
-	stmt := append(f.Stmt[:lastUsage+1], append([]build.Expr{useRepo}, f.Stmt[lastUsage+1:]...)...)
+	// Insert into a copy so that f is left untouched, even if the caller discards the new file
+	// (e.g. because a subsequent edit fails).
+	stmt := slices.Insert(slices.Clone(f.Stmt), lastUsage+1, build.Expr(useRepo))
 
 	return &build.File{Path: f.Path, Comments: f.Comments, Stmt: stmt, Type: build.TypeModule}, useRepo
 }
 
+// repoToAdd is a repository to be added to a use_repo call. For a positional (simple) name,
+// localName equals value.
+type repoToAdd struct {
+	localName string
+	value     string
+}
+
+// keyword reports whether the repo must be rendered as a keyword argument (localName = "value")
+// rather than as a positional argument ("value").
+func (r repoToAdd) keyword() bool {
+	return r.localName != r.value
+}
+
 // AddRepoUsages adds the given repos to the given use_repo calls without introducing duplicate
-// arguments.
-// useRepos must not be empty.
-// Keyword arguments are preserved but adding them is currently not supported.
-func AddRepoUsages(useRepos []*build.CallExpr, repos ...string) {
+// arguments. useRepos must not be empty.
+//
+// Each repo is either a simple name ("foo" -> use_repo(ext, "foo")) or a mapping of a local name to
+// the name exported by the extension ("bar=baz" -> use_repo(ext, bar = "baz")). A mapping whose
+// local name equals its value ("foo=foo") is simplified to the positional form. Buildozer does not
+// validate that local names are valid Starlark identifiers; invalid names are emitted verbatim.
+//
+// Arguments that are already present are left untouched: a repo whose value is already imported
+// (under any local name) is skipped, so existing mappings are never overwritten. This mirrors
+// buildozer's "add" and "dict_add" commands. To replace an existing import, remove it with
+// RemoveRepoUsages first.
+//
+// An error is returned, and the use_repo calls are not modified, if any of the repos is malformed
+// ("", "=foo" or "foo=") or if its local name is already bound to a different repository, either
+// by an existing argument or by an earlier repo in the same call.
+func AddRepoUsages(useRepos []*build.CallExpr, repos ...string) error {
 	if len(repos) == 0 {
-		return
+		return nil
 	}
 	if len(useRepos) == 0 {
 		panic("useRepos must not be empty")
 	}
 
-	seen := make(map[string]struct{})
+	var reposToAdd []repoToAdd
+	for _, repo := range repos {
+		parsed, err := parseRepoSpec(repo)
+		if err != nil {
+			return err
+		}
+		reposToAdd = append(reposToAdd, parsed)
+	}
+
+	existingLocalNames, existingValues := collectExisting(useRepos)
+
+	lastUseRepo := getLastUseRepo(useRepos)
+	var positionals, keywords []build.Expr
+	for _, repo := range reposToAdd {
+		// Skip repos that are already imported, under the same or another local name.
+		if _, ok := existingValues[repo.value]; ok {
+			continue
+		}
+		// The repo can't be imported under a local name that refers to a different repo.
+		if value, ok := existingLocalNames[repo.localName]; ok {
+			return fmt.Errorf("cannot import repository %q as %q: %q already refers to repository %q", repo.value, repo.localName, repo.localName, value)
+		}
+
+		if repo.keyword() {
+			keywords = append(keywords, &build.AssignExpr{
+				LHS: &build.Ident{Name: repo.localName},
+				Op:  "=",
+				RHS: &build.StringExpr{Value: repo.value},
+			})
+		} else {
+			positionals = append(positionals, &build.StringExpr{Value: repo.value})
+		}
+
+		// Also check later repos within this call against this one.
+		existingLocalNames[repo.localName] = repo.value
+		existingValues[repo.value] = struct{}{}
+	}
+
+	// Keep positional arguments contiguous so Buildify can sort them; it sorts keyword args too.
+	lastUseRepo.List = append(lastUseRepo.List, positionals...)
+	lastUseRepo.List = append(lastUseRepo.List, keywords...)
+	return nil
+}
+
+// collectExisting returns the mapping of local names to repository values and the set of repository
+// values currently referenced in the given use_repo calls (excluding the extension proxy).
+func collectExisting(useRepos []*build.CallExpr) (localNames map[string]string, values map[string]struct{}) {
+	localNames = make(map[string]string)
+	values = make(map[string]struct{})
 	for _, useRepo := range useRepos {
 		if len(useRepo.List) == 0 {
-			// Invalid use_repo call, skip.
 			continue
 		}
 		for _, arg := range useRepo.List[1:] {
-			seen[repoFromUseRepoArg(arg)] = struct{}{}
+			name := localNameFromUseRepoArg(arg)
+			value := repoFromUseRepoArg(arg)
+			if name != "" {
+				localNames[name] = value
+			}
+			if value != "" {
+				values[value] = struct{}{}
+			}
 		}
 	}
-
-	lastUseRepo := getLastUseRepo(useRepos)
-	for _, repo := range repos {
-		if _, ok := seen[repo]; ok {
-			continue
-		}
-		// Sorting of use_repo arguments is handled by Buildify.
-		// TODO: Add a keyword argument instead if repo is of the form "key=value".
-		lastUseRepo.List = append(lastUseRepo.List, &build.StringExpr{Value: repo})
-	}
+	return localNames, values
 }
 
 // RemoveRepoUsages removes the given repos from the given use_repo calls.
@@ -203,6 +278,23 @@ func repoFromUseRepoArg(arg build.Expr) string {
 		// use_repo(ext, my_repo = "repo") --> repo
 		if repo, ok := arg.RHS.(*build.StringExpr); ok {
 			return repo.Value
+		}
+	}
+	return ""
+}
+
+// localNameFromUseRepoArg returns the local name (i.e. the name under which the repository is
+// imported) from a use_repo argument. For a positional argument the local name equals the
+// repository value.
+func localNameFromUseRepoArg(arg build.Expr) string {
+	switch arg := arg.(type) {
+	case *build.StringExpr:
+		// use_repo(ext, "repo") --> repo
+		return arg.Value
+	case *build.AssignExpr:
+		// use_repo(ext, my_repo = "repo") --> my_repo
+		if ident, ok := arg.LHS.(*build.Ident); ok {
+			return ident.Name
 		}
 	}
 	return ""
@@ -432,4 +524,21 @@ func collectApparentNamesAndIncludes(f *build.File) (map[string]string, []string
 	}
 
 	return apparentNames, includeLabels
+}
+
+// parseRepoSpec parses a repo argument: either a simple name ("foo") or a mapping "localName=value"
+// ("bar=baz"). A mapping whose local name equals its value is simplified to the positional form. An
+// error is returned for empty or malformed specs ("", "=foo", "foo=").
+func parseRepoSpec(repo string) (repoToAdd, error) {
+	localName, value, isMapping := strings.Cut(repo, "=")
+	if !isMapping {
+		if repo == "" {
+			return repoToAdd{}, fmt.Errorf("invalid repository %q: must not be empty", repo)
+		}
+		return repoToAdd{localName: repo, value: repo}, nil
+	}
+	if localName == "" || value == "" {
+		return repoToAdd{}, fmt.Errorf("invalid repository %q: expected <name> or <local name>=<name>", repo)
+	}
+	return repoToAdd{localName: localName, value: value}, nil
 }
