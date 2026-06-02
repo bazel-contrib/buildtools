@@ -87,8 +87,8 @@ func (d *Differ) Run() error {
 	return d.run(d.Cmd, d.Args...)
 }
 
-// Find returns the differ to use, using various environment variables.
-func Find() (*Differ) {
+// Find returns the default differ to use.
+func Find() *Differ {
 	d := &Differ{}
 
 	d.Cmd = "diff --unified"
