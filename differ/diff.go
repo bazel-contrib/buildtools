@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
-	"strings"
 )
 
 // Invocation of different diff commands, according to environment variables.
@@ -90,45 +88,10 @@ func (d *Differ) Run() error {
 }
 
 // Find returns the differ to use, using various environment variables.
-func Find() (*Differ, bool) {
+func Find() (*Differ) {
 	d := &Differ{}
-	deprecationWarning := false
-	if cmd := os.Getenv("BUILDIFIER_DIFF"); cmd != "" {
-		deprecationWarning = true
-		d.Cmd = cmd
-	}
 
-	// Load MultiDiff setting from environment.
-	knowMultiDiff := false
-	if md := os.Getenv("BUILDIFIER_MULTIDIFF"); md == "0" || md == "1" {
-		deprecationWarning = true
-		d.MultiDiff = md == "1"
-		knowMultiDiff = true
-	}
+	d.Cmd = "diff --unified"
 
-	if d.Cmd != "" {
-		if !knowMultiDiff {
-			lower := strings.ToLower(d.Cmd)
-			d.MultiDiff = strings.Contains(lower, "tkdiff") &&
-				isatty(1) && os.Getenv("DISPLAY") != ""
-		}
-	} else {
-		if !knowMultiDiff {
-			d.MultiDiff = isatty(1) && os.Getenv("DISPLAY") != ""
-			if d.MultiDiff {
-				deprecationWarning = true
-			}
-		}
-		if d.MultiDiff {
-			d.Cmd = "tkdiff"
-		} else {
-			if runtime.GOOS == "windows" {
-				deprecationWarning = true
-				d.Cmd = "FC"
-			} else {
-				d.Cmd = "diff --unified"
-			}
-		}
-	}
-	return d, deprecationWarning
+	return d
 }
