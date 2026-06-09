@@ -881,6 +881,12 @@ func (in *input) order(v Expr) {
 
 // assignComments attaches comments to nearby syntax.
 func (in *input) assignComments() {
+	// If the file has no comments there is nothing to assign, then we can skip
+	// the expensive .order() when the file has no comments.
+	if len(in.lineComments) == 0 && len(in.suffixComments) == 0 {
+		return
+	}
+
 	// Generate preorder and postorder lists.
 	in.order(in.file)
 	in.assignSuffixComments()
