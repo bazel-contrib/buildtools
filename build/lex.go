@@ -738,7 +738,7 @@ var keywordToken = map[string]int{
 // order walks the expression adding it and its subexpressions to the
 // preorder and postorder lists.
 func (in *input) order(v Expr) {
-	if v != nil {
+	if len(in.lineComments) > 0 && v != nil {
 		in.pre = append(in.pre, v)
 	}
 	switch v := v.(type) {
@@ -874,23 +874,29 @@ func (in *input) order(v Expr) {
 			in.order(s)
 		}
 	}
-	if v != nil {
+	if len(in.suffixComments) > 0 && v != nil {
 		in.post = append(in.post, v)
 	}
 }
 
 // assignComments attaches comments to nearby syntax.
 func (in *input) assignComments() {
-	// If the file has no comments there is nothing to assign, then we can skip
-	// the expensive .order() when the file has no comments.
-	if len(in.lineComments) == 0 && len(in.suffixComments) == 0 {
+	// Line comments are attached using the preorder list, suffix comments using
+	// the postorder list (order() builds only the list(s) for the comment kinds
+	// present). If the file has neither kind, skip the whole-tree walk entirely.
+	hasLine := len(in.lineComments) > 0
+	hasSuffix := len(in.suffixComments) > 0
+	if !hasLine && !hasSuffix {
 		return
 	}
 
-	// Generate preorder and postorder lists.
 	in.order(in.file)
-	in.assignSuffixComments()
-	in.assignLineComments()
+	if hasSuffix {
+		in.assignSuffixComments()
+	}
+	if hasLine {
+		in.assignLineComments()
+	}
 }
 
 func (in *input) assignSuffixComments() {
