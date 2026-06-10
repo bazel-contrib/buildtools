@@ -1032,12 +1032,19 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 // If multiLine is true, seq avoids the compact form even
 // for 0- and 1-element sequences.
 func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mode seqMode, forceCompact, forceMultiLine bool) {
-	args := &[]Expr{}
-	for _, x := range *list {
-		// nil arguments may be added by some linter checks, filter them out because
-		// they may cause NPE.
-		if x != nil {
-			*args = append(*args, x)
+	// Filter out nil arguments (rare; added by some linter checks) that may cause a NPE, copying only if needed.
+	args := list
+	for i, x := range *list {
+		if x == nil {
+			filtered := make([]Expr, i, len(*list))
+			copy(filtered, (*list)[:i])
+			for _, y := range (*list)[i+1:] {
+				if y != nil {
+					filtered = append(filtered, y)
+				}
+			}
+			args = &filtered
+			break
 		}
 	}
 
