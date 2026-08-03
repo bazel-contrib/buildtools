@@ -153,6 +153,11 @@ func TestCompileAttrPolicyValidation(t *testing.T) {
 				{Name: "x", Attr: "licenses", ForbidPresence: true},
 			}},
 		},
+		"allow list items only": {
+			policy: &AttrPolicy{Rules: []AttrPolicyRule{
+				{Name: "x", Attr: "tags", AllowListItems: []string{"manual", "assistant-ds*"}},
+			}},
+		},
 		"forbid presence and required": {
 			policy: &AttrPolicy{Rules: []AttrPolicyRule{
 				{Name: "x", Attr: "licenses", ForbidPresence: true, Required: true},

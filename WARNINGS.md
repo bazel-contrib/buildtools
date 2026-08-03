@@ -240,8 +240,9 @@ Using `package_metadata` as an attribute name may cause unexpected behavior. Its
 
 Enforces declarative attribute constraints configured in `.buildifier.json` under
 `attrPolicy`. Each rule names an attribute and a constraint family (scalar,
-list, dict, or numeric bounds). Targets matching an `allowlist` pattern are
-exempt.
+list, dict, numeric bounds, or presence). List rules support `allowListItems` for
+closed-world lexicons; entries ending in `*` match by prefix. Targets matching an
+`allowlist` pattern are exempt.
 
 When no `attrPolicy` block is configured, the warning applies these built-in rules:
 
@@ -267,6 +268,11 @@ Example:
         "ruleKinds": ["*_test"],
         "attr": "shard_count",
         "maxValue": 50
+      },
+      {
+        "name": "allowed-tags",
+        "attr": "tags",
+        "allowListItems": ["manual", "assistant-ds*", "exclusive"]
       }
     ]
   }

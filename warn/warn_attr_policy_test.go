@@ -203,6 +203,46 @@ cc_library(name = "lib", timeout = "eternal")
 	}, scopeBuild)
 }
 
+func TestAttrPolicyAllowListItems(t *testing.T) {
+	old := AttrPolicyConfig
+	defer func() { SetAttrPolicy(old) }()
+	SetAttrPolicy([]AttrPolicyRuleCompiled{
+		{
+			Name:           "allowed-tags",
+			Attr:           "tags",
+			Family:         AttrPolicyListFamily,
+			AllowListItems: []string{"manual", "assistant-ds*", "exclusive"},
+		},
+	})
+
+	checkFindings(t, "attr-policy", `
+cc_test(name = "ok", tags = ["manual", "assistant-ds-community", "exclusive"])
+cc_test(name = "bad", tags = ["my-new-tag"])
+`, []string{
+		`:2: [allowed-tags] attribute "tags" must not contain "my-new-tag"; allowed values are "manual", "assistant-ds*", "exclusive"`,
+	}, scopeBuild)
+}
+
+func TestAllowListItemMatches(t *testing.T) {
+	tests := []struct {
+		allowed []string
+		item    string
+		want    bool
+	}{
+		{[]string{"manual", "exclusive"}, "manual", true},
+		{[]string{"manual", "exclusive"}, "exclusive", true},
+		{[]string{"manual", "exclusive"}, "other", false},
+		{[]string{"assistant-ds*"}, "assistant-ds", true},
+		{[]string{"assistant-ds*"}, "assistant-ds-community", true},
+		{[]string{"assistant-ds*"}, "assistant-hero", false},
+	}
+	for _, tc := range tests {
+		if got := allowListItemMatches(tc.allowed, tc.item); got != tc.want {
+			t.Errorf("allowListItemMatches(%v, %q) = %v, want %v", tc.allowed, tc.item, got, tc.want)
+		}
+	}
+}
+
 func TestAllowlistPatternMatches(t *testing.T) {
 	tests := []struct {
 		pattern AttrPolicyAllowlistPattern

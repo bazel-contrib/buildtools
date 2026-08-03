@@ -23,6 +23,7 @@ type AttrPolicyRule struct {
 	RequireValues      []string          `json:"requireValues,omitempty"`
 	ForbidListItems    []string          `json:"forbidListItems,omitempty"`
 	RequireListItems   []string          `json:"requireListItems,omitempty"`
+	AllowListItems     []string          `json:"allowListItems,omitempty"`
 	ForbidDictEntries  map[string]string `json:"forbidDictEntries,omitempty"`
 	RequireDictEntries map[string]string `json:"requireDictEntries,omitempty"`
 	ForbidDictKeys     []string          `json:"forbidDictKeys,omitempty"`
@@ -103,6 +104,7 @@ func compileAttrPolicyRule(rule *AttrPolicyRule, seen map[string]bool) (warn.Att
 		RequireValues:      append([]string(nil), rule.RequireValues...),
 		ForbidListItems:    append([]string(nil), rule.ForbidListItems...),
 		RequireListItems:   append([]string(nil), rule.RequireListItems...),
+		AllowListItems:     append([]string(nil), rule.AllowListItems...),
 		ForbidDictEntries:  copyStringMap(rule.ForbidDictEntries),
 		RequireDictEntries: copyStringMap(rule.RequireDictEntries),
 		ForbidDictKeys:     append([]string(nil), rule.ForbidDictKeys...),
@@ -117,7 +119,7 @@ func compileAttrPolicyRule(rule *AttrPolicyRule, seen map[string]bool) (warn.Att
 
 func attrPolicyConstraintFamily(rule *AttrPolicyRule) (warn.AttrPolicyConstraintFamily, int, error) {
 	scalar := len(rule.ForbidValues) > 0 || len(rule.RequireValues) > 0
-	list := len(rule.ForbidListItems) > 0 || len(rule.RequireListItems) > 0
+	list := len(rule.ForbidListItems) > 0 || len(rule.RequireListItems) > 0 || len(rule.AllowListItems) > 0
 	dict := len(rule.ForbidDictEntries) > 0 || len(rule.RequireDictEntries) > 0 || len(rule.ForbidDictKeys) > 0
 	numeric := rule.MinValue != nil || rule.MaxValue != nil
 	presence := rule.ForbidPresence

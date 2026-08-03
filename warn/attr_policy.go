@@ -46,6 +46,7 @@ type AttrPolicyRuleCompiled struct {
 	RequireValues      []string
 	ForbidListItems    []string
 	RequireListItems   []string
+	AllowListItems     []string
 	ForbidDictEntries  map[string]string
 	RequireDictEntries map[string]string
 	ForbidDictKeys     []string

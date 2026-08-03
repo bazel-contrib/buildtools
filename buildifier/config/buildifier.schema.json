@@ -125,6 +125,11 @@
           "items": { "type": "string" },
           "description": "List attribute must contain all listed items."
         },
+        "allowListItems": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Every list item must match an allowed value. Entries ending in * are prefix patterns; all others are exact matches."
+        },
         "forbidDictEntries": {
           "type": "object",
           "additionalProperties": { "type": "string" },
@@ -188,6 +193,7 @@
             "anyOf": [
               { "required": ["forbidListItems"] },
               { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
               { "required": ["forbidDictEntries"] },
               { "required": ["requireDictEntries"] },
               { "required": ["forbidDictKeys"] },
@@ -201,7 +207,8 @@
           "description": "List constraint family",
           "anyOf": [
             { "required": ["forbidListItems"] },
-            { "required": ["requireListItems"] }
+            { "required": ["requireListItems"] },
+            { "required": ["allowListItems"] }
           ],
           "not": {
             "anyOf": [
@@ -229,6 +236,7 @@
               { "required": ["requireValues"] },
               { "required": ["forbidListItems"] },
               { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
               { "required": ["minValue"] },
               { "required": ["maxValue"] },
               { "required": ["forbidPresence"] }
@@ -247,6 +255,7 @@
               { "required": ["requireValues"] },
               { "required": ["forbidListItems"] },
               { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
               { "required": ["forbidDictEntries"] },
               { "required": ["requireDictEntries"] },
               { "required": ["forbidDictKeys"] },
@@ -266,6 +275,7 @@
               { "required": ["requireValues"] },
               { "required": ["forbidListItems"] },
               { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
               { "required": ["forbidDictEntries"] },
               { "required": ["requireDictEntries"] },
               { "required": ["forbidDictKeys"] },
@@ -287,6 +297,7 @@
               { "required": ["requireValues"] },
               { "required": ["forbidListItems"] },
               { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
               { "required": ["forbidDictEntries"] },
               { "required": ["requireDictEntries"] },
               { "required": ["forbidDictKeys"] },

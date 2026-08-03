@@ -164,6 +164,7 @@ below are valid JSON you can copy into config.
 | `requireValues` | []string | If attr present, must equal one of these. (If also want "must be present", see `required`.) |
 | `forbidListItems` | []string | List attr must not contain any of these items. |
 | `requireListItems` | []string | List attr must contain all of these items. |
+| `allowListItems` | []string | Every list item must match an allowed value. Entries ending in `*` are prefix patterns; all others are exact matches. |
 | `forbidDictEntries` | object (string→string) | Dict attr must not contain any of these key→value pairs. |
 | `requireDictEntries` | object (string→string) | Dict attr must contain all of these key→value pairs. |
 | `forbidDictKeys` | []string | Dict attr must not contain any of these keys (value ignored). |

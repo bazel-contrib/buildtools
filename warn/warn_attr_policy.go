@@ -81,6 +81,17 @@ func attrPolicyCheckRule(rule *build.Rule, p AttrPolicyRuleCompiled) []*LinterFi
 					fmt.Sprintf("attribute %q must contain %q", p.Attr, required))))
 			}
 		}
+		for _, item := range items {
+			if len(p.AllowListItems) > 0 && !allowListItemMatches(p.AllowListItems, item) {
+				node := attrExpr
+				if itemExpr := listItemExpr(attrExpr, item); itemExpr != nil {
+					node = itemExpr
+				}
+				findings = append(findings, makeLinterFinding(node, attrPolicyMessage(p,
+					fmt.Sprintf("attribute %q must not contain %q; allowed values are %s",
+						p.Attr, item, quoteList(p.AllowListItems)))))
+			}
+		}
 	case AttrPolicyDictFamily:
 		if attrExpr == nil {
 			return findings
@@ -184,4 +195,21 @@ func listItemExpr(attrExpr build.Expr, item string) build.Expr {
 		}
 	}
 	return nil
+}
+
+// allowListItemMatches reports whether item satisfies any allowListItems entry.
+// Entries ending in * are prefix patterns; all other entries are exact matches.
+func allowListItemMatches(allowed []string, item string) bool {
+	for _, pattern := range allowed {
+		if strings.HasSuffix(pattern, "*") {
+			if strings.HasPrefix(item, strings.TrimSuffix(pattern, "*")) {
+				return true
+			}
+			continue
+		}
+		if item == pattern {
+			return true
+		}
+	}
+	return false
 }
