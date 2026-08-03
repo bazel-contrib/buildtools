@@ -163,7 +163,7 @@ func (c *Config) LoadReader(in io.Reader) error {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 	if err := json.Unmarshal(data, c); err != nil {
-		return err
+		return fmt.Errorf("unmarshaling config: %w", err)
 	}
 	return nil
 }
