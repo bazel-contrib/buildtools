@@ -144,7 +144,7 @@ eof
         srcs = [src + "_check.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = [src, gen],
-        args = ["$(execpath " + src + ")", "$(execpath " + gen + ")"],
+        args = ["$(rootpath " + src + ")", "$(rootpath " + gen + ")"],
     )
 
     # magic copy rule used to update the checked-in version
