@@ -151,14 +151,19 @@ func (c *Config) LoadFile() error {
 	return c.LoadReader(file)
 }
 
-// LoadReader unmarshals JSON data from the given reader.
+// LoadReader unmarshals JSON data from the given reader. JSON with comments
+// (JSONC) is supported.
 func (c *Config) LoadReader(in io.Reader) error {
 	data, err := io.ReadAll(in)
 	if err != nil {
 		return fmt.Errorf("reading config: %w", err)
 	}
+	data, err = parseJSONC(data)
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
 	if err := json.Unmarshal(data, c); err != nil {
-		return err
+		return fmt.Errorf("unmarshaling config: %w", err)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ go_library(
     name = "config",
     srcs = [
         "config.go",
+        "jsonc.go",
         "validation.go",
     ],
     importpath = "github.com/bazelbuild/buildtools/buildifier/config",
@@ -12,12 +13,16 @@ go_library(
         "//tables",
         "//warn",
         "//wspace",
+        "@com_github_tailscale_hujson//:hujson",
     ],
 )
 
 go_test(
     name = "config_test",
-    srcs = ["config_test.go"],
+    srcs = [
+        "config_test.go",
+        "jsonc_test.go",
+    ],
     embed = [":config"],
 )
 
