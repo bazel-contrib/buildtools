@@ -123,6 +123,14 @@ bazel_dep(name = "weird_dep", version = "3.19.0", dev_dependency = "True" == "Tr
 bazel_dep(name='yet_another_prod_dep',version='3.19.0')
 EOF
 
+cat > test_dir/REPO.bazel <<'EOF'
+repo(default_visibility='//visibility:private',default_testonly=False)
+EOF
+
+cat > test_dir/VENDOR.bazel << 'EOF'
+ignore ('foo')
+EOF
+
 cp test_dir/foo.bar golden/foo.bar
 cp test_dir/subdir/build golden/build
 cp test_dir/.git/git.bzl golden/git.bzl
@@ -252,6 +260,17 @@ bazel_dep(name = "weird_dep", version = "3.19.0", dev_dependency = "True" == "Tr
 bazel_dep(name = "yet_another_prod_dep", version = "3.19.0")
 EOF
 
+cat > golden/REPO.bazel.golden <<'EOF'
+repo(
+    default_testonly = False,
+    default_visibility = "//visibility:private",
+)
+EOF
+
+cat > golden/VENDOR.bazel.golden <<'EOF'
+ignore("foo")
+EOF
+
 cat > golden/.buildifier.example.json <<EOF
 {
   "type": "auto",
@@ -373,6 +392,8 @@ diff -u test2.bzl golden/test.bzl.golden
 diff -u stdout golden/test.bzl.golden
 diff -u test_dir/.git/git.bzl golden/git.bzl
 diff -u test_dir/MODULE.bazel golden/MODULE.bazel.golden
+diff -u test_dir/REPO.bazel golden/REPO.bazel.golden
+diff -u test_dir/VENDOR.bazel golden/VENDOR.bazel.golden
 diff -u test_dir/.buildifier.example.json golden/.buildifier.example.json
 
 # Test run on a directory without -r
