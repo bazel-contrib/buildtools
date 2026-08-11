@@ -19,7 +19,9 @@ limitations under the License.
 package utils
 
 import (
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -46,9 +48,46 @@ func skip(info os.FileInfo) bool {
 	return info.IsDir() && info.Name() == ".git"
 }
 
+func normalizePathForMatch(value string) string {
+	value = filepath.ToSlash(value)
+	for strings.HasPrefix(value, "./") {
+		value = strings.TrimPrefix(value, "./")
+	}
+	return value
+}
+
+// matchPath uses path.Match syntax, but allows '*' and '?' to match path separators.
+func matchPath(pattern, filename string) (bool, error) {
+	const separatorPlaceholder = "\x00"
+	pattern = strings.ReplaceAll(normalizePathForMatch(pattern), "/", separatorPlaceholder)
+	filename = strings.ReplaceAll(normalizePathForMatch(filename), "/", separatorPlaceholder)
+	return path.Match(pattern, filename)
+}
+
+func isExcluded(filename string, patterns []string) (bool, error) {
+	for _, pattern := range patterns {
+		matched, err := matchPath(pattern, filename)
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // ExpandDirectories takes a list of file/directory names and returns a list with file names
-// by traversing each directory recursively and searching for relevant Starlark files.
-func ExpandDirectories(args *[]string) ([]string, error) {
+// by traversing each directory recursively and searching for relevant Starlark files. Paths
+// matching any of the optional exclude patterns are skipped. Exclude patterns use path.Match
+// syntax and are matched with slash separators on every platform.
+func ExpandDirectories(args *[]string, excludePatterns ...string) ([]string, error) {
+	for _, pattern := range excludePatterns {
+		if _, err := matchPath(pattern, ""); err != nil {
+			return nil, fmt.Errorf("invalid exclude pattern %q: %w", pattern, err)
+		}
+	}
+
 	files := []string{}
 	for _, arg := range *args {
 		info, err := os.Stat(arg)
@@ -59,23 +98,30 @@ func ExpandDirectories(args *[]string) ([]string, error) {
 			files = append(files, arg)
 			continue
 		}
-		err = filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(arg, func(filename string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			if skip(info) {
+			excluded, err := isExcluded(filename, excludePatterns)
+			if err != nil {
+				return err
+			}
+			if info.IsDir() && (skip(info) || excluded) {
 				return filepath.SkipDir
+			}
+			if excluded {
+				return nil
 			}
 			if !info.IsDir() && isStarlarkFile(info.Name()) {
 				// Don't traverse into directory symlinks such as bazel-foo.bzl
 				// for a project called foo.bzl.
 				if info.Mode()&os.ModeSymlink != 0 {
-					stat, err := os.Stat(path)
+					stat, err := os.Stat(filename)
 					if err != nil || stat.IsDir() {
 						return nil
 					}
 				}
-				files = append(files, path)
+				files = append(files, filename)
 			}
 			return nil
 		})
