@@ -190,7 +190,7 @@ func (b *buildifier) run(args []string) int {
 		files := args
 		if b.config.Recursive {
 			var err error
-			files, err = utils.ExpandDirectories(&args)
+			files, err = utils.ExpandDirectories(&args, b.config.Exclude...)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "buildifier: %v\n", err)
 				return 3
