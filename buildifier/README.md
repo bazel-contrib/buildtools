@@ -32,6 +32,15 @@ in a directory recursively:
 buildifier -r path/to/dir
 ```
 
+Paths can be excluded from recursive discovery with repeatable `-exclude`
+patterns. Patterns use Go's `path.Match` syntax, are matched against the full
+traversed path, allow `*` and `?` to match path separators, and use
+forward-slash separators on every platform:
+
+```bash
+buildifier -r -exclude='path/to/dir/vendor/*' path/to/dir
+```
+
 Buildifier supports the following file types: `BUILD`, `WORKSPACE`, `.bzl`, and
 default, the latter is reserved for Starlark files buildifier doesn't know about
 (e.g. configuration files for third-party projects that use Starlark). The

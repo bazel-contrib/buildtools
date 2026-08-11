@@ -110,6 +110,8 @@ type Config struct {
 	WarningsList []string `json:"warningsList,omitempty"`
 	// Recursive instructs buildifier to find starlark files recursively
 	Recursive bool `json:"recursive,omitempty"`
+	// Exclude contains path patterns to skip during recursive file discovery
+	Exclude ArrayFlags `json:"exclude,omitempty"`
 	// Verbose instructs buildifier to output verbose diagnostics
 	Verbose bool `json:"verbose,omitempty"`
 	// DiffCommand is the command to run when the formatting mode is diff
@@ -172,6 +174,7 @@ func (c *Config) FlagSet(name string, errorHandling flag.ErrorHandling) *flag.Fl
 	flags.BoolVar(&c.Verbose, "v", c.Verbose, "print verbose information to standard error")
 	flags.BoolVar(&c.DiffMode, "d", c.DiffMode, "alias for -mode=diff")
 	flags.BoolVar(&c.Recursive, "r", c.Recursive, "find starlark files recursively")
+	flags.Var(&c.Exclude, "exclude", "path pattern to exclude when finding starlark files recursively")
 	flags.BoolVar(&c.MultiDiff, "multi_diff", c.MultiDiff, "the command specified by the -diff_command flag can diff multiple files in the style of tkdiff (default false)")
 	flags.StringVar(&c.Mode, "mode", c.Mode, "formatting mode: check, diff, or fix (default fix)")
 	flags.StringVar(&c.Format, "format", c.Format, "diagnostics format: text or json (default text)")
