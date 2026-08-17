@@ -45,22 +45,23 @@ import (
 
 // Options represents choices about how buildozer should behave.
 type Options struct {
-	Stdout             bool      // write changed BUILD file to stdout
-	Buildifier         string    // path to buildifier binary
-	Parallelism        int       // number of cores to use for concurrent actions
-	NumIO              int       // number of concurrent actions
-	CommandsFiles      []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
-	KeepGoing          bool      // apply all commands, even if there are failures
-	FilterRuleTypes    []string  // list of rule types to change, empty means all
-	PreferEOLComments  bool      // when adding a new comment, put it on the same line if possible
-	RootDir            string    // If present, use this folder rather than $PWD to find the root dir
-	Quiet              bool      // suppress informational messages.
-	EditVariables      bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
-	IsPrintingProto    bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
-	IsPrintingJSON     bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
-	OutWriter          io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
-	ErrWriter          io.Writer // where to write error output (`os.Stderr` will be used if not specified)
-	RespectBazelignore bool      // whether to use .bazelignore file for ignoring paths
+	Stdout               bool      // write changed BUILD file to stdout
+	Buildifier           string    // path to buildifier binary
+	Parallelism          int       // number of cores to use for concurrent actions
+	NumIO                int       // number of concurrent actions
+	CommandsFiles        []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
+	KeepGoing            bool      // apply all commands, even if there are failures
+	FilterRuleTypes      []string  // list of rule types to change, empty means all
+	PreferEOLComments    bool      // when adding a new comment, put it on the same line if possible
+	RootDir              string    // If present, use this folder rather than $PWD to find the root dir
+	Quiet                bool      // suppress informational messages.
+	EditVariables        bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
+	IsPrintingProto      bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
+	IsPrintingJSON       bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
+	OutWriter            io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
+	ErrWriter            io.Writer // where to write error output (`os.Stderr` will be used if not specified)
+	RespectBazelignore   bool      // whether to use .bazelignore file for ignoring paths
+	DisableSymlinkSafety bool      // whether to disable symlink safety checks
 }
 
 // NewOpts returns a new Options struct with some defaults set.
@@ -1206,7 +1207,7 @@ func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) 
 
 // BuildFileNames is exported so that users that want to override it
 // in scripts are free to do so.
-var BuildFileNames = [...]string{"BUILD.bazel", "BUILD", "BUCK"}
+var BuildFileNames = [...]string{"BUILD", "BUILD.bazel", "BUCK"}
 
 // Buildifier formats the build file using the buildifier logic.
 type Buildifier interface {
@@ -1624,6 +1625,7 @@ func printRecord(writer io.Writer, record *apipb.Output_Record) {
 
 // Buildozer loops over all arguments on the command line fixing BUILD files.
 func Buildozer(opts *Options, args []string) int {
+	file.DisableSymlinkSafety = opts.DisableSymlinkSafety
 	if opts.OutWriter == nil {
 		opts.OutWriter = os.Stdout
 	}

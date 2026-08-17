@@ -59,9 +59,10 @@ var (
 	tablesPath        = flag.String("tables", "", "path to JSON file with custom table definitions which will replace the built-in tables")
 	addTablesPath     = flag.String("add_tables", "", "path to JSON file with custom table definitions which will be merged with the built-in tables")
 
-	shortenLabelsFlag  = flag.Bool("shorten_labels", true, "convert added labels to short form, e.g. //foo:bar => :bar")
-	deleteWithComments = flag.Bool("delete_with_comments", true, "If a list attribute should be deleted even if there is a comment attached to it")
-	respectBazelignore = flag.Bool("respect_bazelignore", true, "use .bazelignore file for ignoring paths")
+	shortenLabelsFlag    = flag.Bool("shorten_labels", true, "convert added labels to short form, e.g. //foo:bar => :bar")
+	deleteWithComments   = flag.Bool("delete_with_comments", true, "If a list attribute should be deleted even if there is a comment attached to it")
+	respectBazelignore   = flag.Bool("respect_bazelignore", true, "use .bazelignore file for ignoring paths")
+	disableSymlinkSafety = flag.Bool("disable_symlink_safety", false, "per default Buildozer will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior")
 )
 
 func stringList(name, help string) func() []string {
@@ -108,20 +109,21 @@ func main() {
 	edit.ShortenLabelsFlag = *shortenLabelsFlag
 	edit.DeleteWithComments = *deleteWithComments
 	opts := &edit.Options{
-		Stdout:             *stdout,
-		Buildifier:         *buildifier,
-		Parallelism:        *parallelism,
-		NumIO:              *numio,
-		CommandsFiles:      commandsFiles,
-		KeepGoing:          *keepGoing,
-		FilterRuleTypes:    filterRuleTypes(),
-		PreferEOLComments:  *preferEOLComments,
-		RootDir:            *rootDir,
-		Quiet:              *quiet,
-		EditVariables:      *editVariables,
-		IsPrintingProto:    *isPrintingProto,
-		IsPrintingJSON:     *isPrintingJSON,
-		RespectBazelignore: *respectBazelignore,
+		Stdout:               *stdout,
+		Buildifier:           *buildifier,
+		Parallelism:          *parallelism,
+		NumIO:                *numio,
+		CommandsFiles:        commandsFiles,
+		KeepGoing:            *keepGoing,
+		FilterRuleTypes:      filterRuleTypes(),
+		PreferEOLComments:    *preferEOLComments,
+		RootDir:              *rootDir,
+		Quiet:                *quiet,
+		EditVariables:        *editVariables,
+		IsPrintingProto:      *isPrintingProto,
+		IsPrintingJSON:       *isPrintingJSON,
+		RespectBazelignore:   *respectBazelignore,
+		DisableSymlinkSafety: *disableSymlinkSafety,
 	}
 	os.Exit(edit.Buildozer(opts, flag.Args()))
 }
