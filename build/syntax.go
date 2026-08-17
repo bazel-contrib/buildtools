@@ -192,6 +192,8 @@ func (x *Ident) asString() *StringExpr {
 }
 
 // An TypedIdent represents an identifier with type annotation: "foo: int".
+//
+// May occur as a statement ("var statement") or as the LHS of AssignExpr when used as a statement.
 type TypedIdent struct {
 	Comments
 	Ident *Ident
@@ -205,8 +207,158 @@ func (x *TypedIdent) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of TypedIdent
+// Copy creates and returns a non-deep copy of TypedIdent
 func (x *TypedIdent) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// A TypeExpr represents a type expression: a list of type_application nodes separated by '|'.
+// e.g. int | float | list[int]
+type TypeExpr struct {
+	Comments
+	List []Expr
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeExpr) Span() (start, end Position) {
+	if len(x.List) > 0 {
+		start, _ = x.List[0].Span()
+		_, end = x.List[len(x.List)-1].Span()
+	}
+	return start, end
+}
+
+// Copy creates and returns a non-deep copy of TypeExpr
+func (x *TypeExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// A TypeAppExpr represents a type application: a type_name followed by a type_list: struct[{"name": str}, ...], typing.Sequence[int].
+type TypeAppExpr struct {
+	Comments
+	Name Expr // *Ident or *DotExpr
+	Args *TypeListExpr
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeAppExpr) Span() (start, end Position) {
+	if x.Name != nil {
+		start, _ = x.Name.Span()
+	}
+	if x.Args != nil {
+		_, end = x.Args.Span()
+	} else if x.Name != nil {
+		_, end = x.Name.Span()
+	}
+	return start, end
+}
+
+// Copy creates and returns a non-deep copy of TypeAppExpr
+func (x *TypeAppExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// A TypeListExpr represents a list of type_arg-s: [list[int], bool | None, ...]
+//
+// Also used for the arguments of a TypeAppExpr.
+type TypeListExpr struct {
+	Comments
+	Lbrack         Position
+	List           []Expr // type_arg-s
+	Rbrack         Position
+	ForceMultiLine bool
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeListExpr) Span() (start, end Position) {
+	return x.Lbrack, x.Rbrack.add("]")
+}
+
+// Copy creates and returns a non-deep copy of TypeListExpr
+func (x *TypeListExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// An EllipsisExpr represents the '...' token in a type_arg.
+type EllipsisExpr struct {
+	Comments
+	Pos Position
+}
+
+// Span returns the start and end positions of the node
+func (x *EllipsisExpr) Span() (start, end Position) {
+	return x.Pos, x.Pos.add("...")
+}
+
+// Copy creates and returns a non-deep copy of EllipsisExpr
+func (x *EllipsisExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// A TypeDictExpr represents a type_dict: a dictionary literal with string keys and type_arg values.
+// e.g. {"name": str, "data": str | None}
+type TypeDictExpr struct {
+	Comments
+	Start          Position
+	List           []*KeyValueExpr
+	End            End
+	ForceMultiLine bool
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeDictExpr) Span() (start, end Position) {
+	return x.Start, x.End.Pos.add("}")
+}
+
+// Copy creates and returns a non-deep copy of TypeDictExpr
+func (x *TypeDictExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// A CastExpr represents a cast expression: cast(type_expr, expr).
+type CastExpr struct {
+	Comments
+	Cast           Position
+	Type           Expr
+	Expr           Expr
+	Rparen         Position
+	ForceMultiLine bool
+}
+
+// Span returns the start and end positions of the node
+func (x *CastExpr) Span() (start, end Position) {
+	return x.Cast, x.Rparen.add(")")
+}
+
+// Copy creates and returns a non-deep copy of CastExpr
+func (x *CastExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// An IsInstanceExpr represents an isinstance expression: isinstance(expr, type_expr).
+type IsInstanceExpr struct {
+	Comments
+	IsInstance     Position
+	Expr           Expr
+	Type           Expr
+	Rparen         Position
+	ForceMultiLine bool
+}
+
+// Span returns the start and end positions of the node
+func (x *IsInstanceExpr) Span() (start, end Position) {
+	return x.IsInstance, x.Rparen.add(")")
+}
+
+// Copy creates and returns a non-deep copy of IsInstanceExpr
+func (x *IsInstanceExpr) Copy() Expr {
 	n := *x
 	return &n
 }
@@ -412,7 +564,7 @@ func (x *KeyValueExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of KeyValueExpr
+// Copy creates and returns a non-deep copy of KeyValueExpr
 func (x *KeyValueExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -739,11 +891,36 @@ func (x *LoadStmt) Copy() Expr {
 	return &n
 }
 
+// A TypeAliasStmt represents a type alias definition: "type Foo = int" or "type Foo[T, U] = dict[T, U]".
+type TypeAliasStmt struct {
+	Comments
+	TypePos    Position // position of "type" soft keyword
+	Name       Ident   // name of the type alias
+	TypeParams []*Ident // optional type parameters [T, U]
+	EqualPos   Position // position of "="
+	Type       Expr     // definition/target type expression
+	LineBreak  bool     // insert line break between '=' and Type
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeAliasStmt) Span() (start, end Position) {
+	start = x.TypePos
+	_, end = x.Type.Span()
+	return start, end
+}
+
+// Copy creates and returns a non-deep copy of TypeAliasStmt
+func (x *TypeAliasStmt) Copy() Expr {
+	n := *x
+	return &n
+}
+
 // A DefStmt represents a function definition expression: def foo(List):.
 type DefStmt struct {
 	Comments
 	Function
 	Name           string
+	TypeParams     []*Ident // optional type parameters [T, U]
 	ColonPos       Position // position of the ":"
 	ForceCompact   bool     // force compact (non-multiline) form when printing the arguments
 	ForceMultiLine bool     // force multiline form when printing the arguments

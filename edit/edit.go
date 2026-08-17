@@ -1075,6 +1075,10 @@ func UsedTypes(stmt build.Expr) map[string]bool {
 		}
 		// Types can only be found in method declarations and
 		switch expr := expr.(type) {
+		case *build.TypeAliasStmt:
+			for _, t := range build.GetTypes(expr) {
+				symbols[t] = true
+			}
 		case *build.TypedIdent:
 			for _, t := range build.GetTypes(expr) {
 				symbols[t] = true

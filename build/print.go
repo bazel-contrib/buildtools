@@ -620,6 +620,43 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.printf(": ")
 		p.expr(v.Type, precLow)
 
+	case *TypeExpr:
+		for i, x := range v.List {
+			if i > 0 {
+				p.printf(" | ")
+			}
+			p.expr(x, precLow)
+		}
+
+	case *TypeAppExpr:
+		p.expr(v.Name, precLow)
+		if v.Args != nil {
+			p.expr(v.Args, precLow)
+		}
+
+	case *TypeListExpr:
+		p.seq("[]", &v.Lbrack, &v.List, &End{Pos: v.Rbrack}, modeTypeList, false, v.ForceMultiLine)
+
+	case *EllipsisExpr:
+		p.printf("...")
+
+	case *TypeDictExpr:
+		var list []Expr
+		for _, x := range v.List {
+			list = append(list, x)
+		}
+		p.seq("{}", &v.Start, &list, &v.End, modeDict, false, v.ForceMultiLine)
+
+	case *CastExpr:
+		p.printf("cast")
+		list := []Expr{v.Type, v.Expr}
+		p.seq("()", &v.Cast, &list, &End{Pos: v.Rparen}, modeCall, false, v.ForceMultiLine)
+
+	case *IsInstanceExpr:
+		p.printf("isinstance")
+		list := []Expr{v.Expr, v.Type}
+		p.seq("()", &v.IsInstance, &list, &End{Pos: v.Rparen}, modeCall, false, v.ForceMultiLine)
+
 	case *BranchStmt:
 		p.printf("%s", v.Token)
 
@@ -680,8 +717,10 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *KeyValueExpr:
 		p.expr(v.Key, precLow)
-		p.printf(": ")
-		p.expr(v.Value, precLow)
+		if v.Value != nil {
+			p.printf(": ")
+			p.expr(v.Value, precLow)
+		}
 
 	case *SliceExpr:
 		addParen(precSuffix)
@@ -857,6 +896,16 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *DefStmt:
 		p.printf("def ")
 		p.printf(v.Name)
+		if len(v.TypeParams) > 0 {
+			p.printf("[")
+			for i, param := range v.TypeParams {
+				if i > 0 {
+					p.printf(", ")
+				}
+				p.expr(param, precLow)
+			}
+			p.printf("]")
+		}
 		p.seq("()", &v.StartPos, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.printf(" -> ")
@@ -929,6 +978,29 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *IfClause:
 		p.printf("if ")
 		p.expr(v.Cond, precLow)
+
+	case *TypeAliasStmt:
+		p.printf("type ")
+		p.expr(&v.Name, precLow)
+		if len(v.TypeParams) > 0 {
+			p.printf("[")
+			for i, param := range v.TypeParams {
+				if i > 0 {
+					p.printf(", ")
+				}
+				p.expr(param, precLow)
+			}
+			p.printf("]")
+		}
+		p.printf(" = ")
+		if v.LineBreak {
+			p.margin += listIndentation
+			p.breakline()
+			p.expr(v.Type, precLow)
+			p.margin -= listIndentation
+		} else {
+			p.expr(v.Type, precLow)
+		}
 	}
 
 	// Add closing parenthesis if needed.
@@ -955,8 +1027,9 @@ const (
 	modeParen // (x)
 	modeDict  // {x:y}
 	modeSeq   // x, y
-	modeDef   // def f(x, y)
-	modeLoad  // load(a, b, c)
+	modeDef      // def f(x, y)
+	modeLoad     // load(a, b, c)
+	modeTypeList // [int, str]
 )
 
 // useCompactMode reports whether a sequence should be formatted in a compact mode
@@ -984,7 +1057,7 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	// In the Default and .bzl printing modes try to keep the original printing style.
 	// Non-top-level statements and lists of arguments of a function definition
 	// should also keep the original style regardless of the mode.
-	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef) && mode != modeLoad {
+	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef || mode == modeTypeList) && mode != modeLoad {
 		// If every element (including the brackets) ends on the same line where the next element starts,
 		// use the compact mode, otherwise use multiline mode.
 		// If an node's line number is 0, it means it doesn't appear in the original file,
@@ -996,6 +1069,9 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 			start, end := x.Span()
 			isNewSeq = isNewSeq && start.Line == 0
 			if isDifferentLines(&start, previousEnd) {
+				return false
+			}
+			if mode == modeTypeList && len(*list) > 1 && start.Line != 0 && end.Line != 0 && start.Line != end.Line {
 				return false
 			}
 			if end.Line != 0 {

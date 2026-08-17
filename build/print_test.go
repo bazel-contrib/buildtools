@@ -527,3 +527,165 @@ func (eq *eqchecker) checkValue(v, w reflect.Value) error {
 	}
 	return nil
 }
+
+func TestPrintTypeExprForceMultiLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "multiline type list",
+			input: `type T = list[
+    int,
+    str,
+]
+`,
+			want: `type T = list[
+    int,
+    str,
+]
+`,
+		},
+		{
+			name: "multiline type dict",
+			input: `type T = struct[{
+    "a": int,
+    "b": str,
+}]
+`,
+			want: `type T = struct[{
+    "a": int,
+    "b": str,
+}]
+`,
+		},
+		{
+			name: "multiline type dict and type list",
+			input: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...,
+]
+`,
+			want: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...,
+]
+`,
+		},
+		{
+			name: "multiline struct type dict expands type list",
+			input: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+			want: `type NumericResult = struct[
+    {
+        "name": str,
+        "data": Sequence[_Numeric] | None,
+    },
+    ...,
+]
+`,
+		},
+		{
+			name:  "dotted type name",
+			input: "type T = typing.Sequence\n",
+			want:  "type T = typing.Sequence\n",
+		},
+		{
+			name:  "dotted type name in type application",
+			input: "type T = typing.Sequence[int]\n",
+			want:  "type T = typing.Sequence[int]\n",
+		},
+		{
+			name:  "multi-dotted type name in type application",
+			input: "type T = a.b.c.D[int, str]\n",
+			want:  "type T = a.b.c.D[int, str]\n",
+		},
+		{
+			name:  "nested dotted type names",
+			input: "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+			want:  "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+		},
+		{
+			name:  "cast expression",
+			input: "x: list[int] = cast(list[int], y)\n",
+			want:  "x: list[int] = cast(list[int], y)\n",
+		},
+		{
+			name:  "cast with ellipsis",
+			input: "x = cast(Callable[..., int], y)\n",
+			want:  "x = cast(Callable[..., int], y)\n",
+		},
+		{
+			name:  "cast with struct and ellipsis",
+			input: "x = cast(struct[{\"a\": int}, ...], y)\n",
+			want:  "x = cast(struct[{\"a\": int}, ...], y)\n",
+		},
+		{
+			name: "multiline cast",
+			input: `x = cast(
+    list[int],
+    y,
+)
+`,
+			want: `x = cast(
+    list[int],
+    y,
+)
+`,
+		},
+		{
+			name:  "isinstance expression",
+			input: "if isinstance(x, list):\n    process_list(x)\n",
+			want:  "if isinstance(x, list):\n    process_list(x)\n",
+		},
+		{
+			name:  "isinstance with type application",
+			input: "if isinstance(x, list[int]):\n    process_list(x)\n",
+			want:  "if isinstance(x, list[int]):\n    process_list(x)\n",
+		},
+		{
+			name:  "isinstance with ellipsis",
+			input: "if isinstance(x, Callable[..., int]):\n    process_callable(x)\n",
+			want:  "if isinstance(x, Callable[..., int]):\n    process_callable(x)\n",
+		},
+		{
+			name: "multiline isinstance",
+			input: `if isinstance(
+    x,
+    list[int],
+):
+    process_list(x)
+`,
+			want: `if isinstance(
+    x,
+    list[int],
+):
+    process_list(x)
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := Parse("test.bzl", []byte(tt.input))
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+			got := string(Format(f))
+			if got != tt.want {
+				t.Errorf("Format() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+

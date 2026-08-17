@@ -188,7 +188,8 @@ func noEffectStatementsCheck(body []build.Expr, isTopLevel, isFunc bool, finding
 		}
 		switch s := (stmt).(type) {
 		case *build.DefStmt, *build.ForStmt, *build.IfStmt, *build.LoadStmt, *build.ReturnStmt,
-			*build.CallExpr, *build.CommentBlock, *build.BranchStmt, *build.AssignExpr:
+			*build.CallExpr, *build.CommentBlock, *build.BranchStmt, *build.AssignExpr,
+			*build.TypeAliasStmt, *build.TypedIdent:
 			continue
 		case *build.Comprehension:
 			if !isTopLevel || s.Curly {

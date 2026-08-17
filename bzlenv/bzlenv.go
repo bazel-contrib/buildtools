@@ -123,6 +123,9 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			for _, ident := range node.To {
 				env.declare(ident.Name, Imported, ident)
 			}
+		case *build.TypeAliasStmt:
+			// Type aliases allowed only at top level.
+			env.declare(node.Name.Name, Global, node)
 		case *build.AssignExpr:
 			kind := Local
 			if env.Function == nil {
@@ -130,6 +133,14 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			}
 			for _, id := range CollectLValues(node.LHS) {
 				env.declare(id.Name, kind, node)
+			}
+		case *build.TypedIdent:
+			kind := Local
+			if env.Function == nil {
+				kind = Global
+			}
+			if node.Ident != nil {
+				env.declare(node.Ident.Name, kind, node)
 			}
 		case *build.DefStmt:
 			env.declare(node.Name, Function, node)
@@ -144,6 +155,10 @@ func CollectLValues(node build.Expr) []*build.Ident {
 	switch node := node.(type) {
 	case *build.Ident:
 		result = append(result, node)
+	case *build.TypedIdent:
+		if node.Ident != nil {
+			result = append(result, node.Ident)
+		}
 	case *build.TupleExpr:
 		for _, item := range node.List {
 			result = append(result, CollectLValues(item)...)

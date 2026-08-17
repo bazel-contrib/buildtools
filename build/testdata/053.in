@@ -11,7 +11,7 @@ def foo(** kwargs):
 def foo(a,*,b,** kwargs):
   return bar(a,b,** kwargs)
 
-def foo(a:str,b:int|float,*,c,* args: List[int],** kwargs: Dict(str,bool))->List[Tuple[int]]:
+def foo(a:str,b:int|float,*,c,* args: List[int],** kwargs: Dict[str,bool])->List[Tuple[int]]:
   return bar(a,b,c,* args,** kwargs)
 
 def type_annot():

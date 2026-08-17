@@ -1329,3 +1329,39 @@ func TestSplitOnNonEscaped(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildozerWithTypeAliases(t *testing.T) {
+	buildFile := `type Numeric = int | float
+type OptionalDict[T, U] = dict[T, U] | None
+_: Any # Enable type checking
+
+foo(
+    name = "foo",
+    deps = ["//a"],
+)
+`
+	bld, err := build.Parse("test.bzl", []byte(buildFile))
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	rl := bld.Rules("foo")[0]
+	env := CmdEnvironment{
+		File: bld,
+		Rule: rl,
+		Args: []string{"deps", "//b"},
+	}
+	bld, _ = cmdAdd(NewOpts(), env)
+	got := string(build.Format(bld))
+	expected := `type Numeric = int | float
+type OptionalDict[T, U] = dict[T, U] | None
+_: Any  # Enable type checking
+
+foo(
+    name = "foo",
+    deps = ["//a", "//b"],
+)
+`
+	if got != expected {
+		t.Errorf("got %q, want %q", got, expected)
+	}
+}

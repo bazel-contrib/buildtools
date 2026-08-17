@@ -491,7 +491,16 @@ func (in *input) Lex(val *yySymType) int {
 		in.readRune()
 		return c
 
-	case '.', ':', ';', ',': // single-char tokens
+	case '.':
+		in.readRune()
+		if bytes.HasPrefix(in.remaining, []byte("..")) {
+			in.readRune()
+			in.readRune()
+			return _ELLIPSIS
+		}
+		return '.'
+
+	case ':', ';', ',': // single-char tokens
 		in.readRune()
 		return c
 
@@ -732,6 +741,33 @@ func (in *input) order(v Expr) {
 	case *Ident:
 		// nothing
 	case *TypedIdent:
+		in.order(v.Ident)
+		in.order(v.Type)
+	case *TypeExpr:
+		for _, x := range v.List {
+			in.order(x)
+		}
+	case *TypeAppExpr:
+		in.order(v.Name)
+		if v.Args != nil {
+			in.order(v.Args)
+		}
+	case *TypeListExpr:
+		for _, x := range v.List {
+			in.order(x)
+		}
+	case *EllipsisExpr:
+		// nothing
+	case *TypeDictExpr:
+		for _, x := range v.List {
+			in.order(x)
+		}
+		in.order(&v.End)
+	case *CastExpr:
+		in.order(v.Type)
+		in.order(v.Expr)
+	case *IsInstanceExpr:
+		in.order(v.Expr)
 		in.order(v.Type)
 	case *BranchStmt:
 		// nothing
@@ -808,8 +844,14 @@ func (in *input) order(v Expr) {
 			in.order(v.Result)
 		}
 	case *DefStmt:
+		for _, x := range v.TypeParams {
+			in.order(x)
+		}
 		for _, x := range v.Params {
 			in.order(x)
+		}
+		if v.Type != nil {
+			in.order(v.Type)
 		}
 		for _, x := range v.Body {
 			in.order(x)
@@ -831,6 +873,12 @@ func (in *input) order(v Expr) {
 		for _, s := range v.False {
 			in.order(s)
 		}
+	case *TypeAliasStmt:
+		in.order(&v.Name)
+		for _, x := range v.TypeParams {
+			in.order(x)
+		}
+		in.order(v.Type)
 	}
 	if v != nil {
 		in.post = append(in.post, v)

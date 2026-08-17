@@ -41,6 +41,7 @@ package build
 	// partial syntax trees
 	expr      Expr
 	exprs     []Expr
+	idents    []*Ident
 	kv        *KeyValueExpr
 	kvs       []*KeyValueExpr
 	string    *StringExpr
@@ -123,6 +124,7 @@ package build
 %token	<pos>	_CONTINUE // keyword continue
 %token	<pos>	_INDENT  // indentation
 %token	<pos>	_UNINDENT // unindentation
+%token	<pos>	_ELLIPSIS // ... token
 
 %type	<pos>		comma_opt
 %type	<pos>		commas
@@ -136,6 +138,21 @@ package build
 %type	<expr>		parameter_type
 %type	<exprs>		parameters_type
 %type	<exprs>		parameters_type_opt
+%type	<expr>		type_alias_stmt
+%type	<idents>  type_params_opt
+%type	<idents>	type_params_idents
+%type	<expr>		type_expr
+%type	<expr>		type_name_or_type_application
+%type	<expr>		type_application
+%type	<expr>		type_name
+%type	<expr>		type_list
+%type	<exprs>		type_args_opt
+%type	<exprs>		type_args
+%type	<expr>		type_arg
+%type	<expr>		type_dict
+%type	<kvs>			type_keyvalues_opt
+%type	<kvs>			type_keyvalues
+%type	<kv>			type_keyvalue
 %type	<expr>		test
 %type	<expr>		test_opt
 %type	<exprs>		tests_opt
@@ -354,16 +371,17 @@ stmt:
 	}
 
 def_header:
-	_DEF _IDENT '(' parameters_type_opt ')'
+	_DEF _IDENT type_params_opt '(' parameters_type_opt ')'
 	{
 		$$ = &DefStmt{
 			Function: Function{
 				StartPos: $1,
-				Params: $4,
+				Params: $5,
 			},
 			Name: $<tok>2,
-			ForceCompact: forceCompact($3, $4, $5),
-			ForceMultiLine: forceMultiLine($3, $4, $5),
+			TypeParams: $3,
+			ForceCompact: forceCompact($4, $5, $6),
+			ForceMultiLine: forceMultiLine($4, $5, $6),
 		}
 	}
 
@@ -479,7 +497,9 @@ small_stmt:
 		}
 	}
 |	expr '=' expr      { $$ = binary($1, $2, $<tok>2, $3) }
-|	ident ':' test '=' expr  { $$ = binary(typed($1, $3), $4, $<tok>4, $5) }
+|	ident ':' type_expr '=' expr  { $$ = binary(typed($1, $3), $4, $<tok>4, $5) }
+|	ident ':' type_expr           { $$ = typed($1, $3) }
+|	type_alias_stmt
 |	expr _AUGM expr    { $$ = binary($1, $2, $<tok>2, $3) }
 |	_PASS
 	{
@@ -503,6 +523,42 @@ small_stmt:
 		}
 	}
 
+type_alias_stmt:
+	ident ident type_params_opt '=' type_expr
+	{
+		if $1.(*Ident).Name != "type" {
+			yylex.Error("syntax error near " + $1.(*Ident).Name)
+		}
+		ystart, _ := $5.Span()
+		$$ = &TypeAliasStmt{
+			TypePos: $1.(*Ident).NamePos,
+			Name: *$2.(*Ident),
+			TypeParams: $3,
+			EqualPos: $4,
+			Type: $5,
+			LineBreak: $4.Line < ystart.Line,
+		}
+	}
+
+type_params_opt:
+	{
+		$$ = nil
+	}
+	| '[' type_params_idents comma_opt ']'
+	{
+		$$ = $2
+	}
+
+type_params_idents:
+	ident
+	{
+		$$ = []*Ident{$1.(*Ident)}
+	}
+|	type_params_idents ',' ident
+	{
+		$$ = append($1, $3.(*Ident))
+	}
+
 semi_opt:
 |	';'
 
@@ -512,6 +568,13 @@ primary_expr:
 |	string
 	{
 		$$ = $1
+	}
+|	_ELLIPSIS
+	{
+		$$ = &LiteralExpr{
+			Start: $1,
+			Token: $<tok>1,
+		}
 	}
 |	primary_expr '.' _IDENT
 	{
@@ -538,6 +601,28 @@ primary_expr:
 	}
 |	primary_expr '(' arguments_opt ')'
 	{
+		if ident, ok := $1.(*Ident); ok {
+			if ident.Name == "cast" && len($3) == 2 {
+				$$ = &CastExpr{
+					Cast: ident.NamePos,
+					Type: toTypeExpr($3[0]),
+					Expr: $3[1],
+					Rparen: $4,
+					ForceMultiLine: forceMultiLine($2, $3, $4),
+				}
+				break
+			}
+			if ident.Name == "isinstance" && len($3) == 2 {
+				$$ = &IsInstanceExpr{
+					IsInstance: ident.NamePos,
+					Expr: $3[0],
+					Type: toTypeExpr($3[1]),
+					Rparen: $4,
+					ForceMultiLine: forceMultiLine($2, $3, $4),
+				}
+				break
+			}
+		}
 		$$ = &CallExpr{
 			X: $1,
 			ListStart: $2,
@@ -792,19 +877,19 @@ parameter:
 parameter_type:
 	parameter
 |
-	ident ':' test
+	ident ':' type_expr
 	{
 		$$ = typed($1, $3)
 	}
-|	ident ':' test '=' test
+|	ident ':' type_expr '=' test
 	{
 		$$ = binary(typed($1, $3), $4, $<tok>4, $5)
 	}
-|	'*' ident ':' test
+|	'*' ident ':' type_expr
 	{
 		$$ = unary($1, $<tok>1, typed($2, $4))
 	}
-|	_STAR_STAR ident ':' test
+|	_STAR_STAR ident ':' type_expr
 	{
 		$$ = unary($1, $<tok>1, typed($2, $4))
 	}
@@ -1061,6 +1146,145 @@ for_clauses_with_if_clauses_opt:
 |	for_clauses_with_if_clauses_opt for_clause_with_if_clauses_opt
 	{
 		$$ = append($1, $2...)
+	}
+
+type_expr:
+	type_name_or_type_application
+	{
+		$$ = $1
+	}
+|	type_expr '|' type_name_or_type_application
+	{
+		if te, ok := $1.(*TypeExpr); ok {
+			te.List = append(te.List, $3)
+			$$ = te
+		} else {
+			$$ = &TypeExpr{
+				List: []Expr{$1, $3},
+			}
+		}
+	}
+
+type_name:
+	ident
+|	type_name '.' _IDENT
+	{
+		$$ = &DotExpr{
+			X: $1,
+			Dot: $2,
+			NamePos: $3,
+			Name: $<tok>3,
+		}
+	}
+
+type_name_or_type_application:
+	type_name
+|	type_application
+
+type_application:
+	type_name '[' type_args commas_opt ']'
+	{
+		$$ = &TypeAppExpr{
+			Name: $1,
+			Args: &TypeListExpr{
+				Lbrack: $2,
+				List: $3,
+				Rbrack: $5,
+				ForceMultiLine: forceMultiLine($2, $3, $5),
+			},
+		}
+	}
+
+type_list:
+	'[' type_args_opt ']'
+	{
+		$$ = &TypeListExpr{
+			Lbrack: $1,
+			List: $2,
+			Rbrack: $3,
+			ForceMultiLine: forceMultiLine($1, $2, $3),
+		}
+	}
+
+type_args_opt:
+	{
+		$$ = nil
+	}
+| type_args commas_opt
+	{
+		$$ = $1
+	}
+
+type_args:
+	type_arg
+	{
+		$$ = []Expr{$1}
+	}
+|	type_args commas type_arg
+	{
+		$$ = append($1, $3)
+	}
+
+type_arg:
+	type_expr
+|	type_list
+|	type_dict
+|	'(' ')'
+	{
+		$$ = &TupleExpr{
+			Start: $1,
+			End: End{Pos: $2},
+		}
+	}
+|	_ELLIPSIS
+	{
+		$$ = &EllipsisExpr{
+			Pos: $1,
+		}
+	}
+
+type_dict:
+	'{' type_keyvalues_opt '}'
+	{
+		exprValues := make([]Expr, 0, len($2))
+		for _, kv := range $2 {
+			exprValues = append(exprValues, Expr(kv))
+		}
+		$$ = &TypeDictExpr{
+			Start: $1,
+			List: $2,
+			End: End{Pos: $3},
+			ForceMultiLine: forceMultiLine($1, exprValues, $3),
+		}
+	}
+
+type_keyvalues_opt:
+	{
+		$$ = nil
+	}
+|	type_keyvalues commas_opt
+	{
+		$$ = $1
+	}
+
+type_keyvalues:
+	type_keyvalue
+	{
+		$$ = []*KeyValueExpr{$1}
+	}
+|	type_keyvalues commas type_keyvalue
+	{
+		$$ = append($1, $3)
+	}
+
+type_keyvalue:
+	string ':' type_arg
+	{
+		$$ = &KeyValueExpr{
+			Key: $1,
+			Colon: $2,
+			Value: $3,
+		}
 	}
 
 %%
@@ -1324,4 +1548,81 @@ func getLastBody(stmt Expr) *[]Expr {
 		return &block.False
 	}
 	return nil
+}
+
+// toTypeExpr converts an Expr (such as IndexExpr, BinaryExpr, ListExpr, DictExpr, TupleExpr)
+// into a type_expr (TypeAppExpr, TypeExpr, TypeListExpr, TypeDictExpr).
+func toTypeExpr(e Expr) Expr {
+	if e == nil {
+		return nil
+	}
+	switch e := e.(type) {
+	case *IndexExpr:
+		var args *TypeListExpr
+		if te, ok := toTypeExpr(e.Y).(*TypeListExpr); ok {
+			args = te
+		} else {
+			args = &TypeListExpr{
+				Lbrack: e.IndexStart,
+				List:   []Expr{toTypeExpr(e.Y)},
+				Rbrack: e.End,
+			}
+		}
+		return &TypeAppExpr{
+			Name: toTypeExpr(e.X),
+			Args: args,
+		}
+	case *BinaryExpr:
+		if e.Op == "|" {
+			var list []Expr
+			if te, ok := toTypeExpr(e.X).(*TypeExpr); ok {
+				list = append(list, te.List...)
+			} else {
+				list = append(list, toTypeExpr(e.X))
+			}
+			list = append(list, toTypeExpr(e.Y))
+			return &TypeExpr{List: list}
+		}
+	case *ListExpr:
+		var list []Expr
+		for _, x := range e.List {
+			list = append(list, toTypeExpr(x))
+		}
+		return &TypeListExpr{
+			Lbrack:         e.Start,
+			List:           list,
+			Rbrack:         e.End.Pos,
+			ForceMultiLine: e.ForceMultiLine,
+		}
+	case *DictExpr:
+		var list []*KeyValueExpr
+		for _, kv := range e.List {
+			list = append(list, &KeyValueExpr{
+				Key:   kv.Key,
+				Colon: kv.Colon,
+				Value: toTypeExpr(kv.Value),
+			})
+		}
+		return &TypeDictExpr{
+			Start:          e.Start,
+			List:           list,
+			End:            e.End,
+			ForceMultiLine: e.ForceMultiLine,
+		}
+	case *TupleExpr:
+		if len(e.List) == 0 {
+			return e
+		}
+		var list []Expr
+		for _, x := range e.List {
+			list = append(list, toTypeExpr(x))
+		}
+		return &TypeListExpr{
+			Lbrack:         e.Start,
+			List:           list,
+			Rbrack:         e.End.Pos,
+			ForceMultiLine: e.ForceMultiLine,
+		}
+	}
+	return e
 }

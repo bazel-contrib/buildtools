@@ -143,6 +143,62 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 	case *AssignExpr:
 		f(&v.LHS)
 		f(&v.RHS)
+	case *TypeAliasStmt:
+		name := Expr(&v.Name)
+		f(&name)
+		for i := range v.TypeParams {
+			p := Expr(v.TypeParams[i])
+			f(&p)
+		}
+		f(&v.Type)
+	case *TypedIdent:
+		if v.Ident != nil {
+			ident := Expr(v.Ident)
+			f(&ident)
+			v.Ident = ident.(*Ident)
+		}
+		if v.Type != nil {
+			f(&v.Type)
+		}
+	case *TypeExpr:
+		for i := range v.List {
+			f(&v.List[i])
+		}
+	case *TypeAppExpr:
+		if v.Name != nil {
+			f(&v.Name)
+		}
+		if v.Args != nil {
+			args := Expr(v.Args)
+			f(&args)
+			v.Args = args.(*TypeListExpr)
+		}
+	case *TypeListExpr:
+		for i := range v.List {
+			f(&v.List[i])
+		}
+	case *EllipsisExpr:
+		// no children
+	case *TypeDictExpr:
+		for i := range v.List {
+			e := Expr(v.List[i])
+			f(&e)
+			v.List[i] = e.(*KeyValueExpr)
+		}
+	case *CastExpr:
+		if v.Type != nil {
+			f(&v.Type)
+		}
+		if v.Expr != nil {
+			f(&v.Expr)
+		}
+	case *IsInstanceExpr:
+		if v.Expr != nil {
+			f(&v.Expr)
+		}
+		if v.Type != nil {
+			f(&v.Type)
+		}
 	case *LambdaExpr:
 		for i := range v.Params {
 			f(&v.Params[i])
@@ -199,8 +255,16 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 			v.To[i] = to.(*Ident)
 		}
 	case *DefStmt:
+		for i := range v.TypeParams {
+			p := Expr(v.TypeParams[i])
+			f(&p)
+			v.TypeParams[i] = p.(*Ident)
+		}
 		for i := range v.Params {
 			f(&v.Params[i])
+		}
+		if v.Type != nil {
+			f(&v.Type)
 		}
 		for i := range v.Body {
 			f(&v.Body[i])

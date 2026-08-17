@@ -250,4 +250,172 @@ var parseTests = []struct {
 			},
 		},
 	},
+	{
+		in: `type OptionalDict[T, U] = dict[T, U] | None`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&TypeAliasStmt{
+					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
+					Name: Ident{
+						Name:    "OptionalDict",
+						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
+					},
+					TypeParams: []*Ident{
+						{
+							Name:    "T",
+							NamePos: Position{Line: 1, LineRune: 19, Byte: 18},
+						},
+						{
+							Name:    "U",
+							NamePos: Position{Line: 1, LineRune: 22, Byte: 21},
+						},
+					},
+					EqualPos: Position{Line: 1, LineRune: 25, Byte: 24},
+					Type: &TypeExpr{
+						List: []Expr{
+							&TypeAppExpr{
+								Name: &Ident{
+									Name:    "dict",
+									NamePos: Position{Line: 1, LineRune: 27, Byte: 26},
+								},
+								Args: &TypeListExpr{
+									Lbrack: Position{Line: 1, LineRune: 31, Byte: 30},
+									List: []Expr{
+										&Ident{
+											Name:    "T",
+											NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
+										},
+										&Ident{
+											Name:    "U",
+											NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
+										},
+									},
+									Rbrack: Position{Line: 1, LineRune: 36, Byte: 35},
+								},
+							},
+							&Ident{
+								Name:    "None",
+								NamePos: Position{Line: 1, LineRune: 40, Byte: 39},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		in: `type T = typing.Sequence[int]`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&TypeAliasStmt{
+					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
+					Name: Ident{
+						Name:    "T",
+						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
+					},
+					EqualPos: Position{Line: 1, LineRune: 8, Byte: 7},
+					Type: &TypeAppExpr{
+						Name: &DotExpr{
+							X: &Ident{
+								Name:    "typing",
+								NamePos: Position{Line: 1, LineRune: 10, Byte: 9},
+							},
+							Dot:     Position{Line: 1, LineRune: 16, Byte: 15},
+							NamePos: Position{Line: 1, LineRune: 17, Byte: 16},
+							Name:    "Sequence",
+						},
+						Args: &TypeListExpr{
+							Lbrack: Position{Line: 1, LineRune: 25, Byte: 24},
+							List: []Expr{
+								&Ident{
+									Name:    "int",
+									NamePos: Position{Line: 1, LineRune: 26, Byte: 25},
+								},
+							},
+							Rbrack: Position{Line: 1, LineRune: 29, Byte: 28},
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		in: `x = cast(list[int], y)`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&AssignExpr{
+					LHS: &Ident{
+						Name:    "x",
+						NamePos: Position{Line: 1, LineRune: 1, Byte: 0},
+					},
+					OpPos: Position{Line: 1, LineRune: 3, Byte: 2},
+					Op:    "=",
+					RHS: &CastExpr{
+						Cast: Position{Line: 1, LineRune: 5, Byte: 4},
+						Type: &TypeAppExpr{
+							Name: &Ident{
+								Name:    "list",
+								NamePos: Position{Line: 1, LineRune: 10, Byte: 9},
+							},
+							Args: &TypeListExpr{
+								Lbrack: Position{Line: 1, LineRune: 14, Byte: 13},
+								List: []Expr{
+									&Ident{
+										Name:    "int",
+										NamePos: Position{Line: 1, LineRune: 15, Byte: 14},
+									},
+								},
+								Rbrack: Position{Line: 1, LineRune: 18, Byte: 17},
+							},
+						},
+						Expr: &Ident{
+							Name:    "y",
+							NamePos: Position{Line: 1, LineRune: 21, Byte: 20},
+						},
+						Rparen: Position{Line: 1, LineRune: 22, Byte: 21},
+					},
+				},
+			},
+		},
+	},
+	{
+		in: `isinstance(x, list[int])`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&IsInstanceExpr{
+					IsInstance: Position{Line: 1, LineRune: 1, Byte: 0},
+					Expr: &Ident{
+						Name:    "x",
+						NamePos: Position{Line: 1, LineRune: 12, Byte: 11},
+					},
+					Type: &TypeAppExpr{
+						Name: &Ident{
+							Name:    "list",
+							NamePos: Position{Line: 1, LineRune: 15, Byte: 14},
+						},
+						Args: &TypeListExpr{
+							Lbrack: Position{Line: 1, LineRune: 19, Byte: 18},
+							List: []Expr{
+								&Ident{
+									Name:    "int",
+									NamePos: Position{Line: 1, LineRune: 20, Byte: 19},
+								},
+							},
+							Rbrack: Position{Line: 1, LineRune: 23, Byte: 22},
+						},
+					},
+					Rparen: Position{Line: 1, LineRune: 24, Byte: 23},
+				},
+			},
+		},
+	},
 }
+
