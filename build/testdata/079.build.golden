@@ -1,0 +1,42 @@
+go_library(
+    name = "ordering",
+    deps = [
+        "/x",
+        "x",
+        ":a:2",
+        ":a.b",
+        ":a+b",
+        ":a5",
+        ":a_b",
+        ":foo.bar",
+        ":foo-bar",
+        "//x",
+        "@r//x:y",
+    ],
+)
+
+go_library(
+    name = "dedup",
+    deps = [
+        ":a",
+        ":b",
+    ],
+)
+
+go_library(
+    name = "keepsorted",
+    deps = [
+        # keep sorted
+        # comment on b
+        ":a",
+        ":b",
+    ],
+)
+
+go_library(
+    name = "suffix",
+    deps = [
+        ":a",  # comment on a
+        ":b",  # comment on b
+    ],
+)

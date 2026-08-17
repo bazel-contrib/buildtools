@@ -672,22 +672,16 @@ func sortStringExprs(list []Expr) []Expr {
 			}
 		}
 
-		chunk := make([]stringSortKey, 0, j-i)
-		for index, x := range list[i:j] {
-			chunk = append(chunk, makeSortKey(index, x.(*StringExpr)))
-		}
-		if !sort.IsSorted(byStringExpr(chunk)) || !isUniq(chunk) {
-			before := chunk[0].x.Comment().Before
-			chunk[0].x.Comment().Before = nil
+		chunk := byStringExpr(list[i:j])
+		if !sort.IsSorted(chunk) || !isUniq(chunk) {
+			before := chunk[0].Comment().Before
+			chunk[0].Comment().Before = nil
 
-			sort.Sort(byStringExpr(chunk))
+			sort.Stable(chunk)
 			chunk = uniq(chunk)
 
-			chunk[0].x.Comment().Before = before
-			for offset, key := range chunk {
-				list[i+offset] = key.x
-			}
-			list = append(list[:(i+len(chunk))], list[j:]...)
+			chunk[0].Comment().Before = before
+			list = append(list[:i+len(chunk)], list[j:]...)
 		}
 
 		i = j
@@ -698,85 +692,96 @@ func sortStringExprs(list []Expr) []Expr {
 
 // uniq removes duplicates from a list, which must already be sorted.
 // It edits the list in place.
-func uniq(sortedList []stringSortKey) []stringSortKey {
+func uniq(sortedList byStringExpr) byStringExpr {
 	out := sortedList[:0]
-	for _, sk := range sortedList {
-		if len(out) == 0 || sk.value != out[len(out)-1].value {
-			out = append(out, sk)
+	for _, x := range sortedList {
+		if len(out) == 0 || x.(*StringExpr).Value != out[len(out)-1].(*StringExpr).Value {
+			out = append(out, x)
 		}
 	}
 	return out
 }
 
 // isUniq reports whether the sorted list only contains unique elements.
-func isUniq(list []stringSortKey) bool {
-	for i := range list {
-		if i+1 < len(list) && list[i].value == list[i+1].value {
+func isUniq(list byStringExpr) bool {
+	for i := 1; i < len(list); i++ {
+		if list[i-1].(*StringExpr).Value == list[i].(*StringExpr).Value {
 			return false
 		}
 	}
 	return true
 }
 
-// A stringSortKey records information about a single string literal to be
-// sorted. The strings are first grouped into four phases: most strings,
-// strings beginning with ":", strings beginning with "//", and strings
-// beginning with "@". The next significant part of the comparison is the list
-// of elements in the value, where elements are split at `.' and `:'. Finally
-// we compare by value and break ties by original index.
-type stringSortKey struct {
-	phase    int
-	split    []string
-	value    string
-	original int
-	x        Expr
-}
-
-func makeSortKey(index int, x *StringExpr) stringSortKey {
-	key := stringSortKey{
-		value:    x.Value,
-		original: index,
-		x:        x,
-	}
-
-	switch {
-	case strings.HasPrefix(x.Value, ":"):
-		key.phase = 1
-	case strings.HasPrefix(x.Value, "//") || (tables.StripLabelLeadingSlashes && !strings.HasPrefix(x.Value, "@")):
-		key.phase = 2
-	case strings.HasPrefix(x.Value, "@"):
-		key.phase = 3
-	}
-
-	key.split = strings.Split(strings.Replace(x.Value, ":", ".", -1), ".")
-	return key
-}
-
-// byStringExpr implements sort.Interface for a list of stringSortKey.
-type byStringExpr []stringSortKey
+// byStringExpr implements sort.Interface for a list of string expressions.
+// TODO: once the go directive reaches 1.21, drop this type and use
+// slices.SortStableFunc/slices.IsSortedFunc with compareStringExpr instead,
+// which also avoids boxing the slice into a sort.Interface.
+type byStringExpr []Expr
 
 func (x byStringExpr) Len() int      { return len(x) }
 func (x byStringExpr) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
 func (x byStringExpr) Less(i, j int) bool {
-	xi := x[i]
-	xj := x[j]
+	return compareStringExpr(x[i].(*StringExpr), x[j].(*StringExpr)) < 0
+}
 
-	if xi.phase != xj.phase {
-		return xi.phase < xj.phase
+// compareStringExpr compares two string literals to be sorted. The strings
+// are first grouped into four phases: most strings, strings beginning with
+// ":", strings beginning with "//", and strings beginning with "@". The next
+// significant part of the comparison is the list of elements in the value,
+// where elements are split at `.' and `:'. Finally we compare by value,
+// leaving equal values in their original order.
+func compareStringExpr(a, b *StringExpr) int {
+	if phaseA, phaseB := labelPhase(a.Value), labelPhase(b.Value); phaseA != phaseB {
+		return phaseA - phaseB
 	}
-	for k := 0; k < len(xi.split) && k < len(xj.split); k++ {
-		if xi.split[k] != xj.split[k] {
-			return xi.split[k] < xj.split[k]
+
+	return compareStringExprValue(a.Value, b.Value)
+}
+
+func labelPhase(s string) int {
+	switch {
+	case strings.HasPrefix(s, ":"):
+		return 1
+	case strings.HasPrefix(s, "//") || (tables.StripLabelLeadingSlashes && !strings.HasPrefix(s, "@")):
+		return 2
+	case strings.HasPrefix(s, "@"):
+		return 3
+	}
+	return 0
+}
+
+// compareStringExprValue compares the `.'/`:' separated segments of two
+// values without splitting them: a separator ends a segment, so it sorts
+// before any other character, and `.' and `:' compare as equal. Values with
+// equal segments are ordered by raw value.
+func compareStringExprValue(a, b string) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if a[i] != b[i] {
+			sepA := a[i] == '.' || a[i] == ':'
+			sepB := b[i] == '.' || b[i] == ':'
+			if sepA != sepB {
+				if sepA {
+					return -1
+				}
+				return 1
+			}
+			if !sepA {
+				if a[i] < b[i] {
+					return -1
+				}
+				return 1
+			}
+			// Both are separators, which compare as equal.
 		}
 	}
-	if len(xi.split) != len(xj.split) {
-		return len(xi.split) < len(xj.split)
+
+	if len(a) != len(b) {
+		return len(a) - len(b)
 	}
-	if xi.value != xj.value {
-		return xi.value < xj.value
-	}
-	return xi.original < xj.original
+
+	// The values differ only by separators.
+	return strings.Compare(a, b)
 }
 
 // fixMultilinePlus turns
