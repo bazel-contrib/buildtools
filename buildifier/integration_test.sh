@@ -47,6 +47,8 @@ echo -e '{ "type": "build" }' > test_dir/.buildifier.test.json # demonstrate con
 mkdir test_dir/workspace  # name of a starlark file, but a directory
 mkdir test_dir/.git  # contents should be ignored
 echo -e "a+b" > test_dir/.git/git.bzl
+mkdir -p test_dir/excluded/nested
+echo -e "$INPUT" > test_dir/excluded/nested/excluded.bzl
 cat > test_dir/MODULE.bazel <<'EOF'
 module(name='my-module',version='1.0',compatibility_level=1)
 include("cpp.MODULE.bazel")
@@ -126,9 +128,10 @@ EOF
 cp test_dir/foo.bar golden/foo.bar
 cp test_dir/subdir/build golden/build
 cp test_dir/.git/git.bzl golden/git.bzl
+cp test_dir/excluded/nested/excluded.bzl golden/excluded.bzl
 
 "$buildifier" < test_dir/BUILD > stdout
-"$buildifier" -r test_dir
+"$buildifier" -r --exclude='test_dir/excluded/*' test_dir
 "$buildifier" test.bzl
 "$buildifier" --path=foo.bzl test2.bzl
 "$buildifier" --config=test_dir/.buildifier.test.json < test_dir/test.bzl > test_dir/test.bzl.BUILD.out
@@ -372,6 +375,7 @@ diff -u test.bzl golden/test.bzl.golden
 diff -u test2.bzl golden/test.bzl.golden
 diff -u stdout golden/test.bzl.golden
 diff -u test_dir/.git/git.bzl golden/git.bzl
+diff -u test_dir/excluded/nested/excluded.bzl golden/excluded.bzl
 diff -u test_dir/MODULE.bazel golden/MODULE.bazel.golden
 diff -u test_dir/.buildifier.example.json golden/.buildifier.example.json
 

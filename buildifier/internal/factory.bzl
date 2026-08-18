@@ -48,7 +48,7 @@ def buildifier_attr_factory(test_rule = False):
         ),
         "exclude_patterns": attr.string_list(
             allow_empty = True,
-            doc = "A list of glob patterns passed to the find command. E.g. './vendor/*' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute.",
+            doc = "A list of Go-style path patterns excluded from recursive file discovery. E.g. './vendor/*' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute.",
         ),
         "mode": attr.string(
             default = "fix" if not test_rule else "diff",
@@ -155,12 +155,10 @@ def buildifier_impl_factory(ctx, test_rule = False):
     if ctx.attr.add_tables:
         args.append("-add_tables=%s" % ctx.file.add_tables.path)
 
-    exclude_patterns_str = ""
     if ctx.attr.exclude_patterns:
         if test_rule and not ctx.attr.no_sandbox:
             fail("Cannot use 'exclude_patterns' in a test rule without 'no_sandbox'")
-        exclude_patterns = ["\\! -path %s" % shell.quote(pattern) for pattern in ctx.attr.exclude_patterns]
-        exclude_patterns_str = " ".join(exclude_patterns)
+        args.extend(["--exclude=%s" % pattern for pattern in ctx.attr.exclude_patterns])
 
     workspace = ""
     if test_rule and ctx.attr.no_sandbox:
@@ -172,7 +170,6 @@ def buildifier_impl_factory(ctx, test_rule = False):
     substitutions = {
         "@@ARGS@@": shell.array_literal(args),
         "@@BUILDIFIER_SHORT_PATH@@": shell.quote(ctx.executable.buildifier.short_path),
-        "@@EXCLUDE_PATTERNS@@": exclude_patterns_str,
         "@@WORKSPACE@@": workspace,
     }
 
