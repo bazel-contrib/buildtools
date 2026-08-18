@@ -9,11 +9,8 @@ buildifier_short_path=$(readlink "$BUILDIFIER_SHORT_PATH")
 
 # Use TEST_WORKSPACE to determine if the script is being ran under a test
 if [[ ! -z "${TEST_WORKSPACE+x}" && -z "${BUILD_WORKSPACE_DIRECTORY+x}" ]]; then
-  FIND_FILE_TYPE="l"
   # If WORKSPACE was provided, then the script is being run under a test in no_sandbox mode
   if [[ ! -z "${WORKSPACE:+x}" ]]; then
-    FIND_FILE_TYPE="f"
-
     # resolve the WORKSPACE symlink
     # use `realpath` if available and `readlink` otherwise (typically macOS)
     if command -v realpath &> /dev/null; then
@@ -41,20 +38,5 @@ else
   fi
 fi
 
-# Run buildifier on all starlark files
-find . \
-  -type "${FIND_FILE_TYPE:-f}" \
-  @@EXCLUDE_PATTERNS@@ \
-  \( -name '*.bzl' \
-    -o -name '*.sky' \
-    -o -name '*.star' \
-    -o -name '*.bazel' \
-    -o -name BUILD \
-    -o -name '*.BUILD' \
-    -o -name BUILD.oss \
-    -o -name 'BUILD.*.oss' \
-    -o -name WORKSPACE \
-    -o -name WORKSPACE.oss \
-    -o -name WORKSPACE.bzlmod \
-    -o -name 'WORKSPACE.*.oss' \
-  \) -print | xargs "$buildifier_short_path" "${ARGS[@]}"
+# Run buildifier on all starlark files.
+"$buildifier_short_path" "${ARGS[@]}" -r .
