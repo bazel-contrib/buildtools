@@ -65,7 +65,7 @@ func writeFile(name string, data []byte) error {
 
 // writeFile is like os.WriteFile.
 func writeFileMode(name string, data []byte, mode os.FileMode) error {
-	if DisableSymlinkSafety || runtime.GOOS == "windows" {
+	if DisableSymlinkSafety || runtime.GOOS != "linux" {
 		return os.WriteFile(name, data, mode)
 	}
 	// If we are in a workspace, we allow writes to any symlinked file within the workspace.

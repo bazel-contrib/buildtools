@@ -1332,8 +1332,8 @@ func TestSplitOnNonEscaped(t *testing.T) {
 }
 
 func TestBuildozerDisableSymlinkSafety(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Symlink safety checks are not supported on Windows")
+	if runtime.GOOS != "linux" {
+		t.Skip("Symlink safety checks are only supported on Linux")
 	}
 	wsDir := t.TempDir()
 	outsideDir := t.TempDir()

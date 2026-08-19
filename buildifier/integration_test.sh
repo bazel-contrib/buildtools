@@ -727,7 +727,7 @@ diff -u report_golden report || die "$1: wrong console output for allowed symbol
 cd ../..
 
 # Test that buildifier cannot write to symlinks pointing outside the workspace or directory
-
+if [[ "$(uname -s)" == "Linux" ]]; then
 # 1. Inside a workspace: symlink pointing outside the workspace should fail
 mkdir -p test_dir/symlinks_ws/ws
 mkdir -p test_dir/symlinks_ws/outside
@@ -785,4 +785,5 @@ ln -s target_inside.bzl "$NOWS_DIR/dir/symlink_inside.bzl"
 diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/dir/target_inside.bzl" > /dev/null && die "Symlink inside directory: target file should be formatted"
 
 rm -rf "$NOWS_DIR"
+fi
 
