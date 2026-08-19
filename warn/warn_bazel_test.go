@@ -262,6 +262,63 @@ py_binary(
 		scopeBazel)
 }
 
+func TestExportsFilesDiscouraged(t *testing.T) {
+	checkFindings(t, "exports-files-discouraged", `
+exports_files(["foo.txt"])
+`,
+		[]string{
+			`:1: exports_files() violates package encapsulation`,
+			`:1: exports_files() defaults to //visibility:public`,
+			`:1: exports_files() should include a comment explaining why package encapsulation is violated`,
+		},
+		scopeBuild)
+
+	checkFindings(t, "exports-files-discouraged", `
+# Needed for legacy tooling that labels this file directly.
+exports_files(["foo.txt"], visibility = ["//foo:__subpackages__"])
+`,
+		[]string{
+			`:2: exports_files() violates package encapsulation`,
+		},
+		scopeBuild)
+
+	checkFindings(t, "exports-files-discouraged", `
+exports_files(["foo.txt"], visibility = ["//visibility:public"])
+`,
+		[]string{
+			`:1: exports_files() violates package encapsulation`,
+			`:1: exports_files() should set visibility to a package`,
+			`:1: exports_files() should include a comment explaining why package encapsulation is violated`,
+		},
+		scopeBuild)
+
+	checkFindings(t, "exports-files-discouraged", `
+exports_files(["foo.txt"], ["//foo:users"])
+`,
+		[]string{
+			`:1: exports_files() violates package encapsulation`,
+			`:1: exports_files() should include a comment explaining why package encapsulation is violated`,
+		},
+		scopeBuild)
+
+	checkFindings(t, "exports-files-discouraged", `
+native.exports_files(["foo.txt"])
+`,
+		[]string{
+			`:1: exports_files() violates package encapsulation`,
+			`:1: exports_files() defaults to //visibility:public`,
+			`:1: exports_files() should include a comment explaining why package encapsulation is violated`,
+		},
+		scopeBuild)
+
+	checkFindings(t, "exports-files-discouraged", `
+# buildifier: disable=exports-files-discouraged
+exports_files(["foo.txt"])
+`,
+		[]string{},
+		scopeBuild)
+}
+
 func TestCanonicalRepositoryWarning(t *testing.T) {
 	checkFindings(t, "canonical-repository", `
 load("@@rules_go//go:def.bzl", "go_library")
