@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1331,6 +1332,9 @@ func TestSplitOnNonEscaped(t *testing.T) {
 }
 
 func TestBuildozerDisableSymlinkSafety(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Symlink safety checks are not supported on Windows")
+	}
 	wsDir := t.TempDir()
 	outsideDir := t.TempDir()
 

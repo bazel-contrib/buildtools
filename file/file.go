@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/bazelbuild/buildtools/wspace"
 	"github.com/google/safeopen"
@@ -64,7 +65,7 @@ func writeFile(name string, data []byte) error {
 
 // writeFile is like os.WriteFile.
 func writeFileMode(name string, data []byte, mode os.FileMode) error {
-	if DisableSymlinkSafety {
+	if DisableSymlinkSafety || runtime.GOOS == "windows" {
 		return os.WriteFile(name, data, mode)
 	}
 	// If we are in a workspace, we allow writes to any symlinked file within the workspace.
