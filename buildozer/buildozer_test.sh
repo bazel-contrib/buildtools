@@ -2472,6 +2472,9 @@ EOF
 }
 
 function test_disable_symlink_safety() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return
+  fi
   outside="$TEST_TMPDIR/outside_$$"
   mkdir -p "$outside"
   cat > "$outside/BUILD" <<EOF
