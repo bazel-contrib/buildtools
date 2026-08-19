@@ -18,6 +18,7 @@ go_library(
         "//deps_proto",
         "//edit",
         "//extra_actions_base_proto",
+        "//file",
         "//labels",
         "@com_github_golang_protobuf//proto:go_default_library",
     ],

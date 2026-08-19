@@ -131,6 +131,10 @@ type Config struct {
 	// AllowSort specifies additional sort contexts to treat as safe
 	AllowSort ArrayFlags `json:"allowsort,omitempty"`
 
+	// Per default Buildifier will not write to symlinks pointing outside of the Bazel workspace.
+	// Setting this to true will disable this behavior.
+	DisableSymlinkSafety bool `json:"disable_symlink_safety,omitempty"`
+
 	// Help is true if the -h flag is set
 	Help bool `json:"-"`
 	// Version is true if the -v flag is set
@@ -185,6 +189,7 @@ func (c *Config) FlagSet(name string, errorHandling flag.ErrorHandling) *flag.Fl
 	flags.StringVar(&c.ConfigPath, "config", "", "path to .buildifier.json config file")
 	flags.Var(&c.AllowSort, "allowsort", "additional sort contexts to treat as safe")
 	flags.Var(&c.DisableRewrites, "buildifier_disable", "list of buildifier rewrites to disable")
+	flags.BoolVar(&c.DisableSymlinkSafety, "disable_symlink_safety", c.DisableSymlinkSafety, "per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior")
 
 	return flags
 }

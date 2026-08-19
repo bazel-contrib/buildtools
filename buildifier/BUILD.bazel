@@ -115,6 +115,7 @@ go_library(
         "//buildifier/config",
         "//buildifier/utils",
         "//differ",
+        "//file",
         "//wspace",
     ],
 )

@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1327,5 +1328,57 @@ func TestSplitOnNonEscaped(t *testing.T) {
 				t.Fatalf("splitOnNonEscaped returned diff -want +got %v", diff)
 			}
 		})
+	}
+}
+
+func TestBuildozerDisableSymlinkSafety(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Symlink safety checks are only supported on Linux")
+	}
+	wsDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(wsDir, "WORKSPACE"), nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	outsideBuildFile := filepath.Join(outsideDir, "BUILD")
+	initialContent := `cc_library(
+    name = "lib",
+)
+`
+	if err := os.WriteFile(outsideBuildFile, []byte(initialContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	symlinkBuildFile := filepath.Join(wsDir, "BUILD")
+	if err := os.Symlink(outsideBuildFile, symlinkBuildFile); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. With DisableSymlinkSafety = false, Buildozer editing the file should fail (return 1 or error)
+	opts := NewOpts()
+	opts.RootDir = wsDir
+	opts.DisableSymlinkSafety = false
+	exitCode := Buildozer(opts, []string{"add deps //foo:bar", "//:lib"})
+	if exitCode == 0 {
+		t.Errorf("Buildozer with DisableSymlinkSafety=false succeeded on symlink pointing outside workspace, want error (non-zero exit code)")
+	}
+
+	// 2. With DisableSymlinkSafety = true, Buildozer should succeed and edit outsideBuildFile
+	opts = NewOpts()
+	opts.RootDir = wsDir
+	opts.DisableSymlinkSafety = true
+	exitCode = Buildozer(opts, []string{"add deps //foo:bar", "//:lib"})
+	if exitCode != 0 {
+		t.Fatalf("Buildozer with DisableSymlinkSafety=true failed with exit code %d", exitCode)
+	}
+
+	content, err := os.ReadFile(outsideBuildFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "//foo:bar") {
+		t.Errorf("outside BUILD file did not contain added dependency, content:\n%s", string(content))
 	}
 }
