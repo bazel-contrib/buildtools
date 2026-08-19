@@ -1207,7 +1207,7 @@ func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) 
 
 // BuildFileNames is exported so that users that want to override it
 // in scripts are free to do so.
-var BuildFileNames = [...]string{"BUILD", "BUILD.bazel", "BUCK"}
+var BuildFileNames = [...]string{"BUILD.bazel", "BUILD", "BUCK"}
 
 // Buildifier formats the build file using the buildifier logic.
 type Buildifier interface {
