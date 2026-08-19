@@ -22,8 +22,8 @@ go_sdk.download(version = "1.25.3")
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 go_deps.gazelle_override(
-    path = "github.com/google/safeopen",
     build_file_generation = "clean",
+    path = "github.com/google/safeopen",
 )
 go_deps.module(
     path = "golang.org/x/sys",
