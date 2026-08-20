@@ -567,15 +567,15 @@ Paths containing `/external/` (without a leading `//`) may indicate:
 Examples that trigger this warning:
 
 ```python
-srcs = ["/external/some_repo/file.h"]
-data = ["path/external/repo/data.txt"]
+copts = ["-iquote $(BINDIR)/external/some_repo/include"]
+args = ["./external/repo/path/data.txt"]
 ```
 
 Instead, use proper Bazel labels:
 
 ```python
-srcs = ["@some_repo//file.h"]
-data = ["@repo//path:data.txt"]
+copts = ["-iquote $(execpath @some_repo//include:foo.h)/.."]
+args = ["$(execpath @repo//path:data.txt)"]
 ```
 
 Note: This warning does not apply to main repository paths like `//external/...`

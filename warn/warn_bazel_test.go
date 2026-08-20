@@ -233,14 +233,20 @@ filegroup(
 )
 
 some_rule(
-    arg1 = "normal/path/file.txt", 
+    arg1 = "normal/path/file.txt",
     arg2 = "/external/repo/file.py",
     arg3 = ["file1.txt", "/external/another/file.cc"],
-)`,
+)
+
+def foo():
+    pass
+    """unused triple-quote string with /external/"""
+`,
 		[]string{
 			`:9: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
 			`:25: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
 			`:26: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+			`31: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
 		},
 		scopeBazel)
 
@@ -258,6 +264,15 @@ py_binary(
     data = ["//some/path/external/nested/file.txt"],
     args = ["//different/external/location/config.json"],
 )`,
+		[]string{},
+		scopeBazel)
+
+	// Test cases that should NOT warn (doc strings)
+	checkFindings(t, "external-path", `
+def foo():
+    """/external/"""
+    pass
+`,
 		[]string{},
 		scopeBazel)
 }
@@ -279,13 +294,28 @@ py_binary(
     srcs = ["tool.py"],
     data = ["@repo//file.txt"],  # Should NOT warn (single @)
     args = ["@@some_canonical_repo//path:target"],
-)`,
+)
+
+def foo():
+    pass
+    """unused triple-quote string with @@"""
+`,
 		[]string{
 			`:1: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
 			`:3: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
 			`:7: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
 			`:8: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
 			`:15: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`20: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
 		},
+		scopeBazel)
+
+	// Test cases that should NOT warn (doc strings)
+	checkFindings(t, "canonical-repository", `
+def foo():
+    """@@foo"""
+    pass
+`,
+		[]string{},
 		scopeBazel)
 }
