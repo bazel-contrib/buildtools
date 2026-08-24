@@ -672,7 +672,7 @@ func sortStringExprs(list []Expr) []Expr {
 			}
 		}
 
-		var chunk []stringSortKey
+		chunk := make([]stringSortKey, 0, j-i)
 		for index, x := range list[i:j] {
 			chunk = append(chunk, makeSortKey(index, x.(*StringExpr)))
 		}
