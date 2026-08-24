@@ -717,10 +717,8 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *KeyValueExpr:
 		p.expr(v.Key, precLow)
-		if v.Value != nil {
-			p.printf(": ")
-			p.expr(v.Value, precLow)
-		}
+		p.printf(": ")
+		p.expr(v.Value, precLow)
 
 	case *SliceExpr:
 		addParen(precSuffix)
@@ -1021,12 +1019,12 @@ type seqMode int
 const (
 	_ seqMode = iota
 
-	modeCall  // f(x)
-	modeList  // [x]
-	modeTuple // (x,)
-	modeParen // (x)
-	modeDict  // {x:y}
-	modeSeq   // x, y
+	modeCall     // f(x)
+	modeList     // [x]
+	modeTuple    // (x,)
+	modeParen    // (x)
+	modeDict     // {x:y}
+	modeSeq      // x, y
 	modeDef      // def f(x, y)
 	modeLoad     // load(a, b, c)
 	modeTypeList // [int, str]
