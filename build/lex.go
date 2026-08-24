@@ -44,6 +44,10 @@ const (
 	TypeBzl
 	// TypeModule represents MODULE.bazel and *.MODULE.bazel files
 	TypeModule
+	// TypeRepo represents REPO.bazel files
+	TypeRepo
+	// TypeVendor represents VENDOR.bazel files
+	TypeVendor
 )
 
 func (t FileType) String() string {
@@ -58,6 +62,10 @@ func (t FileType) String() string {
 		return ".bzl"
 	case TypeModule:
 		return "MODULE.bazel"
+	case TypeRepo:
+		return "REPO.bazel"
+	case TypeVendor:
+		return "VENDOR.bazel"
 	}
 	return "unknown"
 }
@@ -98,6 +106,30 @@ func ParseModule(filename string, data []byte) (*File, error) {
 	return f, err
 }
 
+// ParseRepo parses a file, marks it as a REPO.bazel file and returns the corresponding parse tree.
+//
+// The filename is used only for generating error messages.
+func ParseRepo(filename string, data []byte) (*File, error) {
+	in := newInput(filename, data)
+	f, err := in.parse()
+	if f != nil {
+		f.Type = TypeRepo
+	}
+	return f, err
+}
+
+// ParseVendor parses a file, marks it as a VENDOR.bazel file and returns the corresponding parse tree.
+//
+// The filename is used only for generating error messages.
+func ParseVendor(filename string, data []byte) (*File, error) {
+	in := newInput(filename, data)
+	f, err := in.parse()
+	if f != nil {
+		f.Type = TypeVendor
+	}
+	return f, err
+}
+
 // ParseBzl parses a file, marks it as a .bzl file and returns the corresponding parse tree.
 //
 // The filename is used only for generating error messages.
@@ -133,6 +165,12 @@ func getFileType(filename string) FileType {
 	if basename == "module.bazel" || strings.HasSuffix(basename, ".module.bazel") {
 		return TypeModule
 	}
+	if basename == "repo.bazel" {
+		return TypeRepo
+	}
+	if basename == "vendor.bazel" {
+		return TypeVendor
+	}
 	ext := filepath.Ext(basename)
 	switch ext {
 	case ".bzl":
@@ -162,6 +200,10 @@ func Parse(filename string, data []byte) (*File, error) {
 		return ParseWorkspace(filename, data)
 	case TypeModule:
 		return ParseModule(filename, data)
+	case TypeRepo:
+		return ParseRepo(filename, data)
+	case TypeVendor:
+		return ParseVendor(filename, data)
 	case TypeBzl:
 		return ParseBzl(filename, data)
 	}

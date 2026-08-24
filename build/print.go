@@ -89,7 +89,7 @@ type printer struct {
 // Can be only TypeBuild or TypeDefault.
 func (p *printer) formattingMode() FileType {
 	switch p.fileType {
-	case TypeBuild, TypeWorkspace, TypeModule:
+	case TypeBuild, TypeWorkspace, TypeModule, TypeRepo, TypeVendor:
 		return TypeBuild
 	default: // TypeDefault, TypeBzl
 		return TypeDefault
