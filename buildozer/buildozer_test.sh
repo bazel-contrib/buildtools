@@ -2471,4 +2471,33 @@ EOF
   diff -u MODULE.bazel.expected.stderr stderr || fail "Error output didn't match"
 }
 
+function test_disable_symlink_safety() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return
+  fi
+  outside="$TEST_TMPDIR/outside_$$"
+  mkdir -p "$outside"
+  cat > "$outside/BUILD" <<EOF
+go_library(
+    name = "edit",
+)
+EOF
+  mkdir -p "$PKG"
+  rm -f "$PKG/BUILD"
+  ln -s "$outside/BUILD" "$PKG/BUILD"
+
+  # Without -disable_symlink_safety, should fail
+  ERROR=2
+  run_with_current_workspace "$buildozer --buildifier=" 'add deps //dep' '//pkg:edit'
+
+  # With -disable_symlink_safety, should succeed
+  ERROR=0
+  run_with_current_workspace "$buildozer --buildifier= -disable_symlink_safety" 'add deps //dep' '//pkg:edit'
+  if ! grep "//dep" "$outside/BUILD" > /dev/null; then
+    fail "Target file was not modified when -disable_symlink_safety was used"
+  fi
+  rm -f "$PKG/BUILD"
+  rm -rf "$outside"
+}
+
 run_suite "buildozer tests"

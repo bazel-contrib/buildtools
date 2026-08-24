@@ -160,6 +160,7 @@ func ExampleFlagSet() {
 	// config: path to .buildifier.json config file ("")
 	// d: alias for -mode=diff ("false")
 	// diff_command: command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command) ("")
+	// disable_symlink_safety: per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior ("false")
 	// format: diagnostics format: text or json (default text) ("")
 	// help: print usage information ("false")
 	// lint: lint mode: off, warn, or fix (default off) ("")
@@ -185,6 +186,7 @@ func ExampleFlagSet_parse() {
 		"--config=/path/to/.buildifier.json",
 		"-d",
 		"--diff_command=diff",
+		"--disable_symlink_safety=true",
 		"--format=json",
 		"--help",
 		"--lint=fix",
@@ -226,7 +228,8 @@ func ExampleFlagSet_parse() {
 	//   "allowsort": [
 	//     "proto_library.deps",
 	//     "proto_library.srcs"
-	//   ]
+	//   ],
+	//   "disable_symlink_safety": true
 	// }
 }
 

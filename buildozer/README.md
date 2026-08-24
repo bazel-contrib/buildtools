@@ -79,6 +79,7 @@ OPTIONS include the following options:
   * `-types`: Filter the targets, keeping only those of the given types, e.g.
     `buildozer -types go_library,go_binary 'print rule' '//buildtools/buildozer:*'`
   * `-eol-comments=false`: When adding new comments, put them on a separate line.
+  * `-disable_symlink_safety`: By default Buildozer will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior.
 
 See `buildozer -help` for the full list.
 

@@ -725,3 +725,65 @@ $buildifier --lint=warn --warnings=allowed-symbol-load-locations -tables=buildif
 diff -u report_golden report || die "$1: wrong console output for allowed symbol load locations"
 
 cd ../..
+
+# Test that buildifier cannot write to symlinks pointing outside the workspace or directory
+if [[ "$(uname -s)" == "Linux" ]]; then
+# 1. Inside a workspace: symlink pointing outside the workspace should fail
+mkdir -p test_dir/symlinks_ws/ws
+mkdir -p test_dir/symlinks_ws/outside
+touch test_dir/symlinks_ws/ws/WORKSPACE.bazel
+UNFORMATTED="foo( b=2, a=1 )"
+echo "$UNFORMATTED" > test_dir/symlinks_ws/outside/target.bzl
+ln -s ../outside/target.bzl test_dir/symlinks_ws/ws/symlink_outside.bzl
+
+ret=0
+"$buildifier" test_dir/symlinks_ws/ws/symlink_outside.bzl 2> /dev/null || ret=$?
+if [[ $ret -ne 3 ]]; then
+  die "Symlink outside workspace: expected buildifier to exit with 3, actual: $ret"
+fi
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl || die "Symlink outside workspace should not modify target file"
+
+# Disabling symlink safety via flag should allow modifying target through symlink
+"$buildifier" --disable_symlink_safety test_dir/symlinks_ws/ws/symlink_outside.bzl || die "Symlink outside workspace with --disable_symlink_safety: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl > /dev/null && die "Symlink outside workspace with --disable_symlink_safety: target file should be formatted"
+
+# Disabling symlink safety via config file should allow modifying target through symlink
+echo "$UNFORMATTED" > test_dir/symlinks_ws/outside/target.bzl
+echo '{"disable_symlink_safety": true}' > test_dir/symlinks_ws/ws/.buildifier.json
+"$buildifier" --config=test_dir/symlinks_ws/ws/.buildifier.json test_dir/symlinks_ws/ws/symlink_outside.bzl || die "Symlink outside workspace with .buildifier.json: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl > /dev/null && die "Symlink outside workspace with .buildifier.json: target file should be formatted"
+rm -f test_dir/symlinks_ws/ws/.buildifier.json
+
+# Symlink pointing inside the workspace should succeed
+echo "$UNFORMATTED" > test_dir/symlinks_ws/ws/target_inside.bzl
+ln -s target_inside.bzl test_dir/symlinks_ws/ws/symlink_inside.bzl
+"$buildifier" test_dir/symlinks_ws/ws/symlink_inside.bzl || die "Symlink inside workspace: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/ws/target_inside.bzl > /dev/null && die "Symlink inside workspace: target file should be formatted"
+
+# 2. Outside a workspace: symlink pointing outside the directory should fail
+NOWS_DIR="${TEST_TMPDIR:-/tmp}/nowspace_test_$$"
+mkdir -p "$NOWS_DIR/dir"
+mkdir -p "$NOWS_DIR/outside"
+echo "$UNFORMATTED" > "$NOWS_DIR/outside/target.bzl"
+ln -s ../outside/target.bzl "$NOWS_DIR/dir/symlink_outside.bzl"
+
+ret=0
+"$buildifier" "$NOWS_DIR/dir/symlink_outside.bzl" 2> /dev/null || ret=$?
+if [[ $ret -ne 3 ]]; then
+  die "Symlink outside directory (no workspace): expected buildifier to exit with 3, actual: $ret"
+fi
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/outside/target.bzl" || die "Symlink outside directory should not modify target file"
+
+# Disabling symlink safety via flag should allow modifying target through symlink
+"$buildifier" --disable_symlink_safety "$NOWS_DIR/dir/symlink_outside.bzl" || die "Symlink outside directory with --disable_symlink_safety: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/outside/target.bzl" > /dev/null && die "Symlink outside directory with --disable_symlink_safety: target file should be formatted"
+
+# Symlink pointing inside the directory should succeed
+echo "$UNFORMATTED" > "$NOWS_DIR/dir/target_inside.bzl"
+ln -s target_inside.bzl "$NOWS_DIR/dir/symlink_inside.bzl"
+"$buildifier" "$NOWS_DIR/dir/symlink_inside.bzl" || die "Symlink inside directory: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/dir/target_inside.bzl" > /dev/null && die "Symlink inside directory: target file should be formatted"
+
+rm -rf "$NOWS_DIR"
+fi
+
