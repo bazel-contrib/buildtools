@@ -55,6 +55,8 @@ cat foo.bar | buildifier --type=bzl
 cat foo.bar | buildifier --type=workspace
 cat foo.bar | buildifier --type=default
 cat foo.bar | buildifier --type=module
+cat foo.bar | buildifier --type=repo
+cat foo.bar | buildifier --type=vendor
 ```
 
 ## Linter

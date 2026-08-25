@@ -264,6 +264,8 @@ func TestValidate(t *testing.T) {
 		"type workspace":        {options: "--type=workspace"},
 		"type default":          {options: "--type=default"},
 		"type module":           {options: "--type=module"},
+		"type repo":             {options: "--type=repo"},
+		"type vendor":           {options: "--type=vendor"},
 		"type auto":             {options: "--type=auto"},
 		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, repo, vendor, auto")},
 		"warnings all": {options: "--warnings=all", wantWarnings: []string{
