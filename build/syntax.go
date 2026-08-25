@@ -321,48 +321,6 @@ func (x *TypeDictExpr) Copy() Expr {
 	return &n
 }
 
-// A CastExpr represents a cast expression: cast(type_expr, expr).
-type CastExpr struct {
-	Comments
-	Cast           Position
-	Type           Expr
-	Expr           Expr
-	Rparen         Position
-	ForceMultiLine bool
-}
-
-// Span returns the start and end positions of the node
-func (x *CastExpr) Span() (start, end Position) {
-	return x.Cast, x.Rparen.add(")")
-}
-
-// Copy creates and returns a non-deep copy of CastExpr
-func (x *CastExpr) Copy() Expr {
-	n := *x
-	return &n
-}
-
-// An IsInstanceExpr represents an isinstance expression: isinstance(expr, type_expr).
-type IsInstanceExpr struct {
-	Comments
-	IsInstance     Position
-	Expr           Expr
-	Type           Expr
-	Rparen         Position
-	ForceMultiLine bool
-}
-
-// Span returns the start and end positions of the node
-func (x *IsInstanceExpr) Span() (start, end Position) {
-	return x.IsInstance, x.Rparen.add(")")
-}
-
-// Copy creates and returns a non-deep copy of IsInstanceExpr
-func (x *IsInstanceExpr) Copy() Expr {
-	n := *x
-	return &n
-}
-
 // BranchStmt represents a `pass`, `break`, or `continue` statement.
 type BranchStmt struct {
 	Comments

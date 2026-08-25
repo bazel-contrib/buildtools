@@ -763,12 +763,6 @@ func (in *input) order(v Expr) {
 			in.order(x)
 		}
 		in.order(&v.End)
-	case *CastExpr:
-		in.order(v.Type)
-		in.order(v.Expr)
-	case *IsInstanceExpr:
-		in.order(v.Expr)
-		in.order(v.Type)
 	case *BranchStmt:
 		// nothing
 	case *DotExpr:

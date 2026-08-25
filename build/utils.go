@@ -84,10 +84,6 @@ func GetTypes(t Expr) []string {
 			ret = append(ret, GetTypes(kv.Value)...)
 		}
 		return ret
-	case *CastExpr:
-		return append(GetTypes(t.Type), GetTypes(t.Expr)...)
-	case *IsInstanceExpr:
-		return append(GetTypes(t.Expr), GetTypes(t.Type)...)
 	case *Ident:
 		return []string{t.Name}
 	case *DefStmt:

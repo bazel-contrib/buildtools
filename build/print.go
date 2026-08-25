@@ -647,16 +647,6 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		}
 		p.seq("{}", &v.Start, &list, &v.End, modeDict, false, v.ForceMultiLine)
 
-	case *CastExpr:
-		p.printf("cast")
-		list := []Expr{v.Type, v.Expr}
-		p.seq("()", &v.Cast, &list, &End{Pos: v.Rparen}, modeCall, false, v.ForceMultiLine)
-
-	case *IsInstanceExpr:
-		p.printf("isinstance")
-		list := []Expr{v.Expr, v.Type}
-		p.seq("()", &v.IsInstance, &list, &End{Pos: v.Rparen}, modeCall, false, v.ForceMultiLine)
-
 	case *BranchStmt:
 		p.printf("%s", v.Token)
 

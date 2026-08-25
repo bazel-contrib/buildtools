@@ -1,6 +1,4 @@
-# Test that `type` soft keyword can be used as ordinary identifier in valid contexts;
-# and that `cast` and `isinstance` (which are keywords only in typed code) can be
-# used as ordinary identifiers too.
+# Test that `type` soft keyword can be used as ordinary identifier in valid contexts.
 
 def _type_test_cases():
     a = type
@@ -11,23 +9,3 @@ def _type_test_cases():
 
     def type(type = ""):
         return type
-
-def _case_test_cases():
-    a = cast
-    b = cast.foo()
-    c = foo.cast[0]
-    d = cast(1, 2, 3)
-    e = cast(cast = 1)
-
-    def cast(cast = 0):
-        return cast
-
-def _isinstance_test_cases():
-    a = isinstance
-    b = isinstance.foo()
-    c = foo.isinstance[0]
-    d = isinstance(1, 2, 3)
-    e = isinstance(isinstance = 1)
-
-    def isinstance(isinstance = None):
-        return isinstance

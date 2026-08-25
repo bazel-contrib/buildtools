@@ -569,13 +569,6 @@ primary_expr:
 	{
 		$$ = $1
 	}
-|	_ELLIPSIS
-	{
-		$$ = &LiteralExpr{
-			Start: $1,
-			Token: $<tok>1,
-		}
-	}
 |	primary_expr '.' _IDENT
 	{
 		$$ = &DotExpr{
@@ -601,28 +594,6 @@ primary_expr:
 	}
 |	primary_expr '(' arguments_opt ')'
 	{
-		if ident, ok := $1.(*Ident); ok {
-			if ident.Name == "cast" && len($3) == 2 {
-				$$ = &CastExpr{
-					Cast: ident.NamePos,
-					Type: toTypeExpr($3[0]),
-					Expr: $3[1],
-					Rparen: $4,
-					ForceMultiLine: forceMultiLine($2, $3, $4),
-				}
-				break
-			}
-			if ident.Name == "isinstance" && len($3) == 2 {
-				$$ = &IsInstanceExpr{
-					IsInstance: ident.NamePos,
-					Expr: $3[0],
-					Type: toTypeExpr($3[1]),
-					Rparen: $4,
-					ForceMultiLine: forceMultiLine($2, $3, $4),
-				}
-				break
-			}
-		}
 		$$ = &CallExpr{
 			X: $1,
 			ListStart: $2,
@@ -1548,81 +1519,4 @@ func getLastBody(stmt Expr) *[]Expr {
 		return &block.False
 	}
 	return nil
-}
-
-// toTypeExpr converts an Expr (such as IndexExpr, BinaryExpr, ListExpr, DictExpr, TupleExpr)
-// into a type_expr (TypeAppExpr, TypeExpr, TypeListExpr, TypeDictExpr).
-func toTypeExpr(e Expr) Expr {
-	if e == nil {
-		return nil
-	}
-	switch e := e.(type) {
-	case *IndexExpr:
-		var args *TypeListExpr
-		if te, ok := toTypeExpr(e.Y).(*TypeListExpr); ok {
-			args = te
-		} else {
-			args = &TypeListExpr{
-				Lbrack: e.IndexStart,
-				List:   []Expr{toTypeExpr(e.Y)},
-				Rbrack: e.End,
-			}
-		}
-		return &TypeAppExpr{
-			Name: toTypeExpr(e.X),
-			Args: args,
-		}
-	case *BinaryExpr:
-		if e.Op == "|" {
-			var list []Expr
-			if te, ok := toTypeExpr(e.X).(*TypeExpr); ok {
-				list = append(list, te.List...)
-			} else {
-				list = append(list, toTypeExpr(e.X))
-			}
-			list = append(list, toTypeExpr(e.Y))
-			return &TypeExpr{List: list}
-		}
-	case *ListExpr:
-		var list []Expr
-		for _, x := range e.List {
-			list = append(list, toTypeExpr(x))
-		}
-		return &TypeListExpr{
-			Lbrack:         e.Start,
-			List:           list,
-			Rbrack:         e.End.Pos,
-			ForceMultiLine: e.ForceMultiLine,
-		}
-	case *DictExpr:
-		var list []*KeyValueExpr
-		for _, kv := range e.List {
-			list = append(list, &KeyValueExpr{
-				Key:   kv.Key,
-				Colon: kv.Colon,
-				Value: toTypeExpr(kv.Value),
-			})
-		}
-		return &TypeDictExpr{
-			Start:          e.Start,
-			List:           list,
-			End:            e.End,
-			ForceMultiLine: e.ForceMultiLine,
-		}
-	case *TupleExpr:
-		if len(e.List) == 0 {
-			return e
-		}
-		var list []Expr
-		for _, x := range e.List {
-			list = append(list, toTypeExpr(x))
-		}
-		return &TypeListExpr{
-			Lbrack:         e.Start,
-			List:           list,
-			Rbrack:         e.End.Pos,
-			ForceMultiLine: e.ForceMultiLine,
-		}
-	}
-	return e
 }

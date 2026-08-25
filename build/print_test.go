@@ -615,64 +615,6 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
 			input: "type T = typing.Mapping[str, typing.Sequence[int]]\n",
 			want:  "type T = typing.Mapping[str, typing.Sequence[int]]\n",
 		},
-		{
-			name:  "cast expression",
-			input: "x: list[int] = cast(list[int], y)\n",
-			want:  "x: list[int] = cast(list[int], y)\n",
-		},
-		{
-			name:  "cast with ellipsis",
-			input: "x = cast(Callable[..., int], y)\n",
-			want:  "x = cast(Callable[..., int], y)\n",
-		},
-		{
-			name:  "cast with struct and ellipsis",
-			input: "x = cast(struct[{\"a\": int}, ...], y)\n",
-			want:  "x = cast(struct[{\"a\": int}, ...], y)\n",
-		},
-		{
-			name: "multiline cast",
-			input: `x = cast(
-    list[int],
-    y,
-)
-`,
-			want: `x = cast(
-    list[int],
-    y,
-)
-`,
-		},
-		{
-			name:  "isinstance expression",
-			input: "if isinstance(x, list):\n    process_list(x)\n",
-			want:  "if isinstance(x, list):\n    process_list(x)\n",
-		},
-		{
-			name:  "isinstance with type application",
-			input: "if isinstance(x, list[int]):\n    process_list(x)\n",
-			want:  "if isinstance(x, list[int]):\n    process_list(x)\n",
-		},
-		{
-			name:  "isinstance with ellipsis",
-			input: "if isinstance(x, Callable[..., int]):\n    process_callable(x)\n",
-			want:  "if isinstance(x, Callable[..., int]):\n    process_callable(x)\n",
-		},
-		{
-			name: "multiline isinstance",
-			input: `if isinstance(
-    x,
-    list[int],
-):
-    process_list(x)
-`,
-			want: `if isinstance(
-    x,
-    list[int],
-):
-    process_list(x)
-`,
-		},
 	}
 
 	for _, tt := range tests {

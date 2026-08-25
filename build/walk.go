@@ -185,20 +185,6 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 			f(&e)
 			v.List[i] = e.(*KeyValueExpr)
 		}
-	case *CastExpr:
-		if v.Type != nil {
-			f(&v.Type)
-		}
-		if v.Expr != nil {
-			f(&v.Expr)
-		}
-	case *IsInstanceExpr:
-		if v.Expr != nil {
-			f(&v.Expr)
-		}
-		if v.Type != nil {
-			f(&v.Type)
-		}
 	case *LambdaExpr:
 		for i := range v.Params {
 			f(&v.Params[i])
