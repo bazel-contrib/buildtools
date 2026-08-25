@@ -119,8 +119,8 @@ func findUnreachableStatements(stmts []build.Expr, callback func(build.Expr)) bo
 	for _, stmt := range stmts {
 		if unreachable {
 			if _, ok := stmt.(*build.CommentBlock); ok {
-    			continue
-    		}
+				continue
+			}
 			callback(stmt)
 			return true
 		}
@@ -236,6 +236,8 @@ func noEffectWarning(f *build.File) []*LinterFinding {
 //   - Named arguments of function calls: `foo` in `f(foo = "bar")`
 //   - Iterators of comprehension nodes and its usages: `x` in `[f(x) for x in y]`
 //   - Lambda arguments: `x` in `lambda x: x + 1`
+//   - LHS of var statements: `x` in `x: int | float` (since `x` cannot be used
+//     until it's assigned a value)
 //
 // Statements that contain other statements (for-loops, if-else blocks) are not
 // traversed inside.
@@ -380,6 +382,14 @@ func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]boo
 				}
 			}
 			used[expr] = true
+
+		case *build.TypedIdent:
+			// If the TypedIdent is a top-level expression (thus a var statement),
+			// ignore the identifier, since it's not being assigned a value.
+			if node == stmt {
+				blockedNodes[expr.Ident] = true
+				return
+			}
 
 		default:
 			// Do nothing, just traverse further
@@ -714,6 +724,8 @@ func collectLocalVariables(stmts []build.Expr) []*build.Ident {
 			variables = append(variables, collectLocalVariables(stmt.False)...)
 		case *build.AssignExpr:
 			variables = append(variables, bzlenv.CollectLValues(stmt.LHS)...)
+		case *build.TypedIdent:
+			variables = append(variables, stmt.Ident)
 		}
 	}
 	return variables
@@ -774,6 +786,9 @@ func findUninitializedVariables(stmts []build.Expr, previouslyInitialized map[st
 				return &build.StopTraversalError{}
 			}
 			switch expr := expr.(type) {
+			case *build.TypedIdent:
+				// Don't traverse var statements: they declare variables, but don't assign any values.
+				return &build.StopTraversalError{}
 			case *build.DefStmt:
 				// The header of the DefStmt may contain uninitialized variables (e.g.
 				// default values of parameters) and should be traversed.

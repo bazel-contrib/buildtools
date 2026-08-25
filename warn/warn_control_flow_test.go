@@ -1337,4 +1337,23 @@ def foo():
 `,
 		[]string{},
 		scopeEverywhere)
+
+	checkFindings(t, "uninitialized", `
+def f():
+  x: int
+  return x
+`,
+		[]string{
+			":3: Variable \"x\" may not have been initialized.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "uninitialized", `
+def f():
+  x: int
+  x = 1
+  return x
+`,
+		[]string{},
+		scopeEverywhere)
 }
