@@ -142,7 +142,7 @@ package build
 %type	<idents>  type_params_opt
 %type	<idents>	type_params_idents
 %type	<expr>		type_expr
-%type	<expr>		type_name_or_type_application
+%type	<expr>		type_atom
 %type	<expr>		type_application
 %type	<expr>		type_name
 %type	<expr>		type_list
@@ -1149,11 +1149,11 @@ for_clauses_with_if_clauses_opt:
 	}
 
 type_expr:
-	type_name_or_type_application
+	type_atom
 	{
 		$$ = $1
 	}
-|	type_expr '|' type_name_or_type_application
+|	type_expr '|' type_atom
 	{
 		if te, ok := $1.(*TypeExpr); ok {
 			te.List = append(te.List, $3)
@@ -1164,6 +1164,10 @@ type_expr:
 			}
 		}
 	}
+
+type_atom:
+	type_name
+|	type_application
 
 type_name:
 	ident
@@ -1176,10 +1180,6 @@ type_name:
 			Name: $<tok>3,
 		}
 	}
-
-type_name_or_type_application:
-	type_name
-|	type_application
 
 type_application:
 	type_name '[' type_args commas_opt ']'
