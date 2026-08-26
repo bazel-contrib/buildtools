@@ -704,6 +704,142 @@ sample_macro_with_used_foo()
 `,
 		[]string{},
 		scopeEverywhere)
+
+	// Type alias used in function return annotation
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo() -> _Numeric:
+  return 42
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in function parameter annotation
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo(x: _Numeric):
+  print(x)
+
+foo(42)
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias unused - shadowed by function type parameter
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo[_Numeric](x: _Numeric):
+  print(x)
+
+foo(42)
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type alias used in an assignment LHS
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+_x: _Numeric = 42
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in a var statement
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+_x: _Numeric
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in another type alias
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+type _OptionalNumeric = _Numeric | None
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias unused - shadowed by type alias type parameter
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+# @unused
+type _Opt[_T] = _T | None
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type alias explicitly marked @unused
+	checkFindings(t, "unused-variable", `
+# @unused
+type _Numeric = int | float
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Unused type alias
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Unused type parameter
+	checkFindings(t, "unused-variable", `
+def foo[T]():
+  pass
+
+foo()
+`,
+		[]string{
+			":1: Type \"T\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type parameter used in parameter annotation
+	checkFindings(t, "unused-variable", `
+def foo[T](x: T):
+  print(x)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type parameter used in an inner function
+	checkFindings(t, "unused-variable", `
+def foo[T]():
+  def bar():
+    x: T = 42
+    print(x)
+
+  bar()
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
 }
 
 func TestRedefinedVariable(t *testing.T) {

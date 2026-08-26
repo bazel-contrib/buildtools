@@ -255,7 +255,31 @@ func (in *input) parse() (f *File, err error) {
 	// Assign comments to nearby syntax.
 	in.assignComments()
 
+	if err := checkTypeAlias(in.file); err != nil {
+		return nil, err
+	}
+
 	return in.file, nil
+}
+
+// checkTypeAlias checks that type alias statements occur only at top-level.
+func checkTypeAlias(file *File) error {
+	var typeAliasErr error
+	WalkInterruptable(file, func(x Expr, stk []Expr) error {
+		if typeAliasErr != nil {
+			return &StopTraversalError{}
+		}
+		if typeAliasStmt, ok := x.(*TypeAliasStmt); ok && len(stk) > 1 {
+			typeAliasErr = ParseError{
+				Message:  "syntax error: type alias not at top level",
+				Filename: file.Path,
+				Pos:      typeAliasStmt.TypePos,
+			}
+			return &StopTraversalError{}
+		}
+		return nil
+	})
+	return typeAliasErr
 }
 
 // Error is called to report an error.

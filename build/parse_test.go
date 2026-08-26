@@ -345,3 +345,29 @@ var parseTests = []struct {
 	},
 }
 
+func TestParseError(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		// type alias errors
+		{
+			name: "type alias not at top level",
+			in:   "def f():\n  type T = int\n",
+			want: "test:2:3: syntax error: type alias not at top level",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse("test", []byte(tt.in))
+			if err == nil {
+				t.Fatalf("Parse(%q) succeeded, want error %q", tt.in, tt.want)
+			}
+			if got := err.Error(); got != tt.want {
+				t.Errorf("Parse(%q) error = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

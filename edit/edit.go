@@ -1073,7 +1073,7 @@ func UsedTypes(stmt build.Expr) map[string]bool {
 				return
 			}
 		}
-		// Types can only be found in method declarations and
+		// Types can only be found in method declarations, var statements, and type aliases.
 		switch expr := expr.(type) {
 		case *build.TypeAliasStmt:
 			for _, t := range build.GetTypes(expr) {

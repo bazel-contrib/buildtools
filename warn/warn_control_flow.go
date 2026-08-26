@@ -413,10 +413,15 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 	findings := []*LinterFinding{}
 
 	// Symbols that are defined in the current scope
-	definedSymbols := make(map[string]*build.Ident)
+	definedSymbols := make(map[string]build.Expr)
 
 	// Functions that are defined in the current scope
-	definedFunctions := make(map[string]*build.DefStmt)
+	definedFunctions := make(map[string]build.Expr)
+
+	// For a file top-level, this is the map of type aliases.
+	// For a generic function, this is the scope (logically outer to the function's
+	// own scope) that holds the function's type parameters.
+	definedTypes := make(map[string]build.Expr)
 
 	// Symbols that are used in the current and inner scopes
 	usedSymbols := make(map[string]bool)
@@ -454,7 +459,11 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 			}
 
 			// The function is a root for the current scope.
-			// Collect its parameters as defined in the current scope.
+			// Collect its type parameters.
+			for _, typeParam := range expr.TypeParams {
+				definedTypes[typeParam.Name] = typeParam
+			}
+			// Collect its (normal) parameters as defined in the current scope.
 			for _, param := range expr.Params {
 				// Function parameters are defined in the current scope.
 				if ident, _ := build.GetParamIdent(param); ident != nil {
@@ -467,7 +476,14 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 						// even if not used.
 						suppressedWarnings[ident.Name] = true
 					}
+
+					// Parameters' types are defined in type params or in the outer scope.
+					typedIdent, ok := param.(*build.TypedIdent)
+					if ok {
+						collectUsedTypeSymbols(typedIdent.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
+					}
 				}
+
 				// The default variables for the parameters are defined in the outer
 				// scope but used here.
 				assign, ok := param.(*build.AssignExpr)
@@ -484,6 +500,36 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 					usedSymbolsFromOuterScope[ident.Name] = true
 				}
 			}
+			// Return type may be defined in type params or in the outer scope.
+			if expr.Type != nil {
+				collectUsedTypeSymbols(expr.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
+			}
+
+		case *build.TypeAliasStmt:
+			if len(stack) > 0 {
+				// Same as for def statements, call unusedVariableCheck recursively to handle
+				// type parameter scope properly.
+
+				// The type alias name is defined in the current scope
+				if _, ok := definedTypes[expr.Name.Name]; !ok {
+					definedTypes[expr.Name.Name] = &expr.Name
+				}
+				if edit.ContainsComments(expr, "@unused") {
+					suppressedWarnings[expr.Name.Name] = true
+				}
+
+				usedSymbolsInTypeAlias, findingsInTypeAlias := unusedVariableCheck(f, expr)
+				findings = append(findings, findingsInTypeAlias...)
+				for symbol := range usedSymbolsInTypeAlias {
+					usedSymbols[symbol] = true
+				}
+				return &build.StopTraversalError{}
+			}
+
+			for _, param := range expr.TypeParams {
+				definedTypes[param.Name] = param
+			}
+			collectUsedTypeSymbols(expr.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
 
 		case *build.LoadStmt:
 			// LoadStmt nodes store the loaded symbols as idents, even though in the
@@ -516,6 +562,9 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 	// Collect variables that are used in the current or inner scopes but are not
 	// defined in the current scope.
 	for symbol := range usedSymbols {
+		if _, ok := definedTypes[symbol]; ok {
+			continue
+		}
 		if _, ok := definedSymbols[symbol]; ok {
 			continue
 		}
@@ -530,7 +579,34 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 	// Do not warn on exportable variables.
 	ignoreTopLevel := (f.Type == build.TypeBzl || f.Type == build.TypeDefault) && root == f
 
-	for name, ident := range definedSymbols {
+	findings = appendUnusedVariableLinterFindings(findings, definedTypes, "Type", usedSymbols, suppressedWarnings, ignoreTopLevel)
+	findings = appendUnusedVariableLinterFindings(findings, definedSymbols, "Variable", usedSymbols, suppressedWarnings, ignoreTopLevel)
+	findings = appendUnusedVariableLinterFindings(findings, definedFunctions, "Function", usedSymbols, suppressedWarnings, ignoreTopLevel)
+
+	return usedSymbolsFromOuterScope, findings
+}
+
+// Collect identifiers into a type expression into appropriate used-symbol maps, depending on whether
+// the identifier was defined as a type parameter in the given type param scope or not.
+//
+// Helper function for unusedVariableCheck.
+func collectUsedTypeSymbols(expr build.Expr, typeParamScope map[string]build.Expr, usedSymbolsFromTypeParams map[string]bool, usedSymbolsFromOuterScope map[string]bool) {
+	_, used := extractIdentsFromStmt(expr)
+	for ident := range used {
+		_, ok := typeParamScope[ident.Name]
+		if ok {
+			usedSymbolsFromTypeParams[ident.Name] = true
+		} else {
+			usedSymbolsFromOuterScope[ident.Name] = true
+		}
+	}
+}
+
+// Format and append linter findings for unused variables to the findings slice.
+//
+// Helper function for unusedVariableCheck.
+func appendUnusedVariableLinterFindings(findings []*LinterFinding, definedSymbols map[string]build.Expr, symbolKind string, usedSymbols map[string]bool, suppressedWarnings map[string]bool, ignoreTopLevel bool) []*LinterFinding {
+	for name, expr := range definedSymbols {
 		if _, ok := usedSymbols[name]; ok {
 			// The variable is used either in this scope or in a nested scope
 			continue
@@ -543,26 +619,10 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 			continue
 		}
 		findings = append(findings,
-			makeLinterFinding(ident, fmt.Sprintf(`Variable %q is unused. Please remove it.`, ident.Name)))
+			makeLinterFinding(expr, fmt.Sprintf(`%s %q is unused. Please remove it.`, symbolKind, name)))
 	}
 
-	for name, def := range definedFunctions {
-		if _, ok := usedSymbols[name]; ok {
-			// The function is used either in this scope or in a nested scope
-			continue
-		}
-		if ignoreTopLevel && !strings.HasPrefix(name, "_") {
-			continue
-		}
-		if _, ok := suppressedWarnings[name]; ok {
-			// The function is explicitly marked with @unused, ignore
-			continue
-		}
-		findings = append(findings,
-			makeLinterFinding(def, fmt.Sprintf(`Function %q is unused. Please remove it.`, def.Name)))
-	}
-
-	return usedSymbolsFromOuterScope, findings
+	return findings
 }
 
 func unusedVariableWarning(f *build.File) []*LinterFinding {
@@ -727,6 +787,7 @@ func collectLocalVariables(stmts []build.Expr) []*build.Ident {
 		case *build.TypedIdent:
 			variables = append(variables, stmt.Ident)
 		}
+		// Don't need to handle build.TypeAliasStmt - type alias statements must be top-level.
 	}
 	return variables
 }
