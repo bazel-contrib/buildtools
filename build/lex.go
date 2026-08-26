@@ -286,10 +286,16 @@ func checkTypeAlias(file *File) error {
 // When called by the generated code s is always "syntax error".
 // Error does not return: it panics.
 func (in *input) Error(s string) {
+	in.ErrorAt(in.pos, s)
+}
+
+// ErrorAt is called to report an error at a specific position.
+// ErrorAt does not return: it panics.
+func (in *input) ErrorAt(pos Position, s string) {
 	if s == "syntax error" && in.lastToken != "" {
 		s += " near " + in.lastToken
 	}
-	in.parseError = ParseError{Message: s, Filename: in.filename, Pos: in.pos}
+	in.parseError = ParseError{Message: s, Filename: in.filename, Pos: pos}
 	panic(in.parseError)
 }
 

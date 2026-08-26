@@ -527,7 +527,9 @@ type_alias_stmt:
 	ident ident type_params_opt '=' type_expr
 	{
 		if $1.(*Ident).Name != "type" {
-			yylex.Error("syntax error near " + $1.(*Ident).Name)
+			// Match 
+			_, end := $2.Span()
+			errorAt(yylex, end, "syntax error near " + $2.(*Ident).Name)
 		}
 		ystart, _ := $5.Span()
 		$$ = &TypeAliasStmt{
@@ -1523,4 +1525,17 @@ func getLastBody(stmt Expr) *[]Expr {
 		return &block.False
 	}
 	return nil
+}
+
+// Expose lex.ErrorAt to the parser.
+type yyLexerWithErrorAt interface {
+	ErrorAt(pos Position, s string)
+}
+
+func errorAt(yylex yyLexer, pos Position, s string) {
+	if lex, ok := yylex.(yyLexerWithErrorAt); ok {
+		lex.ErrorAt(pos, s)
+	} else {
+		yylex.Error(s)
+	}
 }

@@ -358,6 +358,12 @@ func TestParseError(t *testing.T) {
 			in:   "def f():\n  type T = int\n",
 			want: "test:2:3: syntax error: type alias not at top level",
 		},
+
+		{
+			name: "misspelled type soft keyword",
+			in:   "tpye MyInt = int\n",
+			want: "test:1:11: syntax error near MyInt",
+		},
 	}
 
 	for _, tt := range tests {
