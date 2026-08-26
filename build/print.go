@@ -950,13 +950,14 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.printf("type ")
 		p.expr(v.Name, precLow)
 		p.optionalTypeParams(v.TypeParams)
-		p.printf(" = ")
+		p.printf(" =")
 		if v.LineBreak {
 			p.margin += listIndentation
 			p.breakline()
 			p.expr(v.Type, precLow)
 			p.margin -= listIndentation
 		} else {
+			p.printf(" ")
 			p.expr(v.Type, precLow)
 		}
 	}
