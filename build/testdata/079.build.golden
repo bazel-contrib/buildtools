@@ -4,7 +4,13 @@ type _Numeric = int | float
 
 type _Setting[T] = dict[str, T]
 
-type _Transform[U] = Callable[[_Setting[U], ...], _Setting[U]]
+type _Transform[U] = Callable[
+    [
+        _Setting[U],
+        ...,
+    ],
+    _Setting[U],
+]
 
 type NumericResult = struct[
     {

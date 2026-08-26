@@ -629,23 +629,11 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		}
 
 	case *TypeAppExpr:
-		p.expr(v.Name, precLow)
-		if v.Args != nil {
-			p.expr(v.Args, precLow)
-		}
-
-	case *TypeListExpr:
-		p.seq("[]", &v.Lbrack, &v.List, &End{Pos: v.Rbrack}, modeTypeList, false, v.ForceMultiLine)
+		p.expr(v.Type, precSuffix)
+		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeCall, v.ForceCompact, v.ForceMultiLine)
 
 	case *EllipsisExpr:
 		p.printf("...")
-
-	case *TypeDictExpr:
-		var list []Expr
-		for _, x := range v.List {
-			list = append(list, x)
-		}
-		p.seq("{}", &v.Start, &list, &v.End, modeDict, false, v.ForceMultiLine)
 
 	case *BranchStmt:
 		p.printf("%s", v.Token)

@@ -772,21 +772,13 @@ func (in *input) order(v Expr) {
 			in.order(x)
 		}
 	case *TypeAppExpr:
-		in.order(v.Name)
-		if v.Args != nil {
-			in.order(v.Args)
-		}
-	case *TypeListExpr:
-		for _, x := range v.List {
-			in.order(x)
-		}
-	case *EllipsisExpr:
-		// nothing
-	case *TypeDictExpr:
-		for _, x := range v.List {
+		in.order(v.Type)
+		for _, x := range v.Args {
 			in.order(x)
 		}
 		in.order(&v.End)
+	case *EllipsisExpr:
+		// nothing
 	case *BranchStmt:
 		// nothing
 	case *DotExpr:

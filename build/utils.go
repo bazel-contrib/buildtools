@@ -65,25 +65,13 @@ func GetTypes(t Expr) []string {
 		}
 		return ret
 	case *TypeAppExpr:
-		ret := GetTypes(t.Name)
-		if t.Args != nil {
-			ret = append(ret, GetTypes(t.Args)...)
-		}
-		return ret
-	case *TypeListExpr:
-		var ret []string
-		for _, x := range t.List {
+		ret := GetTypes(t.Type)
+		for _, x := range t.Args {
 			ret = append(ret, GetTypes(x)...)
 		}
 		return ret
 	case *EllipsisExpr:
 		return []string{}
-	case *TypeDictExpr:
-		var ret []string
-		for _, kv := range t.List {
-			ret = append(ret, GetTypes(kv.Value)...)
-		}
-		return ret
 	case *Ident:
 		return []string{t.Name}
 	case *DefStmt:

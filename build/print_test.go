@@ -535,7 +535,7 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
 		want  string
 	}{
 		{
-			name: "multiline type list",
+			name: "multiline type application",
 			input: `type T = list[
     int,
     str,
@@ -548,20 +548,52 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
 `,
 		},
 		{
-			name: "multiline type dict",
-			input: `type T = struct[{
-    "a": int,
-    "b": str,
-}]
+			name: "multiline type application with comments",
+			input: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str,
+    # comment 3
+] = [123, "four"]
 `,
-			want: `type T = struct[{
-    "a": int,
-    "b": str,
-}]
+			want: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str,
+    # comment 3
+] = [123, "four"]
 `,
 		},
 		{
-			name: "multiline type dict and type list",
+			name: "multiline type list in compact type application",
+			input: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+			want: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+		},
+		{
+			name: "multiline type dict in compact type application",
+			input: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+			want: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+		},
+		{
+			name: "multiline type dict in non-compact type application",
 			input: `type T = struct[
     {
         "a": int,
@@ -574,22 +606,6 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
     {
         "a": int,
         "b": str,
-    },
-    ...,
-]
-`,
-		},
-		{
-			name: "multiline struct type dict expands type list",
-			input: `type NumericResult = struct[{
-    "name": str,
-    "data": Sequence[_Numeric] | None,
-}, ...]
-`,
-			want: `type NumericResult = struct[
-    {
-        "name": str,
-        "data": Sequence[_Numeric] | None,
     },
     ...,
 ]
@@ -630,4 +646,3 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
 		})
 	}
 }
-

@@ -276,24 +276,23 @@ var parseTests = []struct {
 					Type: &TypeExpr{
 						List: []Expr{
 							&TypeAppExpr{
-								Name: &Ident{
+								Type: &Ident{
 									Name:    "dict",
 									NamePos: Position{Line: 1, LineRune: 27, Byte: 26},
 								},
-								Args: &TypeListExpr{
-									Lbrack: Position{Line: 1, LineRune: 31, Byte: 30},
-									List: []Expr{
-										&Ident{
-											Name:    "T",
-											NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
-										},
-										&Ident{
-											Name:    "U",
-											NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
-										},
+								ArgsStart: Position{Line: 1, LineRune: 31, Byte: 30},
+								Args: []Expr{
+									&Ident{
+										Name:    "T",
+										NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
 									},
-									Rbrack: Position{Line: 1, LineRune: 36, Byte: 35},
+									&Ident{
+										Name:    "U",
+										NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
+									},
 								},
+								End:          End{Pos: Position{Line: 1, LineRune: 36, Byte: 35}},
+								ForceCompact: true,
 							},
 							&Ident{
 								Name:    "None",
@@ -319,7 +318,7 @@ var parseTests = []struct {
 					},
 					EqualPos: Position{Line: 1, LineRune: 8, Byte: 7},
 					Type: &TypeAppExpr{
-						Name: &DotExpr{
+						Type: &DotExpr{
 							X: &Ident{
 								Name:    "typing",
 								NamePos: Position{Line: 1, LineRune: 10, Byte: 9},
@@ -328,16 +327,14 @@ var parseTests = []struct {
 							NamePos: Position{Line: 1, LineRune: 17, Byte: 16},
 							Name:    "Sequence",
 						},
-						Args: &TypeListExpr{
-							Lbrack: Position{Line: 1, LineRune: 25, Byte: 24},
-							List: []Expr{
-								&Ident{
-									Name:    "int",
-									NamePos: Position{Line: 1, LineRune: 26, Byte: 25},
-								},
+						ArgsStart: Position{Line: 1, LineRune: 25, Byte: 24},
+						Args: []Expr{
+							&Ident{
+								Name:    "int",
+								NamePos: Position{Line: 1, LineRune: 26, Byte: 25},
 							},
-							Rbrack: Position{Line: 1, LineRune: 29, Byte: 28},
 						},
+						End: End{Pos: Position{Line: 1, LineRune: 29, Byte: 28}},
 					},
 				},
 			},

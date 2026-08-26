@@ -238,47 +238,22 @@ func (x *TypeExpr) Copy() Expr {
 // A TypeAppExpr represents a type application: a type_name followed by a type_list: struct[{"name": str}, ...], typing.Sequence[int].
 type TypeAppExpr struct {
 	Comments
-	Name Expr // *Ident or *DotExpr
-	Args *TypeListExpr
+	Type           Expr     // *Ident or *DotExpr
+	ArgsStart      Position // position of [
+	Args           []Expr
+	End                 // position of ]
+	ForceCompact   bool // force compact (non-multiline) form when printing
+	ForceMultiLine bool // force multiline form when printing
 }
 
 // Span returns the start and end positions of the node
 func (x *TypeAppExpr) Span() (start, end Position) {
-	if x.Name != nil {
-		start, _ = x.Name.Span()
-	}
-	if x.Args != nil {
-		_, end = x.Args.Span()
-	} else if x.Name != nil {
-		_, end = x.Name.Span()
-	}
-	return start, end
+	start, _ = x.Type.Span()
+	return start, x.End.Pos.add("]")
 }
 
 // Copy creates and returns a non-deep copy of TypeAppExpr
 func (x *TypeAppExpr) Copy() Expr {
-	n := *x
-	return &n
-}
-
-// A TypeListExpr represents a list of type_arg-s: [list[int], bool | None, ...]
-//
-// Also used for the arguments of a TypeAppExpr.
-type TypeListExpr struct {
-	Comments
-	Lbrack         Position
-	List           []Expr // type_arg-s
-	Rbrack         Position
-	ForceMultiLine bool
-}
-
-// Span returns the start and end positions of the node
-func (x *TypeListExpr) Span() (start, end Position) {
-	return x.Lbrack, x.Rbrack.add("]")
-}
-
-// Copy creates and returns a non-deep copy of TypeListExpr
-func (x *TypeListExpr) Copy() Expr {
 	n := *x
 	return &n
 }
@@ -296,27 +271,6 @@ func (x *EllipsisExpr) Span() (start, end Position) {
 
 // Copy creates and returns a non-deep copy of EllipsisExpr
 func (x *EllipsisExpr) Copy() Expr {
-	n := *x
-	return &n
-}
-
-// A TypeDictExpr represents a type_dict: a dictionary literal with string keys and type_arg values.
-// e.g. {"name": str, "data": str | None}
-type TypeDictExpr struct {
-	Comments
-	Start          Position
-	List           []*KeyValueExpr
-	End            End
-	ForceMultiLine bool
-}
-
-// Span returns the start and end positions of the node
-func (x *TypeDictExpr) Span() (start, end Position) {
-	return x.Start, x.End.Pos.add("}")
-}
-
-// Copy creates and returns a non-deep copy of TypeDictExpr
-func (x *TypeDictExpr) Copy() Expr {
 	n := *x
 	return &n
 }

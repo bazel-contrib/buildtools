@@ -1156,23 +1156,22 @@ type_application:
 	type_name '[' type_args commas_opt ']'
 	{
 		$$ = &TypeAppExpr{
-			Name: $1,
-			Args: &TypeListExpr{
-				Lbrack: $2,
-				List: $3,
-				Rbrack: $5,
-				ForceMultiLine: forceMultiLine($2, $3, $5),
-			},
+			Type: $1,
+			ArgsStart: $2,
+			Args: $3,
+			End: End{Pos: $5},
+			ForceCompact: forceCompact($2, $3, $5),
+			ForceMultiLine: forceMultiLine($2, $3, $5),
 		}
 	}
 
 type_list:
 	'[' type_args_opt ']'
 	{
-		$$ = &TypeListExpr{
-			Lbrack: $1,
+		$$ = &ListExpr{
+			Start: $1,
 			List: $2,
-			Rbrack: $3,
+			End: End{Pos: $3},
 			ForceMultiLine: forceMultiLine($1, $2, $3),
 		}
 	}
@@ -1221,7 +1220,7 @@ type_dict:
 		for _, kv := range $2 {
 			exprValues = append(exprValues, Expr(kv))
 		}
-		$$ = &TypeDictExpr{
+		$$ = &DictExpr{
 			Start: $1,
 			List: $2,
 			End: End{Pos: $3},

@@ -147,7 +147,7 @@ const yyEofCode = 1
 const yyErrCode = 2
 const yyInitialStackSize = 16
 
-//line build/parse.y:1261
+//line build/parse.y:1260
 
 // Go helper code.
 
@@ -2226,53 +2226,52 @@ yydefault:
 //line build/parse.y:1157
 		{
 			yyVAL.expr = &TypeAppExpr{
-				Name: yyDollar[1].expr,
-				Args: &TypeListExpr{
-					Lbrack:         yyDollar[2].pos,
-					List:           yyDollar[3].exprs,
-					Rbrack:         yyDollar[5].pos,
-					ForceMultiLine: forceMultiLine(yyDollar[2].pos, yyDollar[3].exprs, yyDollar[5].pos),
-				},
+				Type:           yyDollar[1].expr,
+				ArgsStart:      yyDollar[2].pos,
+				Args:           yyDollar[3].exprs,
+				End:            End{Pos: yyDollar[5].pos},
+				ForceCompact:   forceCompact(yyDollar[2].pos, yyDollar[3].exprs, yyDollar[5].pos),
+				ForceMultiLine: forceMultiLine(yyDollar[2].pos, yyDollar[3].exprs, yyDollar[5].pos),
 			}
 		}
 	case 164:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line build/parse.y:1171
+//line build/parse.y:1170
 		{
-			yyVAL.expr = &TypeListExpr{
-				Lbrack:         yyDollar[1].pos,
+			yyVAL.expr = &ListExpr{
+				Start:          yyDollar[1].pos,
 				List:           yyDollar[2].exprs,
-				Rbrack:         yyDollar[3].pos,
+				End:            End{Pos: yyDollar[3].pos},
 				ForceMultiLine: forceMultiLine(yyDollar[1].pos, yyDollar[2].exprs, yyDollar[3].pos),
 			}
 		}
 	case 165:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line build/parse.y:1181
+//line build/parse.y:1180
 		{
 			yyVAL.exprs = nil
 		}
 	case 166:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line build/parse.y:1185
+//line build/parse.y:1184
 		{
 			yyVAL.exprs = yyDollar[1].exprs
 		}
 	case 167:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line build/parse.y:1191
+//line build/parse.y:1190
 		{
 			yyVAL.exprs = []Expr{yyDollar[1].expr}
 		}
 	case 168:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line build/parse.y:1195
+//line build/parse.y:1194
 		{
 			yyVAL.exprs = append(yyDollar[1].exprs, yyDollar[3].expr)
 		}
 	case 172:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line build/parse.y:1204
+//line build/parse.y:1203
 		{
 			yyVAL.expr = &TupleExpr{
 				Start: yyDollar[1].pos,
@@ -2281,7 +2280,7 @@ yydefault:
 		}
 	case 173:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line build/parse.y:1211
+//line build/parse.y:1210
 		{
 			yyVAL.expr = &EllipsisExpr{
 				Pos: yyDollar[1].pos,
@@ -2289,13 +2288,13 @@ yydefault:
 		}
 	case 174:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line build/parse.y:1219
+//line build/parse.y:1218
 		{
 			exprValues := make([]Expr, 0, len(yyDollar[2].kvs))
 			for _, kv := range yyDollar[2].kvs {
 				exprValues = append(exprValues, Expr(kv))
 			}
-			yyVAL.expr = &TypeDictExpr{
+			yyVAL.expr = &DictExpr{
 				Start:          yyDollar[1].pos,
 				List:           yyDollar[2].kvs,
 				End:            End{Pos: yyDollar[3].pos},
@@ -2304,31 +2303,31 @@ yydefault:
 		}
 	case 175:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line build/parse.y:1233
+//line build/parse.y:1232
 		{
 			yyVAL.kvs = nil
 		}
 	case 176:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line build/parse.y:1237
+//line build/parse.y:1236
 		{
 			yyVAL.kvs = yyDollar[1].kvs
 		}
 	case 177:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line build/parse.y:1243
+//line build/parse.y:1242
 		{
 			yyVAL.kvs = []*KeyValueExpr{yyDollar[1].kv}
 		}
 	case 178:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line build/parse.y:1247
+//line build/parse.y:1246
 		{
 			yyVAL.kvs = append(yyDollar[1].kvs, yyDollar[3].kv)
 		}
 	case 179:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line build/parse.y:1253
+//line build/parse.y:1252
 		{
 			yyVAL.kv = &KeyValueExpr{
 				Key:   yyDollar[1].string,
