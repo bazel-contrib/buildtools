@@ -39,6 +39,7 @@ go_test(
         "quote_test.go",
         "rewrite_test.go",
         "rule_test.go",
+        "sort_test.go",
         "utils_test.go",
         "walk_test.go",
     ],
