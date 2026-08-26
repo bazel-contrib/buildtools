@@ -37,24 +37,41 @@ def bar(x, y = a):
 
 def foo():
     pass
+
+type T[U] = list[U]
+
+def baz[U](x: T) -> U:
+    y: int
+    y = 0
+    return x[y]
 `
 
 	expected := `
 a0, b1 = 2, 3
 
-def bar2(x4, y5 = a0):
-    b6 = 4
-    c7 = a0
-    [a8 for a8 in [b6, c7]]
+def bar2(x6, y7 = a0):
+    b8 = 4
+    c9 = a0
+    [a10 for a10 in [b8, c9]]
     if True:
         return foo3()
 
 def foo3():
     pass
+
+type T4[U11] = list[U11]
+
+def baz5[U12](x13: T4) -> U12:
+    y15: int
+    y15 = 0
+    return x13[y15]
 `
 
 	var buildFile build.Expr
-	buildFile, _ = build.Parse("test_file.bzl", []byte(input))
+	buildFile, err := build.Parse("test_file.bzl", []byte(input))
+	if err != nil {
+		t.Fatalf("Bad test input: %v", err)
+	}
 
 	var walk func(e *build.Expr, env *Environment)
 	walk = func(e *build.Expr, env *Environment) {
