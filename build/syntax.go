@@ -807,7 +807,7 @@ func (x *LoadStmt) Copy() Expr {
 type TypeAliasStmt struct {
 	Comments
 	TypePos    Position // position of "type" soft keyword
-	Name       Ident    // name of the type alias
+	Name       Expr     // name of the type alias; must be an Ident.
 	TypeParams Expr     // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
 	EqualPos   Position // position of "="
 	Type       Expr     // definition/target type expression

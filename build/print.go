@@ -948,7 +948,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *TypeAliasStmt:
 		p.printf("type ")
-		p.expr(&v.Name, precLow)
+		p.expr(v.Name, precLow)
 		p.optionalTypeParams(v.TypeParams)
 		p.printf(" = ")
 		if v.LineBreak {

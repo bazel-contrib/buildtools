@@ -142,9 +142,7 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		f(&v.LHS)
 		f(&v.RHS)
 	case *TypeAliasStmt:
-		name := Expr(&v.Name)
-		f(&name)
-		v.Name = *name.(*Ident)
+		f(&v.Name)
 		if v.TypeParams != nil {
 			f(&v.TypeParams)
 		}

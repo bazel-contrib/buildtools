@@ -128,7 +128,11 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			}
 		case *build.TypeAliasStmt:
 			// Type aliases allowed only at top level.
-			env.declare(node.Name.Name, Global, node)
+			// Hypothetically, a bad edit operation could modify Name to be a
+			// non-Ident expr, in which case we'll ignore it.
+			if ident, ok := node.Name.(*build.Ident); ok {
+				env.declare(ident.Name, Global, node)
+			}
 		case *build.AssignExpr:
 			kind := Local
 			if env.Function == nil {
