@@ -632,33 +632,56 @@ func unusedVariableWarning(f *build.File) []*LinterFinding {
 
 func redefinedVariableWarning(f *build.File) []*LinterFinding {
 	findings := []*LinterFinding{}
-	definedSymbols := make(map[string]bool)
+	const (
+		Variable = iota
+		Type
+	)
+	definedSymbols := make(map[string]int)
 
 	types := DetectTypes(f)
 	for _, s := range f.Stmt {
-		// look for all assignments in the scope
-		as, ok := s.(*build.AssignExpr)
-		if !ok {
-			continue
-		}
-		left, ok := as.LHS.(*build.Ident)
-		if !ok {
-			continue
-		}
-		if !definedSymbols[left.Name] {
-			definedSymbols[left.Name] = true
+		switch s := s.(type) {
+		case *build.AssignExpr:
+			left, ok := s.LHS.(*build.Ident)
+			if !ok {
+				continue
+			}
+			if _, ok := definedSymbols[left.Name]; !ok {
+				definedSymbols[left.Name] = Variable
+				continue
+			}
+
+			if s.Op == "+=" && (types[s.LHS] == List || types[s.RHS] == List) {
+				// Not a reassignment, just appending to a list
+				continue
+			}
+
+			suffix := ""
+			if definedSymbols[left.Name] == Type {
+				suffix = " as a type. Redefining a type is incompatible with static type checking."
+			} else {
+				suffix = ". Redefining a global value is discouraged and will be forbidden in the future. Consider using a new variable instead."
+			}
+
+			findings = append(findings, makeLinterFinding(s.LHS, fmt.Sprintf("Variable %q has already been defined%s", left.Name, suffix)))
+
+		case *build.TypeAliasStmt:
+			if _, ok := definedSymbols[s.Name.Name]; !ok {
+				definedSymbols[s.Name.Name] = Type
+				continue
+			}
+
+			detail := ""
+			if definedSymbols[s.Name.Name] == Variable {
+				detail = " as a variable"
+			}
+			findings = append(findings,
+				makeLinterFinding(&s.Name, fmt.Sprintf("Type %q has already been defined%s. Redefining a type is incompatible with static type checking.", s.Name.Name, detail)))
+
+		default:
 			continue
 		}
 
-		if as.Op == "+=" && (types[as.LHS] == List || types[as.RHS] == List) {
-			// Not a reassignment, just appending to a list
-			continue
-		}
-
-		findings = append(findings,
-			makeLinterFinding(as.LHS, fmt.Sprintf(`Variable %q has already been defined. 
-Redefining a global value is discouraged and will be forbidden in the future.
-Consider using a new variable instead.`, left.Name)))
 	}
 	return findings
 }
