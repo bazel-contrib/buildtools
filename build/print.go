@@ -96,9 +96,28 @@ func (p *printer) formattingMode() FileType {
 	}
 }
 
-// printf prints to the buffer.
-func (p *printer) printf(format string, args ...interface{}) {
-	fmt.Fprintf(p, format, args...)
+// spaceString is a run of spaces used by spaces() to emit indentation without allocating each time.
+const spaceString = "                                                                "
+
+// spaces writes n spaces to the buffer.
+func (p *printer) spaces(n int) {
+	for n >= len(spaceString) {
+		p.prints(spaceString)
+		n -= len(spaceString)
+	}
+	if n > 0 {
+		p.prints(spaceString[:n])
+	}
+}
+
+// prints writes s to the buffer.
+func (p *printer) prints(s string) {
+	p.WriteString(s)
+}
+
+// printc writes a single byte to the buffer.
+func (p *printer) printc(c byte) {
+	p.WriteByte(c)
 }
 
 // indent returns the position on the current line, in bytes, 0-indexed.
@@ -119,19 +138,21 @@ func (p *printer) indent() int {
 func (p *printer) newline() {
 	p.needsNewLine = false
 	if len(p.comment) > 0 {
-		p.printf("  ")
+		p.prints("  ")
 		for i, com := range p.comment {
 			if i > 0 {
 				p.trim()
-				p.printf("\n%*s", p.margin, "")
+				p.printc('\n')
+				p.spaces(p.margin)
 			}
-			p.printf("%s", strings.TrimSpace(com.Token))
+			p.prints(strings.TrimSpace(com.Token))
 		}
 		p.comment = p.comment[:0]
 	}
 
 	p.trim()
-	p.printf("\n%*s", p.margin, "")
+	p.printc('\n')
+	p.spaces(p.margin)
 }
 
 // softNewline postpones a call to newline to the next call of p.newlineIfNeeded()
@@ -161,7 +182,8 @@ func (p *printer) newlineIfNeeded() {
 func (p *printer) breakline() {
 	if p.depth == 0 {
 		// Cannot have both final \ and comments.
-		p.printf(" \\\n%*s", p.margin, "")
+		p.prints(" \\\n")
+		p.spaces(p.margin)
 		return
 	}
 
@@ -183,14 +205,14 @@ func (p *printer) trim() {
 // file formats the given file into the print buffer.
 func (p *printer) file(f *File) {
 	for _, com := range f.Before {
-		p.printf("%s", strings.TrimSpace(com.Token))
+		p.prints(strings.TrimSpace(com.Token))
 		p.newline()
 	}
 
 	p.statements(f.Stmt)
 
 	for _, com := range f.After {
-		p.printf("%s", strings.TrimSpace(com.Token))
+		p.prints(strings.TrimSpace(com.Token))
 		p.newline()
 	}
 
@@ -230,7 +252,7 @@ func (p *printer) statements(rawStmts []Expr) {
 
 		for _, com := range stmt.Comment().After {
 			p.newlineIfNeeded()
-			p.printf("%s", strings.TrimSpace(com.Token))
+			p.prints(strings.TrimSpace(com.Token))
 			p.softNewline()
 		}
 
@@ -576,12 +598,12 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.trim()
 		if p.indent() > 0 {
 			// There's other text on the line. Start a new line.
-			p.printf("\n")
+			p.printc('\n')
 		}
 		// Re-indent to margin.
-		p.printf("%*s", p.margin, "")
+		p.spaces(p.margin)
 		for _, com := range before {
-			p.printf("%s", strings.TrimSpace(com.Token))
+			p.prints(strings.TrimSpace(com.Token))
 			p.newline()
 		}
 	}
@@ -596,7 +618,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	parenthesized := false
 	addParen := func(prec int) {
 		if prec < outerPrec {
-			p.printf("(")
+			p.printc('(')
 			p.depth++
 			parenthesized = true
 		}
@@ -610,18 +632,18 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		// CommentBlock has no body
 
 	case *LiteralExpr:
-		p.printf("%s", v.Token)
+		p.prints(v.Token)
 
 	case *Ident:
-		p.printf("%s", v.Name)
+		p.prints(v.Name)
 
 	case *TypedIdent:
 		p.expr(v.Ident, precLow)
-		p.printf(": ")
+		p.prints(": ")
 		p.expr(v.Type, precLow)
 
 	case *BranchStmt:
-		p.printf("%s", v.Token)
+		p.prints(v.Token)
 
 	case *StringExpr:
 		// If the Token is a correct quoting of Value and has double quotes, use it,
@@ -641,7 +663,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 						token = `r"` + token[2:len(token)-1] + `"`
 					}
 				}
-				p.printf("%s", token)
+				p.prints(token)
 				break
 			}
 
@@ -649,13 +671,13 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			if strings.HasPrefix(v.Token, `"`) || strings.ContainsRune(v.Value, '"') {
 				// Either double quoted or there are double-quotes inside the string
 				if IsCorrectEscaping(v.Token) {
-					p.printf("%s", v.Token)
+					p.prints(v.Token)
 					break
 				}
 			}
 		}
 
-		p.printf("%s", quote(v.Value, v.TripleQuote))
+		p.prints(quote(v.Value, v.TripleQuote))
 
 	case *DotExpr:
 		addParen(precSuffix)
@@ -666,7 +688,8 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			p.margin += listIndentation
 			p.breakline()
 		}
-		p.printf(".%s", v.Name)
+		p.printc('.')
+		p.prints(v.Name)
 		if isMultiline {
 			p.margin -= listIndentation
 		}
@@ -674,40 +697,40 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *IndexExpr:
 		addParen(precSuffix)
 		p.expr(v.X, precSuffix)
-		p.printf("[")
+		p.printc('[')
 		p.expr(v.Y, precLow)
-		p.printf("]")
+		p.printc(']')
 
 	case *KeyValueExpr:
 		p.expr(v.Key, precLow)
-		p.printf(": ")
+		p.prints(": ")
 		p.expr(v.Value, precLow)
 
 	case *SliceExpr:
 		addParen(precSuffix)
 		p.expr(v.X, precSuffix)
-		p.printf("[")
+		p.printc('[')
 		if v.From != nil {
 			p.expr(v.From, precLow)
 		}
-		p.printf(":")
+		p.printc(':')
 		if v.To != nil {
 			p.expr(v.To, precLow)
 		}
 		if v.SecondColon.Byte != 0 {
-			p.printf(":")
+			p.printc(':')
 			if v.Step != nil {
 				p.expr(v.Step, precLow)
 			}
 		}
-		p.printf("]")
+		p.printc(']')
 
 	case *UnaryExpr:
 		addParen(precUnary)
 		if v.Op == "not" {
-			p.printf("not ") // Requires a space after it.
+			p.prints("not ") // Requires a space after it.
 		} else {
-			p.printf("%s", v.Op)
+			p.prints(v.Op)
 		}
 		// Use the next precedence level (precSuffix), so that nested unary expressions are parenthesized,
 		// for example: `not (-(+(~foo)))` instead of `not -+~foo`
@@ -717,15 +740,15 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *LambdaExpr:
 		addParen(precColon)
-		p.printf("lambda")
+		p.prints("lambda")
 		for i, param := range v.Params {
 			if i > 0 {
-				p.printf(",")
+				p.printc(',')
 			}
-			p.printf(" ")
+			p.printc(' ')
 			p.expr(param, precLow)
 		}
-		p.printf(": ")
+		p.prints(": ")
 		p.expr(v.Body[0], precLow) // lambdas should have exactly one statement
 
 	case *BinaryExpr:
@@ -752,11 +775,12 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		}
 
 		p.expr(v.X, prec)
-		p.printf(" %s", v.Op)
+		p.printc(' ')
+		p.prints(v.Op)
 		if v.LineBreak {
 			p.breakline()
 		} else {
-			p.printf(" ")
+			p.printc(' ')
 		}
 		p.expr(v.Y, prec+1)
 		p.margin = m
@@ -769,11 +793,12 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		}
 
 		p.expr(v.LHS, precAssign)
-		p.printf(" %s", v.Op)
+		p.printc(' ')
+		p.prints(v.Op)
 		if v.LineBreak {
 			p.breakline()
 		} else {
-			p.printf(" ")
+			p.printc(' ')
 		}
 		p.expr(v.RHS, precAssign+1)
 		p.margin = m
@@ -793,7 +818,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *LoadStmt:
 		addParen(precSuffix)
-		p.printf("load")
+		p.prints("load")
 		args := []Expr{v.Module}
 		for i := range v.From {
 			from := v.From[i]
@@ -842,35 +867,35 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *ConditionalExpr:
 		addParen(precSuffix)
 		p.expr(v.Then, precIfElse)
-		p.printf(" if ")
+		p.prints(" if ")
 		p.expr(v.Test, precIfElse)
-		p.printf(" else ")
+		p.prints(" else ")
 		p.expr(v.Else, precIfElse)
 
 	case *ReturnStmt:
-		p.printf("return")
+		p.prints("return")
 		if v.Result != nil {
-			p.printf(" ")
+			p.printc(' ')
 			p.expr(v.Result, precLow)
 		}
 
 	case *DefStmt:
-		p.printf("def ")
-		p.printf(v.Name)
+		p.prints("def ")
+		p.prints(v.Name)
 		p.seq("()", &v.StartPos, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
-			p.printf(" -> ")
+			p.prints(" -> ")
 			p.expr(v.Type, precLow)
 		}
-		p.printf(":")
+		p.printc(':')
 		p.nestedStatements(v.Body)
 
 	case *ForStmt:
-		p.printf("for ")
+		p.prints("for ")
 		p.expr(v.Vars, precLow)
-		p.printf(" in ")
+		p.prints(" in ")
 		p.expr(v.X, precLow)
-		p.printf(":")
+		p.printc(':')
 		p.nestedStatements(v.Body)
 
 	case *IfStmt:
@@ -883,11 +908,11 @@ func (p *printer) expr(v Expr, outerPrec int) {
 				if needsEmptyLine {
 					p.newline()
 				}
-				p.printf("el")
+				p.prints("el")
 			}
-			p.printf("if ")
+			p.prints("if ")
 			p.expr(block.Cond, precLow)
-			p.printf(":")
+			p.printc(':')
 			p.nestedStatements(block.True)
 
 			isFirst = false
@@ -917,24 +942,24 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			if needsEmptyLine {
 				p.newline()
 			}
-			p.printf("else:")
+			p.prints("else:")
 			p.comment = append(p.comment, block.ElsePos.Comment().Suffix...)
 			p.nestedStatements(block.False)
 		}
 	case *ForClause:
-		p.printf("for ")
+		p.prints("for ")
 		p.expr(v.Vars, precLow)
-		p.printf(" in ")
+		p.prints(" in ")
 		p.expr(v.X, precLow)
 	case *IfClause:
-		p.printf("if ")
+		p.prints("if ")
 		p.expr(v.Cond, precLow)
 	}
 
 	// Add closing parenthesis if needed.
 	if parenthesized {
 		p.depth--
-		p.printf(")")
+		p.printc(')')
 	}
 
 	// Queue end-of-line comments for printing when we
@@ -1042,26 +1067,26 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 	}
 
 	if mode != modeSeq {
-		p.printf("%s", brack[:1])
+		p.prints(brack[:1])
 	}
 	p.depth++
 	defer func() {
 		p.depth--
 		if mode != modeSeq {
-			p.printf("%s", brack[1:])
+			p.prints(brack[1:])
 		}
 	}()
 
 	if p.useCompactMode(start, args, end, mode, forceCompact, forceMultiLine) {
 		for i, x := range *args {
 			if i > 0 {
-				p.printf(", ")
+				p.prints(", ")
 			}
 			p.expr(x, precLow)
 		}
 		// Single-element tuple must end with comma, to mark it as a tuple.
 		if len(*args) == 1 && mode == modeTuple {
-			p.printf(",")
+			p.printc(',')
 		}
 		return
 	}
@@ -1081,21 +1106,22 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		// so that the end-of-line comment, with the two spaces added,
 		// will line up with the current margin.
 		if i == 0 && len(p.comment) > 0 {
-			p.printf("\n%*s", p.margin-2, "")
+			p.printc('\n')
+			p.spaces(p.margin - 2)
 		}
 
 		p.newline()
 		p.expr(x, precLow)
 
 		if i+1 < len(*args) || needsTrailingComma(mode, x) {
-			p.printf(",")
+			p.printc(',')
 		}
 	}
 	// Final comments.
 	if end != nil {
 		for _, com := range end.Before {
 			p.newline()
-			p.printf("%s", strings.TrimSpace(com.Token))
+			p.prints(strings.TrimSpace(com.Token))
 		}
 	}
 	p.margin -= indentation
@@ -1144,7 +1170,7 @@ func (p *printer) listFor(v *Comprehension) {
 		if multiLine {
 			p.breakline()
 		} else {
-			p.printf(" ")
+			p.printc(' ')
 		}
 	}
 
@@ -1153,7 +1179,7 @@ func (p *printer) listFor(v *Comprehension) {
 		open, close = "{", "}"
 	}
 	p.depth++
-	p.printf("%s", open)
+	p.prints(open)
 
 	if multiLine {
 		p.margin += listIndentation
@@ -1170,13 +1196,13 @@ func (p *printer) listFor(v *Comprehension) {
 	if multiLine {
 		for _, com := range v.End.Before {
 			p.newline()
-			p.printf("%s", strings.TrimSpace(com.Token))
+			p.prints(strings.TrimSpace(com.Token))
 		}
 		p.margin -= listIndentation
 		p.newline()
 	}
 
-	p.printf("%s", close)
+	p.prints(close)
 	p.depth--
 }
 
