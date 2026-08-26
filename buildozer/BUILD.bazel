@@ -28,7 +28,7 @@ sh_test(
     size = "small",
     srcs = ["buildozer_test.sh"],
     args = [
-        "$(location :buildozer)",
+        "$(rootpath :buildozer)",
     ],
     data = [
         "test_common.sh",

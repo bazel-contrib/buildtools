@@ -1,9 +1,10 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
-load("//buildifier:def.bzl", "buildifier")
+load("//buildifier:def.bzl", "buildifier", "buildifier_test")
 
 exports_files([
     "LICENSE",
     "launcher.js",
+    "WORKSPACE",
 ])
 
 config_setting(
@@ -20,6 +21,7 @@ filegroup(
 test_suite(
     name = "tests",
     tests = [
+        ":make_location_lint",
         "//api_proto:api.gen.pb.go_checkshtest",
         "//build:build_test",
         "//build_proto:build.gen.pb.go_checkshtest",
@@ -44,4 +46,12 @@ gazelle(
 
 buildifier(
     name = "buildifier",
+)
+
+buildifier_test(
+    name = "make_location_lint",
+    lint_mode = "warn",
+    lint_warnings = ["make-location"],
+    no_sandbox = True,
+    workspace = "//:WORKSPACE",
 )

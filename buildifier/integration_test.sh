@@ -311,6 +311,7 @@ cat > golden/.buildifier.example.json <<EOF
     "keyword-positional-params",
     "list-append",
     "load",
+    "make-location",
     "module-docstring",
     "name-conventions",
     "native-android",
