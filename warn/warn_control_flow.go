@@ -512,13 +512,12 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 				// Same as for def statements, call unusedVariableCheck recursively to handle
 				// type parameter scope properly.
 
-				// The type alias name is defined in the current scope.
-				ident := typeAliasName(expr)
-				if _, ok := definedTypes[ident.Name]; !ok {
-					definedTypes[ident.Name] = expr.Name
+				// The type alias name is defined in the current scope
+				if _, ok := definedTypes[expr.Name.Name]; !ok {
+					definedTypes[expr.Name.Name] = &expr.Name
 				}
 				if edit.ContainsComments(expr, "@unused") {
-					suppressedWarnings[ident.Name] = true
+					suppressedWarnings[expr.Name.Name] = true
 				}
 
 				usedSymbolsInTypeAlias, findingsInTypeAlias := unusedVariableCheck(f, expr)
@@ -589,15 +588,6 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 	findings = appendUnusedVariableLinterFindings(findings, definedFunctions, "Function", usedSymbols, suppressedWarnings, ignoreTopLevel)
 
 	return usedSymbolsFromOuterScope, findings
-}
-
-func typeAliasName(expr *build.TypeAliasStmt) *build.Ident {
-	ident, ok := expr.Name.(*build.Ident)
-	if !ok {
-		// Only possible after an edit operation that violated Starlark syntax rules
-		panic(fmt.Errorf("expected *build.Ident for type alias name, got %T", expr.Name))
-	}
-	return ident
 }
 
 // Collect identifiers into a type expression into appropriate used-symbol maps, depending on whether
@@ -680,18 +670,17 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 			findings = append(findings, makeLinterFinding(s.LHS, fmt.Sprintf("Variable %q has already been defined%s", left.Name, suffix)))
 
 		case *build.TypeAliasStmt:
-			ident := typeAliasName(s)
-			if _, ok := definedSymbols[ident.Name]; !ok {
-				definedSymbols[ident.Name] = Type
+			if _, ok := definedSymbols[s.Name.Name]; !ok {
+				definedSymbols[s.Name.Name] = Type
 				continue
 			}
 
 			detail := ""
-			if definedSymbols[ident.Name] == Variable {
+			if definedSymbols[s.Name.Name] == Variable {
 				detail = " as a variable"
 			}
 			findings = append(findings,
-				makeLinterFinding(s.Name, fmt.Sprintf("Type %q has already been defined%s. Redefining a type is incompatible with static type checking.", ident.Name, detail)))
+				makeLinterFinding(&s.Name, fmt.Sprintf("Type %q has already been defined%s. Redefining a type is incompatible with static type checking.", s.Name.Name, detail)))
 
 		default:
 			continue

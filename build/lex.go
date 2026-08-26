@@ -890,7 +890,7 @@ func (in *input) order(v Expr) {
 			in.order(s)
 		}
 	case *TypeAliasStmt:
-		in.order(v.Name)
+		in.order(&v.Name)
 		if v.TypeParams != nil {
 			in.order(v.TypeParams)
 		}

@@ -534,7 +534,7 @@ type_alias_stmt:
 		ystart, _ := $5.Span()
 		$$ = &TypeAliasStmt{
 			TypePos: $1.(*Ident).NamePos,
-			Name: $2,
+			Name: *$2.(*Ident),
 			TypeParams: $3,
 			EqualPos: $4,
 			Type: $5,

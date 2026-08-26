@@ -1420,7 +1420,7 @@ yydefault:
 			ystart, _ := yyDollar[5].expr.Span()
 			yyVAL.expr = &TypeAliasStmt{
 				TypePos:    yyDollar[1].expr.(*Ident).NamePos,
-				Name:       yyDollar[2].expr,
+				Name:       *yyDollar[2].expr.(*Ident),
 				TypeParams: yyDollar[3].expr,
 				EqualPos:   yyDollar[4].pos,
 				Type:       yyDollar[5].expr,

@@ -258,7 +258,7 @@ var parseTests = []struct {
 			Stmt: []Expr{
 				&TypeAliasStmt{
 					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
-					Name: &Ident{
+					Name: Ident{
 						Name:    "OptionalDict",
 						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
 					},
@@ -316,7 +316,7 @@ var parseTests = []struct {
 			Stmt: []Expr{
 				&TypeAliasStmt{
 					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
-					Name: &Ident{
+					Name: Ident{
 						Name:    "T",
 						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
 					},
