@@ -262,15 +262,19 @@ var parseTests = []struct {
 						Name:    "OptionalDict",
 						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
 					},
-					TypeParams: []*Ident{
-						{
-							Name:    "T",
-							NamePos: Position{Line: 1, LineRune: 19, Byte: 18},
+					TypeParams: &ListExpr{
+						Start: Position{Line: 1, LineRune: 18, Byte: 17},
+						List: []Expr{
+							&Ident{
+								Name:    "T",
+								NamePos: Position{Line: 1, LineRune: 19, Byte: 18},
+							},
+							&Ident{
+								Name:    "U",
+								NamePos: Position{Line: 1, LineRune: 22, Byte: 21},
+							},
 						},
-						{
-							Name:    "U",
-							NamePos: Position{Line: 1, LineRune: 22, Byte: 21},
-						},
+						End: End{Pos: Position{Line: 1, LineRune: 23, Byte: 22}},
 					},
 					EqualPos: Position{Line: 1, LineRune: 25, Byte: 24},
 					Type: &TypeExpr{

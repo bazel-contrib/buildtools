@@ -139,8 +139,8 @@ package build
 %type	<exprs>		parameters_type
 %type	<exprs>		parameters_type_opt
 %type	<expr>		type_alias_stmt
-%type	<idents>  type_params_opt
-%type	<idents>	type_params_idents
+%type	<expr>		type_params_opt
+%type	<exprs>		type_params_idents
 %type	<expr>		type_expr
 %type	<expr>		type_atom
 %type	<expr>		type_application
@@ -546,17 +546,22 @@ type_params_opt:
 	}
 	| '[' type_params_idents comma_opt ']'
 	{
-		$$ = $2
+		$$ = &ListExpr{
+			Start: $1,
+			List: $2,
+			End: End{Pos: $4},
+			ForceMultiLine: forceMultiLine($1, $2, $4),
+		}
 	}
 
 type_params_idents:
 	ident
 	{
-		$$ = []*Ident{$1.(*Ident)}
+		$$ = []Expr{$1}
 	}
 |	type_params_idents ',' ident
 	{
-		$$ = append($1, $3.(*Ident))
+		$$ = append($1, $3)
 	}
 
 semi_opt:

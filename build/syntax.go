@@ -808,7 +808,7 @@ type TypeAliasStmt struct {
 	Comments
 	TypePos    Position // position of "type" soft keyword
 	Name       Ident    // name of the type alias
-	TypeParams []*Ident // optional type parameters [T, U]
+	TypeParams Expr     // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
 	EqualPos   Position // position of "="
 	Type       Expr     // definition/target type expression
 	LineBreak  bool     // insert line break between '=' and Type
@@ -832,7 +832,7 @@ type DefStmt struct {
 	Comments
 	Function
 	Name           string
-	TypeParams     []*Ident // optional type parameters [T, U]
+	TypeParams     Expr     // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
 	ColonPos       Position // position of the ":"
 	ForceCompact   bool     // force compact (non-multiline) form when printing the arguments
 	ForceMultiLine bool     // force multiline form when printing the arguments

@@ -854,8 +854,8 @@ func (in *input) order(v Expr) {
 			in.order(v.Result)
 		}
 	case *DefStmt:
-		for _, x := range v.TypeParams {
-			in.order(x)
+		if v.TypeParams != nil {
+			in.order(v.TypeParams)
 		}
 		for _, x := range v.Params {
 			in.order(x)
@@ -885,8 +885,8 @@ func (in *input) order(v Expr) {
 		}
 	case *TypeAliasStmt:
 		in.order(&v.Name)
-		for _, x := range v.TypeParams {
-			in.order(x)
+		if v.TypeParams != nil {
+			in.order(v.TypeParams)
 		}
 		in.order(v.Type)
 	}

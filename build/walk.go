@@ -144,9 +144,9 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 	case *TypeAliasStmt:
 		name := Expr(&v.Name)
 		f(&name)
-		for i := range v.TypeParams {
-			p := Expr(v.TypeParams[i])
-			f(&p)
+		v.Name = *name.(*Ident)
+		if v.TypeParams != nil {
+			f(&v.TypeParams)
 		}
 		f(&v.Type)
 	case *TypedIdent:
@@ -225,10 +225,8 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 			v.To[i] = to.(*Ident)
 		}
 	case *DefStmt:
-		for i := range v.TypeParams {
-			p := Expr(v.TypeParams[i])
-			f(&p)
-			v.TypeParams[i] = p.(*Ident)
+		if v.TypeParams != nil {
+			f(&v.TypeParams)
 		}
 		for i := range v.Params {
 			f(&v.Params[i])

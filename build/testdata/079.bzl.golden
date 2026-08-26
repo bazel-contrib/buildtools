@@ -6,6 +6,13 @@ type _Setting[T] = dict[str, T]
 
 type _Transform[U] = Callable[[_Setting[U], ...], _Setting[U]]
 
+type _OptionalDict[
+    # blah
+    K,  # key
+    V,  # value
+    # blah blah
+] = dict[K, V] | None
+
 type NumericResult = struct[{
     "name": str,
     "data": Sequence[_Numeric] | None,

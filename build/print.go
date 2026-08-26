@@ -872,16 +872,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *DefStmt:
 		p.printf("def ")
 		p.printf(v.Name)
-		if len(v.TypeParams) > 0 {
-			p.printf("[")
-			for i, param := range v.TypeParams {
-				if i > 0 {
-					p.printf(", ")
-				}
-				p.expr(param, precLow)
-			}
-			p.printf("]")
-		}
+		p.optionalTypeParams(v.TypeParams)
 		p.seq("()", &v.StartPos, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.printf(" -> ")
@@ -958,16 +949,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *TypeAliasStmt:
 		p.printf("type ")
 		p.expr(&v.Name, precLow)
-		if len(v.TypeParams) > 0 {
-			p.printf("[")
-			for i, param := range v.TypeParams {
-				if i > 0 {
-					p.printf(", ")
-				}
-				p.expr(param, precLow)
-			}
-			p.printf("]")
-		}
+		p.optionalTypeParams(v.TypeParams)
 		p.printf(" = ")
 		if v.LineBreak {
 			p.margin += listIndentation
@@ -1154,6 +1136,19 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 	// in modeDef print the closing bracket on the same line
 	if mode != modeDef {
 		p.newline()
+	}
+}
+
+// optionalTypeParams formats a ListExpr of a type alias's or generic function's type params,
+// or does nothing if given a nil.
+func (p *printer) optionalTypeParams(typeParams Expr) {
+	switch list := typeParams.(type) {
+	case nil:
+		return
+	case *ListExpr:
+		p.seq("[]", &list.Start, &list.List, &list.End, modeTypeList, false, list.ForceMultiLine)
+	default:
+		panic(fmt.Errorf("printer: expected ListExpr for type params, got %T", typeParams))
 	}
 }
 

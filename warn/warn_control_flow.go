@@ -460,8 +460,10 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 
 			// The function is a root for the current scope.
 			// Collect its type parameters.
-			for _, typeParam := range expr.TypeParams {
-				definedTypes[typeParam.Name] = typeParam
+			if expr.TypeParams != nil {
+				for _, typeParam := range bzlenv.CollectLValues(expr.TypeParams) {
+					definedTypes[typeParam.Name] = typeParam
+				}
 			}
 			// Collect its (normal) parameters as defined in the current scope.
 			for _, param := range expr.Params {
@@ -526,8 +528,10 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 				return &build.StopTraversalError{}
 			}
 
-			for _, param := range expr.TypeParams {
-				definedTypes[param.Name] = param
+			if expr.TypeParams != nil {
+				for _, typeParam := range bzlenv.CollectLValues(expr.TypeParams) {
+					definedTypes[typeParam.Name] = typeParam
+				}
 			}
 			collectUsedTypeSymbols(expr.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
 

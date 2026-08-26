@@ -12,6 +12,13 @@ type _Transform[U] = Callable[
     _Setting[U],
 ]
 
+type _OptionalDict[
+    # blah
+    K,  # key
+    V,  # value
+    # blah blah
+] = dict[K, V] | None
+
 type NumericResult = struct[
     {
         "name": str,

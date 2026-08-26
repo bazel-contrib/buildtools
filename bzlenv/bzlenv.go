@@ -218,9 +218,9 @@ func WalkOnceWithEnvironment(node build.Expr, env *Environment, fct func(e *buil
 		declareGlobals(node.Stmt, env)
 		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
 	case *build.DefStmt:
-		if len(node.TypeParams) > 0 {
+		if node.TypeParams != nil {
 			env.enterBlock()
-			for _, id := range node.TypeParams {
+			for _, id := range CollectLValues(node.TypeParams) {
 				env.declare(id.Name, TypeParameter, node)
 			}
 		}
@@ -231,18 +231,18 @@ func WalkOnceWithEnvironment(node build.Expr, env *Environment, fct func(e *buil
 		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
 		env.Function = nil
 		env.exitBlock()
-		if len(node.TypeParams) > 0 {
+		if node.TypeParams != nil {
 			env.exitBlock()
 		}
 	case *build.TypeAliasStmt:
-		if len(node.TypeParams) > 0 {
+		if node.TypeParams != nil {
 			env.enterBlock()
-			for _, id := range node.TypeParams {
+			for _, id := range CollectLValues(node.TypeParams) {
 				env.declare(id.Name, TypeParameter, node)
 			}
 		}
 		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
-		if len(node.TypeParams) > 0 {
+		if node.TypeParams != nil {
 			env.exitBlock()
 		}
 	case *build.Comprehension:
