@@ -645,7 +645,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *TypeExpr:
 		for i, x := range v.List {
 			if i > 0 {
-				p.printf(" | ")
+				p.prints(" | ")
 			}
 			p.expr(x, precLow)
 		}
@@ -655,7 +655,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeCall, v.ForceCompact, v.ForceMultiLine)
 
 	case *EllipsisExpr:
-		p.printf("...")
+		p.prints("...")
 
 	case *BranchStmt:
 		p.prints(v.Token)
@@ -972,17 +972,17 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.expr(v.Cond, precLow)
 
 	case *TypeAliasStmt:
-		p.printf("type ")
+		p.prints("type ")
 		p.expr(&v.Name, precLow)
 		p.optionalTypeParams(v.TypeParams)
-		p.printf(" =")
+		p.prints(" =")
 		if v.LineBreak {
 			p.margin += listIndentation
 			p.breakline()
 			p.expr(v.Type, precLow)
 			p.margin -= listIndentation
 		} else {
-			p.printf(" ")
+			p.prints(" ")
 			p.expr(v.Type, precLow)
 		}
 	}
