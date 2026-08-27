@@ -16,6 +16,8 @@ limitations under the License.
 
 package build
 
+import "fmt"
+
 // StopTraversalError is a special error that tells the walker to not traverse
 // further and visit child nodes of the current node.
 type StopTraversalError struct{}
@@ -142,22 +144,28 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		f(&v.LHS)
 		f(&v.RHS)
 	case *TypeAliasStmt:
-		name := Expr(&v.Name)
-		f(&name)
-		v.Name = *name.(*Ident)
+		updateableNameExpr := Expr(&v.Name)
+		f(&updateableNameExpr)
+		if updatedIdent, ok := updateableNameExpr.(*Ident); ok {
+			v.Name = *updatedIdent
+		} else {
+			// Don't support syntactically invalid edits
+			panic(fmt.Errorf("expected *build.Ident for type alias name, got %T", updateableNameExpr))
+		}
 		if v.TypeParams != nil {
 			f(&v.TypeParams)
 		}
 		f(&v.Type)
 	case *TypedIdent:
-		if v.Ident != nil {
-			ident := Expr(v.Ident)
-			f(&ident)
-			v.Ident = ident.(*Ident)
+		updateableNameExpr := Expr(v.Ident)
+		f(&updateableNameExpr)
+		if updatedIdent, ok := updateableNameExpr.(*Ident); ok {
+			v.Ident = updatedIdent
+		} else {
+			// Don't support syntactically invalid edits
+			panic(fmt.Errorf("expected *build.Ident for typed ident, got %T", updateableNameExpr))
 		}
-		if v.Type != nil {
-			f(&v.Type)
-		}
+		f(&v.Type)
 	case *TypeExpr:
 		for i := range v.List {
 			f(&v.List[i])
