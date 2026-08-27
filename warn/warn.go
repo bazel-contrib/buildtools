@@ -136,6 +136,7 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"dict-method-named-arg":         dictMethodNamedArgWarning,
 	"dict-concatenation":            dictionaryConcatenationWarning,
 	"duplicated-name":               duplicatedNameWarning,
+	"exports-files-discouraged":     exportsFilesDiscouragedWarning,
 	"external-path":                 externalPathWarning,
 	"filetype":                      fileTypeWarning,
 	"function-docstring":            functionDocstringWarning,

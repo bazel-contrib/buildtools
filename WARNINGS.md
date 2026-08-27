@@ -25,6 +25,7 @@ Warning categories supported by buildifier's linter:
   * [`dict-concatenation`](#dict-concatenation)
   * [`dict-method-named-arg`](#dict-method-named-arg)
   * [`duplicated-name`](#duplicated-name)
+  * [`exports-files-discouraged`](#exports-files-discouraged)
   * [`external-path`](#external-path)
   * [`filetype`](#filetype)
   * [`function-docstring`](#function-docstring)
@@ -547,6 +548,38 @@ users reading a BUILD file (if they look for the rule “foo”, they may read s
 only one of the macros). It will also confuse tools that edit BUILD files.
 
 To fix the issue just change the name attribute of one rule/macro.
+
+--------------------------------------------------------------------------------
+
+## <a name="exports-files-discouraged"></a>`exports_files()` violates package encapsulation
+
+  * Category name: `exports-files-discouraged`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=exports-files-discouraged`
+
+A Bazel package is meant to be an encapsulation boundary. `exports_files()` is a
+design smell of "feature envy": whatever needs to label the files should usually
+live in the same package.
+
+Prefer exposing files via a rule (even a `filegroup`) in the owning package. That
+lets the package govern access and later replace the label with an action that
+generates the file rather than exposing a source artifact forever.
+
+When `exports_files()` is necessary, it should:
+- Set `visibility` to a package (`:__pkg__` or `:__subpackages__`) or
+  `package_group`, not the default `//visibility:public`
+- Include a comment explaining why encapsulation is violated
+
+Example:
+
+```python
+# Legacy tooling labels this file directly; tracked in PROJ-123.
+exports_files(
+    ["legacy_config.txt"],
+    visibility = ["//tools/legacy:__subpackages__"],
+)
+```
+
 
 --------------------------------------------------------------------------------
 

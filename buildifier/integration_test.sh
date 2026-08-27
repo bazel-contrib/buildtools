@@ -299,6 +299,7 @@ cat > golden/.buildifier.example.json <<EOF
     "dict-concatenation",
     "dict-method-named-arg",
     "duplicated-name",
+    "exports-files-discouraged",
     "external-path",
     "filetype",
     "function-docstring",
@@ -808,4 +809,3 @@ diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/dir/target_inside.bzl" > /dev/null && 
 
 rm -rf "$NOWS_DIR"
 fi
-

@@ -325,6 +325,31 @@ warnings: {
 }
 
 warnings: {
+  name: "exports-files-discouraged"
+  header: "`exports_files()` violates package encapsulation"
+  description:
+    "A Bazel package is meant to be an encapsulation boundary. `exports_files()` is a\n"
+    "design smell of \"feature envy\": whatever needs to label the files should usually\n"
+    "live in the same package.\n\n"
+    "Prefer exposing files via a rule (even a `filegroup`) in the owning package. That\n"
+    "lets the package govern access and later replace the label with an action that\n"
+    "generates the file rather than exposing a source artifact forever.\n\n"
+    "When `exports_files()` is necessary, it should:\n"
+    "- Set `visibility` to a package (`:__pkg__` or `:__subpackages__`) or\n"
+    "  `package_group`, not the default `//visibility:public`\n"
+    "- Include a comment explaining why encapsulation is violated\n\n"
+    "Example:\n\n"
+    "```python\n"
+    "# Legacy tooling labels this file directly; tracked in PROJ-123.\n"
+    "exports_files(\n"
+    "    [\"legacy_config.txt\"],\n"
+    "    visibility = [\"//tools/legacy:__subpackages__\"],\n"
+    ")\n"
+    "```\n"
+  autofix: false
+}
+
+warnings: {
   name: "external-path"
   header: "String contains `/external/` which may indicate a dependency on external repositories that could be fragile"
   description:

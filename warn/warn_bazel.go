@@ -302,6 +302,100 @@ func externalPathWarning(f *build.File) []*LinterFinding {
 	return findings
 }
 
+func isExportsFilesCall(call *build.CallExpr) bool {
+	switch x := call.X.(type) {
+	case *build.Ident:
+		return x.Name == "exports_files"
+	case *build.DotExpr:
+		return x.Name == "exports_files"
+	default:
+		return false
+	}
+}
+
+func exportsFilesVisibility(rule *build.Rule) []string {
+	if vis := rule.AttrStrings("visibility"); vis != nil {
+		return vis
+	}
+	if len(rule.Call.List) >= 2 {
+		if _, ok := rule.Call.List[1].(*build.AssignExpr); ok {
+			return nil
+		}
+		return build.Strings(rule.Call.List[1])
+	}
+	return nil
+}
+
+func isPackageOrPackageGroupVisibility(label string) bool {
+	if label == "//visibility:public" || label == "//visibility:private" {
+		return false
+	}
+	if strings.HasSuffix(label, ":__pkg__") || strings.HasSuffix(label, ":__subpackages__") {
+		return true
+	}
+	return strings.Contains(label, ":") && !strings.HasPrefix(label, "//visibility:")
+}
+
+func hasExportsFilesJustificationComment(call *build.CallExpr) bool {
+	com := call.Comment()
+	comments := append(com.Before, com.Suffix...)
+	comments = append(comments, com.After...)
+	for _, c := range comments {
+		token := strings.TrimSpace(c.Token)
+		if token == "" {
+			continue
+		}
+		lower := strings.ToLower(token)
+		if strings.Contains(lower, "buildifier: disable=") ||
+			strings.Contains(lower, "buildozer: disable=") {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func exportsFilesDiscouragedWarning(f *build.File) []*LinterFinding {
+	if f.Type != build.TypeBuild {
+		return nil
+	}
+
+	findings := []*LinterFinding{}
+	build.Walk(f, func(expr build.Expr, stack []build.Expr) {
+		call, ok := expr.(*build.CallExpr)
+		if !ok || !isExportsFilesCall(call) {
+			return
+		}
+
+		findings = append(findings, makeLinterFinding(call,
+			`exports_files() violates package encapsulation; prefer exposing files via a rule (e.g. filegroup) in the owning package.`))
+
+		visibility := exportsFilesVisibility(f.Rule(call))
+		if len(visibility) == 0 {
+			findings = append(findings, makeLinterFinding(call,
+				`exports_files() defaults to //visibility:public; set visibility to a package (:__pkg__ or :__subpackages__) or package_group.`))
+		} else {
+			properlyScoped := false
+			for _, label := range visibility {
+				if isPackageOrPackageGroupVisibility(label) {
+					properlyScoped = true
+					break
+				}
+			}
+			if !properlyScoped {
+				findings = append(findings, makeLinterFinding(call,
+					`exports_files() should set visibility to a package (:__pkg__ or :__subpackages__) or package_group, not //visibility:public.`))
+			}
+		}
+
+		if !hasExportsFilesJustificationComment(call) {
+			findings = append(findings, makeLinterFinding(call,
+				`exports_files() should include a comment explaining why package encapsulation is violated.`))
+		}
+	})
+	return findings
+}
+
 func canonicalRepositoryWarning(f *build.File) []*LinterFinding {
 	if f.Type == build.TypeDefault {
 		// Only applicable to Bazel files
