@@ -144,7 +144,7 @@ eof
         srcs = [src + "_check.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = [src, gen],
-        args = ["$(location " + src + ")", "$(location " + gen + ")"],
+        args = ["$(rootpath " + src + ")", "$(rootpath " + gen + ")"],
     )
 
     # magic copy rule used to update the checked-in version
@@ -152,7 +152,7 @@ eof
         name = src + "_copysh",
         srcs = [gen],
         outs = [src + "copy.sh"],
-        cmd = "echo 'cp $${BUILD_WORKSPACE_DIRECTORY}/$(location " + gen +
+        cmd = "echo 'cp $${BUILD_WORKSPACE_DIRECTORY}/$(execpath " + gen +
               ") $${BUILD_WORKSPACE_DIRECTORY}/" + native.package_name() + "/" + src + "' > $@",
     )
     sh_binary(

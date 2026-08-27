@@ -44,6 +44,10 @@ const (
 	TypeBzl
 	// TypeModule represents MODULE.bazel and *.MODULE.bazel files
 	TypeModule
+	// TypeRepo represents REPO.bazel files
+	TypeRepo
+	// TypeVendor represents VENDOR.bazel files
+	TypeVendor
 )
 
 func (t FileType) String() string {
@@ -58,6 +62,10 @@ func (t FileType) String() string {
 		return ".bzl"
 	case TypeModule:
 		return "MODULE.bazel"
+	case TypeRepo:
+		return "REPO.bazel"
+	case TypeVendor:
+		return "VENDOR.bazel"
 	}
 	return "unknown"
 }
@@ -98,6 +106,30 @@ func ParseModule(filename string, data []byte) (*File, error) {
 	return f, err
 }
 
+// ParseRepo parses a file, marks it as a REPO.bazel file and returns the corresponding parse tree.
+//
+// The filename is used only for generating error messages.
+func ParseRepo(filename string, data []byte) (*File, error) {
+	in := newInput(filename, data)
+	f, err := in.parse()
+	if f != nil {
+		f.Type = TypeRepo
+	}
+	return f, err
+}
+
+// ParseVendor parses a file, marks it as a VENDOR.bazel file and returns the corresponding parse tree.
+//
+// The filename is used only for generating error messages.
+func ParseVendor(filename string, data []byte) (*File, error) {
+	in := newInput(filename, data)
+	f, err := in.parse()
+	if f != nil {
+		f.Type = TypeVendor
+	}
+	return f, err
+}
+
 // ParseBzl parses a file, marks it as a .bzl file and returns the corresponding parse tree.
 //
 // The filename is used only for generating error messages.
@@ -133,6 +165,12 @@ func getFileType(filename string) FileType {
 	if basename == "module.bazel" || strings.HasSuffix(basename, ".module.bazel") {
 		return TypeModule
 	}
+	if basename == "repo.bazel" {
+		return TypeRepo
+	}
+	if basename == "vendor.bazel" {
+		return TypeVendor
+	}
 	ext := filepath.Ext(basename)
 	switch ext {
 	case ".bzl":
@@ -162,6 +200,10 @@ func Parse(filename string, data []byte) (*File, error) {
 		return ParseWorkspace(filename, data)
 	case TypeModule:
 		return ParseModule(filename, data)
+	case TypeRepo:
+		return ParseRepo(filename, data)
+	case TypeVendor:
+		return ParseVendor(filename, data)
 	case TypeBzl:
 		return ParseBzl(filename, data)
 	}
@@ -735,7 +777,7 @@ var keywordToken = map[string]int{
 // order walks the expression adding it and its subexpressions to the
 // preorder and postorder lists.
 func (in *input) order(v Expr) {
-	if v != nil {
+	if len(in.lineComments) > 0 && v != nil {
 		in.pre = append(in.pre, v)
 	}
 	switch v := v.(type) {
@@ -896,17 +938,29 @@ func (in *input) order(v Expr) {
 		}
 		in.order(v.Type)
 	}
-	if v != nil {
+	if len(in.suffixComments) > 0 && v != nil {
 		in.post = append(in.post, v)
 	}
 }
 
 // assignComments attaches comments to nearby syntax.
 func (in *input) assignComments() {
-	// Generate preorder and postorder lists.
+	// Line comments are attached using the preorder list, suffix comments using
+	// the postorder list (order() builds only the list(s) for the comment kinds
+	// present). If the file has neither kind, skip the whole-tree walk entirely.
+	hasLine := len(in.lineComments) > 0
+	hasSuffix := len(in.suffixComments) > 0
+	if !hasLine && !hasSuffix {
+		return
+	}
+
 	in.order(in.file)
-	in.assignSuffixComments()
-	in.assignLineComments()
+	if hasSuffix {
+		in.assignSuffixComments()
+	}
+	if hasLine {
+		in.assignLineComments()
+	}
 }
 
 func (in *input) assignSuffixComments() {

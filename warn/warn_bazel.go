@@ -20,10 +20,14 @@ package warn
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/bazelbuild/buildtools/build"
 )
+
+// locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.
+var locationMakeVariableRe = regexp.MustCompile(`\$\(locations?(?:\s[^)]*)?\)`)
 
 func constantGlobPatternWarning(patterns *build.ListExpr) []*LinterFinding {
 	findings := []*LinterFinding{}
@@ -252,6 +256,26 @@ func printWarning(f *build.File) []*LinterFinding {
 		}
 		findings = append(findings,
 			makeLinterFinding(expr, `"print()" is a debug function and shouldn't be submitted.`))
+	})
+	return findings
+}
+
+func makeLocationVariableWarning(f *build.File) []*LinterFinding {
+	if f.Type != build.TypeBuild {
+		return nil
+	}
+
+	findings := []*LinterFinding{}
+	build.Walk(f, func(expr build.Expr, stack []build.Expr) {
+		stringExpr, ok := expr.(*build.StringExpr)
+		if !ok {
+			return
+		}
+		if locationMakeVariableRe.MatchString(stringExpr.Value) {
+			findings = append(findings,
+				makeLinterFinding(stringExpr,
+					`The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`))
+		}
 	})
 	return findings
 }

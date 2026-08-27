@@ -146,6 +146,7 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"keyword-positional-params":     keywordPositionalParametersWarning,
 	"list-append":                   listAppendWarning,
 	"load":                          unusedLoadWarning,
+	"make-location":                 makeLocationVariableWarning,
 	"module-docstring":              moduleDocstringWarning,
 	"name-conventions":              nameConventionsWarning,
 	"native-build":                  nativeInBuildFilesWarning,

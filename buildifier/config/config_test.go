@@ -77,6 +77,7 @@ func ExampleExample() {
 	//     "keyword-positional-params",
 	//     "list-append",
 	//     "load",
+	//     "make-location",
 	//     "module-docstring",
 	//     "name-conventions",
 	//     "native-android",
@@ -169,7 +170,7 @@ func ExampleFlagSet() {
 	// path: assume BUILD file has this path relative to the workspace directory ("")
 	// r: find starlark files recursively ("false")
 	// tables: path to JSON file with custom table definitions which will replace the built-in tables ("")
-	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
+	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
 	// v: print verbose information to standard error ("false")
 	// version: print the version of buildifier ("false")
 	// warnings: comma-separated warnings used in the lint mode or "all" ("")
@@ -265,7 +266,7 @@ func TestValidate(t *testing.T) {
 		"type default":          {options: "--type=default"},
 		"type module":           {options: "--type=module"},
 		"type auto":             {options: "--type=auto"},
-		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, auto")},
+		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, repo, vendor, auto")},
 		"warnings all": {options: "--warnings=all", wantWarnings: []string{
 			"allowed-symbol-load-locations",
 			"attr-applicable_licenses",
@@ -301,6 +302,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -403,6 +405,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -505,6 +508,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -607,6 +611,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",

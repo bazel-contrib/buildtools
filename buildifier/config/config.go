@@ -93,7 +93,8 @@ func findTablesPath(file string) (string, error) {
 type Config struct {
 	// InputType determines the input file type: build (for BUILD files), bzl
 	// (for .bzl files), workspace (for WORKSPACE files), default (for generic
-	// Starlark files), module (for MODULE.bazel files)
+	// Starlark files), module (for MODULE.bazel files),
+	// repo (for REPO.bazel files), vendor (for VENDOR.bazel files),
 	// or auto (default, based on the filename)
 	InputType string `json:"type,omitempty"`
 	// Format sets the diagnostics format: text or json (default text)
@@ -185,7 +186,7 @@ func (c *Config) FlagSet(name string, errorHandling flag.ErrorHandling) *flag.Fl
 	flags.StringVar(&c.WorkspaceRelativePath, "path", c.WorkspaceRelativePath, "assume BUILD file has this path relative to the workspace directory")
 	flags.StringVar(&c.TablesPath, "tables", c.TablesPath, "path to JSON file with custom table definitions which will replace the built-in tables")
 	flags.StringVar(&c.AddTablesPath, "add_tables", c.AddTablesPath, "path to JSON file with custom table definitions which will be merged with the built-in tables")
-	flags.StringVar(&c.InputType, "type", c.InputType, "Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), default (for generic Starlark files) or auto (default, based on the filename)")
+	flags.StringVar(&c.InputType, "type", c.InputType, "Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename)")
 	flags.StringVar(&c.ConfigPath, "config", "", "path to .buildifier.json config file")
 	flags.Var(&c.AllowSort, "allowsort", "additional sort contexts to treat as safe")
 	flags.Var(&c.DisableRewrites, "buildifier_disable", "list of buildifier rewrites to disable")
