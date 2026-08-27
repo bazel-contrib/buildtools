@@ -704,6 +704,49 @@ sample_macro_with_used_foo()
 `,
 		[]string{},
 		scopeEverywhere)
+
+	checkFindings(t, "unused-variable", `
+def foo(items):
+  items.append(1)
+
+foo([])
+`,
+		[]string{},
+		scopeEverywhere)
+
+	checkFindings(t, "unused-variable", `
+def foo(passed_in_list_of_lists):
+  for mutatable_list in passed_in_list_of_lists:
+    mutatable_list.append(1)
+
+foo([[], []])
+`,
+		[]string{},
+		scopeEverywhere)
+
+	checkFindings(t, "unused-variable", `
+def framework_import_impl():
+  used_list = []
+  unused_list = []
+  unused_dictionary = {}
+
+  used_list.extend([1])
+  unused_dictionary.update(_ensure_swiftmodule_is_embedded(swiftmodule))
+  unused_list.extend([
+			x
+      for x in used_list
+      if x > 5
+  ])
+
+  return used_list
+
+framework_import_impl()
+`,
+		[]string{
+			":3: Variable \"unused_list\" is unused.",
+			":4: Variable \"unused_dictionary\" is unused.",
+		},
+		scopeEverywhere)
 }
 
 func TestRedefinedVariable(t *testing.T) {
