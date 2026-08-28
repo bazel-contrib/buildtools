@@ -19,9 +19,10 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/bazelbuild/buildtools/build"
 	"github.com/bazelbuild/buildtools/warn"
-	"strings"
 )
 
 // Diagnostics contains diagnostic information returned by formatter and linter
@@ -74,18 +75,25 @@ type FileDiagnostics struct {
 }
 
 type warning struct {
-	Start       position `json:"start"`
-	End         position `json:"end"`
-	Category    string   `json:"category"`
-	Actionable  bool     `json:"actionable"`
-	AutoFixable bool     `json:"autoFixable"`
-	Message     string   `json:"message"`
-	URL         string   `json:"url"`
+	Start       position     `json:"start"`
+	End         position     `json:"end"`
+	Category    string       `json:"category"`
+	Actionable  bool         `json:"actionable"`
+	AutoFixable bool         `json:"autoFixable"`
+	Message     string       `json:"message"`
+	URL         string       `json:"url"`
+    Replacement *replacement `json:"replacement,omitempty"` // Optional replacement
 }
 
 type position struct {
 	Line   int `json:"line"`
 	Column int `json:"column"`
+}
+
+type replacement struct {
+	Start   int    `json:"start"`   // Start offset in bytes
+	End     int    `json:"end"`     // End offset in bytes, may be equal to Start for insertions
+	Content string `json:"content"` // Replacement content
 }
 
 // NewDiagnostics returns a new Diagnostics object
@@ -121,6 +129,7 @@ func NewFileDiagnostics(filename string, warnings []*warn.Finding) *FileDiagnost
 			AutoFixable: w.AutoFixable,
 			Message:     w.Message,
 			URL:         w.URL,
+			Replacement: makeReplacement(w.Replacement),
 		})
 	}
 
@@ -145,5 +154,16 @@ func makePosition(p build.Position) position {
 	return position{
 		Line:   p.Line,
 		Column: p.LineRune,
+	}
+}
+
+func makeReplacement(r *warn.Replacement) *replacement {
+	if r == nil {
+		return nil
+	}
+	return &replacement{
+		Start:   r.Start,
+		End:     r.End,
+		Content: r.Content,
 	}
 }
