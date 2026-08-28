@@ -5,7 +5,7 @@ type _Numeric = int | float
 type _Setting[T] = dict[str, T]
 
 type _Transform[U] = \
-    Callable[[_Setting[U], ...], _Setting[U]]
+    Callable[[_Setting[U], str], _Setting[U]]
 
 type _OptionalDict[
     # blah
@@ -23,7 +23,7 @@ def concat(name: str, transform: _Transform[_Numeric]|None, *args: _Setting[_Num
     d: list[_Numeric] = []
     for s in args:
         if transform != None:
-            s = transform(s)
+            s = transform(s, "concat")
         if s.get("data") is not None:
             d.extend(s["data"])
     return struct(name = name, data = d)
