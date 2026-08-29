@@ -91,7 +91,7 @@ It's also possible to provide `--warnings=all` to use all supported warnings
 categories (they will still be limited to relevant warnings for the given file
 type).
 
-See also the [full list](../WARNINGS.md) or the supported warnings.
+See also the [full list](../WARNINGS.md) of supported warnings.
 
 ## Setup and usage via Bazel
 
