@@ -103,12 +103,12 @@ func nameConventionsWarning(f *build.File) []*LinterFinding {
 			if isLowerSnakeCase(ident.Name) || isUpperSnakeCase(ident.Name) {
 				continue
 			}
-			if isUpperCamelCase(ident.Name) && strings.HasSuffix(ident.Name, "Info") {
+			if isUpperCamelCase(ident.Name) {
 				continue
 			}
 			findings = append(findings,
 				makeLinterFinding(ident,
-					fmt.Sprintf(`Variable name "%s" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`, ident.Name)))
+					fmt.Sprintf(`Variable name "%s" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase (for providers).`, ident.Name)))
 		}
 		return
 	})
