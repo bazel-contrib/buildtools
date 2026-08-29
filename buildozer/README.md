@@ -111,6 +111,8 @@ Buildozer supports the following commands(`'command args'`):
   * `new <rule_kind> <rule_name> [(before|after) <relative_rule_name>]`: Add a
     new rule at the end of the BUILD file (before/after `<relative_rule>`). The
     identifier `__pkg__` can be used to position rules relative to package().
+  * `new_if_absent <rule_kind> <rule_name> [(before|after) <relative_rule_name>]`:
+    Same as `new`, but does nothing if a rule with the same name already exists.
   * `print <attr(s)>`
   * `remove <attr>`: Removes attribute `attr`. The wildcard `*` matches all
     attributes except `name`.

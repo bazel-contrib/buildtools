@@ -1354,6 +1354,20 @@ function test_new_already_exists() {
   assert_err "rule 'a' already exists"
 }
 
+function test_new_if_absent_cc_library() {
+  in='cc_test(name = "a")'
+  run "$in" 'new_if_absent cc_library foo' '//pkg:__pkg__'
+  assert_equals 'cc_test(name = "a")
+
+cc_library(name = "foo")'
+}
+
+function test_new_if_absent_existing_rule() {
+  in='cc_library(name = "foo")'
+  ERROR=3 run "$in" 'new_if_absent cc_library foo' '//pkg:__pkg__'
+  assert_equals 'cc_library(name = "foo")'
+}
+
 function test_new_before_first() {
   in='cc_test(name = "a")'
   run "$in" 'new java_library foo before a' 'pkg/BUILD'
