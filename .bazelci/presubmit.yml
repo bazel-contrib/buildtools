@@ -10,6 +10,9 @@ platforms:
     test_targets:
     - "//..."
   macos:
+    environment:
+      ANDROID_HOME: ""
+      ANDROID_NDK_HOME: ""
     test_targets:
     - "//..."
   macos_arm64:
