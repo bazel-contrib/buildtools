@@ -38,6 +38,23 @@ var (
 	DeleteWithComments = true
 )
 
+func resolveBzlTarget(basePath, rule string) (bzlFile string, rulePart string, ok bool) {
+	if !strings.Contains(rule, ".bzl") {
+		return "", "", false
+	}
+	idx := strings.Index(rule, ".bzl")
+	bzlPart := rule[:idx+4]
+	rulePart = rule
+	if idx+4 < len(rule) && rule[idx+4] == ':' {
+		rulePart = rule[idx+5:]
+	}
+	bzlFile = filepath.Join(basePath, bzlPart)
+	if wspace.IsRegularFile(bzlFile) {
+		return bzlFile, rulePart, true
+	}
+	return "", "", false
+}
+
 // InterpretLabelForWorkspaceLocation returns the name of the BUILD file to
 // edit, the full package name, and the rule. It takes a workspace-rooted
 // directory to use.
@@ -66,6 +83,11 @@ func InterpretLabelForWorkspaceLocation(root, target string) (buildFile, repo, p
 			pkg = path.Dir(pkg)
 			return
 		}
+		if bzlFile, rulePart, ok := resolveBzlTarget(pkgPath, rule); ok {
+			buildFile = bzlFile
+			rule = rulePart
+			return
+		}
 		for _, buildFileName := range BuildFileNames {
 			buildFile = filepath.Join(pkgPath, buildFileName)
 			if wspace.IsRegularFile(buildFile) {
@@ -83,11 +105,18 @@ func InterpretLabelForWorkspaceLocation(root, target string) (buildFile, repo, p
 	}
 
 	found := false
-	for _, buildFileName := range BuildFileNames {
-		buildFile = filepath.Join(pkg, buildFileName)
-		if wspace.IsRegularFile(buildFile) {
-			found = true
-			break
+	if bzlFile, rulePart, ok := resolveBzlTarget(pkg, rule); ok {
+		buildFile = bzlFile
+		found = true
+		rule = rulePart
+	}
+	if !found {
+		for _, buildFileName := range BuildFileNames {
+			buildFile = filepath.Join(pkg, buildFileName)
+			if wspace.IsRegularFile(buildFile) {
+				found = true
+				break
+			}
 		}
 	}
 	if !found {
@@ -867,7 +896,7 @@ func sortedInsert(list []build.Expr, item build.Expr) []build.Expr {
 // sorted. For some attributes, it makes sense to try to do a sorted insert
 // (e.g. deps), even when buildifier will not sort it for conservative reasons.
 // For a few attributes, sorting will never make sense.
-func attributeMustNotBeSorted(rule, attr string) bool {
+func attributeMustNotBeSorted(_ string, attr string) bool {
 	// TODO(bazel-team): Come up with a more complete list.
 	return attr == "args"
 }

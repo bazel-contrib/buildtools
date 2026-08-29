@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazelbuild/buildtools/wspace"
 )
 
 var parseLabelTests = []struct {
@@ -828,6 +829,74 @@ func runTestInterpretLabelForWorkspaceLocation(t *testing.T, buildFileName strin
 func TestInterpretLabelForWorkspaceLocation(t *testing.T) {
 	runTestInterpretLabelForWorkspaceLocation(t, "BUILD")
 	runTestInterpretLabelForWorkspaceLocation(t, "BUILD.bazel")
+}
+
+func TestInterpretLabelForWorkspaceLocation_BzlFile(t *testing.T) {
+	// Create the test workspace under the current directory to avoid relying on
+	// system temp locations that may be unavailable in some sandboxes.
+	tmp, err := os.MkdirTemp(".", "edit_test_workspace_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, "a"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "WORKSPACE"), []byte("# test workspace\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "a", "defs.bzl"), []byte(`http_archive(name = "r")`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !wspace.IsRegularFile(filepath.Join(tmp, "a", "defs.bzl")) {
+		t.Fatalf("test setup failed: expected %q to be a regular file", filepath.Join(tmp, "a", "defs.bzl"))
+	}
+
+	// Allow selecting a .bzl file using the "target" part of the label.
+	buildFile, _, pkg, rule := InterpretLabelForWorkspaceLocation(tmp, "//a:defs.bzl")
+	if buildFile != filepath.Join(tmp, "a", "defs.bzl") || pkg != "a" || rule != "defs.bzl" {
+		t.Fatalf("InterpretLabelForWorkspaceLocation(%q, %q) = %q, %q, %q; want %q, %q, %q",
+			tmp, "//a:defs.bzl", buildFile, pkg, rule, filepath.Join(tmp, "a", "defs.bzl"), "a", "defs.bzl")
+	}
+
+	// Also allow addressing a "rule name" inside the .bzl label for buildozer-style edits.
+	buildFile, _, pkg, rule = InterpretLabelForWorkspaceLocation(tmp, "//a:defs.bzl:r")
+	if buildFile != filepath.Join(tmp, "a", "defs.bzl") || pkg != "a" || rule != "r" {
+		t.Fatalf("InterpretLabelForWorkspaceLocation(%q, %q) = %q, %q, %q; want %q, %q, %q",
+			tmp, "//a:defs.bzl:r", buildFile, pkg, rule, filepath.Join(tmp, "a", "defs.bzl"), "a", "r")
+	}
+}
+
+func TestAddAndRemovePatchesInBzlFile(t *testing.T) {
+	input := `http_archive(
+    name = "r",
+    patches = ["a.patch"],
+)`
+	bld, err := build.ParseBzl("defs.bzl", []byte(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule := bld.RuleAt(1)
+	if rule == nil {
+		t.Fatalf("expected to find first rule in parsed .bzl file")
+	}
+
+	AddValueToListAttribute(rule, "patches", "", &build.StringExpr{Value: "b.patch"}, nil)
+	ListAttributeDelete(rule, "patches", "a.patch", "")
+
+	got := strings.TrimSpace(string(build.Format(bld)))
+	expected := `http_archive(
+    name = "r",
+    patches = ["b.patch"],
+)`
+	wantBld, err := build.ParseBzl("defs.bzl", []byte(expected))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.TrimSpace(string(build.Format(wantBld)))
+	if got != want {
+		t.Errorf("patch list edit in .bzl:\n got: %s\nwant: %s", got, want)
+	}
 }
 
 func TestFindRuleByName(t *testing.T) {

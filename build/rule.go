@@ -165,24 +165,31 @@ func (f *File) implicitRuleName() string {
 // begins with a literal, if the call expression does not conform to either of these forms, an
 // empty string will be returned
 func (r *Rule) Kind() string {
-	var names []string
-	expr := r.Call.X
-	for {
-		x, ok := expr.(*DotExpr)
-		if !ok {
-			break
-		}
-		names = append(names, x.Name)
-		expr = x.X
-	}
-	x, ok := expr.(*Ident)
-	if !ok {
+	if r.Call.X == nil {
 		return ""
 	}
-	names = append(names, x.Name)
-	// Reverse the elements since the deepest expression contains the leading literal
-	for l, r := 0, len(names)-1; l < r; l, r = l+1, r-1 {
-		names[l], names[r] = names[r], names[l]
+	// The kind may be a simple identifier (e.g. `go_library`) or a dotted expression
+	// (e.g. `native.go_library`). Extract the dotted path conservatively.
+	var names []string
+	var walk func(Expr) bool
+	walk = func(e Expr) bool {
+		switch e := e.(type) {
+		case *Ident:
+			names = append(names, e.Name)
+			return true
+		case *DotExpr:
+			// DotExpr represents `X.Name`.
+			if !walk(e.X) {
+				return false
+			}
+			names = append(names, e.Name)
+			return true
+		default:
+			return false
+		}
+	}
+	if !walk(r.Call.X) {
+		return ""
 	}
 	return strings.Join(names, ".")
 }

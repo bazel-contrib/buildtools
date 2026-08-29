@@ -116,6 +116,20 @@ func parseAttr(attrName string) (attr string, attrType AttrType, err error) {
 // The cmdXXX functions implement the various commands.
 
 func cmdAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
+	// Variable targets are represented by a dummy Rule with a nil Call.
+	if env.Rule != nil && env.Rule.Call == nil {
+		varName := env.Rule.ImplicitName
+		varAssign, ok := env.Vars[varName]
+		if !ok {
+			return nil, fmt.Errorf("variable %s is not defined", varName)
+		}
+		for _, val := range env.Args[1:] {
+			strVal := getLabelStringExpr(val, env.Pkg)
+			varAssign.RHS = AddValueToList(varAssign.RHS, env.Pkg, strVal, true)
+		}
+
+		return env.File, nil
+	}
 	attr, attrType, err := parseAttr(env.Args[0])
 	if err != nil {
 		return nil, err
@@ -246,6 +260,23 @@ func cmdPrintComment(opts *Options, env CmdEnvironment) (*build.File, error) {
 }
 
 func cmdDelete(opts *Options, env CmdEnvironment) (*build.File, error) {
+	// Variable targets are represented by a dummy Rule with a nil Call.
+	if env.Rule != nil && env.Rule.Call == nil {
+		varName := env.Rule.ImplicitName
+		varAssign, ok := env.Vars[varName]
+		if !ok {
+			return nil, fmt.Errorf("variable %s is not defined", varName)
+		}
+		var all []build.Expr
+		for _, stmt := range env.File.Stmt {
+			if stmt == varAssign {
+				continue
+			}
+			all = append(all, stmt)
+		}
+		env.File.Stmt = all
+		return env.File, nil
+	}
 	return DeleteRule(env.File, env.Rule), nil
 }
 
@@ -366,6 +397,47 @@ func cmdSubstituteLoad(opts *Options, env CmdEnvironment) (*build.File, error) {
 }
 
 func cmdPrint(opts *Options, env CmdEnvironment) (*build.File, error) {
+	// Variable targets are represented by a dummy Rule with a nil Call.
+	if env.Rule != nil && env.Rule.Call == nil {
+		varName := env.Rule.ImplicitName
+		varAssign, ok := env.Vars[varName]
+		if !ok {
+			return nil, fmt.Errorf("variable %s is not defined", varName)
+		}
+		format := env.Args
+		if len(format) == 0 {
+			format = []string{"value"}
+		}
+		fields := make([]*apipb.Output_Record_Field, len(format))
+		for i, str := range format {
+			switch str {
+			case "name":
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: varName}}
+			case "kind":
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: "var"}}
+			case "label":
+				label := labels.Label{Package: env.Pkg, Target: varName}
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: label.Format()}}
+			case "path":
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: env.File.Path}}
+			case "startline":
+				start, _ := varAssign.Span()
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Number{Number: int32(start.Line)}}
+			case "endline":
+				_, end := varAssign.Span()
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Number{Number: int32(end.Line)}}
+			case "rule":
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: build.FormatString(varAssign)}}
+			case "value":
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Text{Text: build.FormatString(varAssign.RHS)}}
+			default:
+				fields[i] = &apipb.Output_Record_Field{Value: &apipb.Output_Record_Field_Error{Error: apipb.Output_Record_Field_MISSING}}
+			}
+		}
+		env.output.Fields = fields
+		return nil, nil
+	}
+
 	format := env.Args
 	if len(format) == 0 {
 		format = []string{"name", "kind"}
@@ -454,6 +526,18 @@ func attrKeysForPattern(rule *build.Rule, pattern string) []string {
 }
 
 func cmdRemove(opts *Options, env CmdEnvironment) (*build.File, error) {
+	// Variable targets are represented by a dummy Rule with a nil Call.
+	if env.Rule != nil && env.Rule.Call == nil {
+		varName := env.Rule.ImplicitName
+		varAssign, ok := env.Vars[varName]
+		if !ok {
+			return nil, fmt.Errorf("variable %s is not defined", varName)
+		}
+		for _, val := range env.Args[1:] {
+			ListDelete(varAssign.RHS, val, env.Pkg)
+		}
+		return env.File, nil
+	}
 	if len(env.Args) == 1 { // Remove the attribute
 		if env.Args[0] == "*" {
 			didDelete := false
@@ -598,6 +682,16 @@ func cmdSet(opts *Options, env CmdEnvironment) (*build.File, error) {
 		return nil, err
 	}
 	args := env.Args[1:]
+	// Variable targets are represented by a dummy Rule with a nil Call.
+	if env.Rule != nil && env.Rule.Call == nil {
+		varName := env.Rule.ImplicitName
+		varAssign, ok := env.Vars[varName]
+		if !ok {
+			return nil, fmt.Errorf("variable %s is not defined", varName)
+		}
+		varAssign.RHS = getAttrValueExpr(attr, attrType, args, env)
+		return env.File, nil
+	}
 	if attr == "kind" {
 		env.Rule.SetKind(args[0])
 	} else {
@@ -1021,7 +1115,7 @@ var readonlyCommands = map[string]bool{
 	"print_comment": true,
 }
 
-func expandTargets(f *build.File, rule string) ([]*build.Rule, error) {
+func expandTargets(f *build.File, rule string, vars map[string]*build.AssignExpr) ([]*build.Rule, error) {
 	if r := FindRuleByName(f, rule); r != nil {
 		return []*build.Rule{r}, nil
 	} else if r := FindExportedFile(f, rule); r != nil {
@@ -1040,6 +1134,12 @@ func expandTargets(f *build.File, rule string) ([]*build.Rule, error) {
 			}
 		} else {
 			return f.Rules(kind), nil
+		}
+	} else if vars != nil {
+		// When variable editing is enabled, allow targeting global variables directly,
+		// but only if the variable is actually defined in the file.
+		if _, ok := vars[rule]; ok {
+			return []*build.Rule{{ImplicitName: rule}}, nil
 		}
 	}
 	return nil, fmt.Errorf("rule '%s' not found", rule)
@@ -1191,11 +1291,19 @@ type rewriteResult struct {
 func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) {
 	vars = make(map[string]*build.AssignExpr)
 	for _, expr := range exprs {
-		if as, ok := expr.(*build.AssignExpr); ok {
-			if lhs, ok := as.LHS.(*build.Ident); ok {
-				vars[lhs.Name] = as
+		build.Walk(expr, func(x build.Expr, stk []build.Expr) {
+			//Skip variables defined inside functions
+			for _, frame := range stk {
+				if _, ok := frame.(*build.DefStmt); ok {
+					return
+				}
 			}
-		}
+			if as, ok := x.(*build.AssignExpr); ok {
+				if lhs, ok := as.LHS.(*build.Ident); ok {
+					vars[lhs.Name] = as
+				}
+			}
+		})
 	}
 	return vars
 }
@@ -1297,7 +1405,7 @@ func rewrite(opts *Options, commandsForFile commandsForFile) *rewriteResult {
 			absPkg = f.Pkg
 		}
 
-		targets, err := expandTargets(f, rule)
+		targets, err := expandTargets(f, rule, vars)
 		if err != nil {
 			cerr := commandError(cft.commands, cft.target, err)
 			errs = append(errs, cerr)
@@ -1357,6 +1465,7 @@ func executeCommandsInFile(
 ) (*build.File, error) {
 	changed := false
 	for _, cmd := range cft.commands {
+		cmdName := cmd.tokens[0]
 		cmdInfo := AllCommands[cmd.tokens[0]]
 		// Depending on whether a transformation is rule-specific or not, it should be applied to
 		// every rule that satisfies the filter or just once to the file.
@@ -1365,6 +1474,22 @@ func executeCommandsInFile(
 			cmdTargets = []*build.Rule{nil}
 		}
 		for _, r := range cmdTargets {
+			// Variable targets are represented by a dummy Rule with a nil Call.
+			// Most rule-specific commands assume a non-nil Call, so guard centrally to avoid panics.
+			if r != nil && r.Call == nil {
+				switch cmdName {
+				case "add", "remove", "set", "print", "delete":
+					// Supported variable-target commands.
+				default:
+					err := fmt.Errorf("command %q does not support variable targets", cmdName)
+					cerr := commandError([]command{cmd}, cft.target, err)
+					if opts.KeepGoing {
+						*errs = append(*errs, cerr)
+						continue
+					}
+					return nil, cerr
+				}
+			}
 			record := &apipb.Output_Record{}
 			newf, err := cmdInfo.Fn(opts, CmdEnvironment{f, r, vars, absPkg, cmd.tokens[1:], record})
 			if len(record.Fields) != 0 {
@@ -1751,7 +1876,7 @@ func ExecuteCommandsOnInlineFile(fileContent []byte, commands []string) ([]byte,
 		f.Type = build.TypeBuild
 	}
 	for _, cft := range commandsByTargetName {
-		rules, err := expandTargets(f, cft.target)
+		rules, err := expandTargets(f, cft.target, nil)
 		if err != nil {
 			return nil, err
 		}

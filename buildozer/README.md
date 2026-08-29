@@ -66,6 +66,26 @@ macros.
     input instead of from a local file in the package directory: `-:all_tests`.
     (It is presumably not useful to both use a `-` package name and use the `-f
     -` flag to read commands from the standard input.)
+  * In `.bzl` files, use a label to refer to a top-level global variable:
+    `//pkg:my_patches` (see [Global variables in .bzl files](#global-variables-in-bzl-files)).
+
+### Global variables in .bzl files
+
+Buildozer can edit top-level global variables in `.bzl` files. Target the
+variable by name, for example `//pkg:my_patches`, and use `add`, `remove`, `set`,
+`print`, or `delete`. Other commands return an error on variable targets.
+
+Only simple assignments of the form `name = value` at module scope are
+supported. Variables assigned via tuple unpacking (e.g. `(A, B) = ...`) or `for`
+loop variables are not detected. Assignments inside `def` bodies are ignored.
+
+Example:
+
+```bash
+# In defs.bzl: my_patches = ["a.patch"]
+buildozer 'add patches b.patch' //pkg:my_patches
+buildozer 'remove patches a.patch' //pkg:my_patches
+```
 
 ### Options
 
@@ -86,7 +106,7 @@ See `buildozer -help` for the full list.
 ### Edit commands
 
 Buildozer supports the following commands(`'command args'`):
-
+ 
   * `add <attr>[:<type>] <value(s)>`: Adds value(s) to a list attribute of a rule.
     If a value is already present in the list, it is not added. `type` specifies
     the type of values being added. See [supported types](#supported-types) for
@@ -254,7 +274,7 @@ buildozer 'new cc_binary new_bin before tests' //:__pkg__
 # Copy an attribute from `protolib` to `py_protolib`.
 buildozer 'copy testonly protolib' //pkg:py_protolib
 
-# Set two attributes in the same rule
+# Set two attributes in the same  rule
 buildozer 'set compile 1' 'set srcmap 1' //pkg:rule
 
 # Make a default explicit in all soy_js rules in a package

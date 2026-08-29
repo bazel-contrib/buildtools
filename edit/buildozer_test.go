@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	apipb "github.com/bazelbuild/buildtools/api_proto"
 	"github.com/bazelbuild/buildtools/build"
 	"github.com/google/go-cmp/cmp"
 )
@@ -857,6 +858,118 @@ func TestCmdDictOperations(t *testing.T) {
 				t.Fatalf("dict operations returned diff -want +got %v", diff)
 			}
 		})
+	}
+}
+
+func TestCmdAddRemove_GlobalVariableInBzl(t *testing.T) {
+	input := `my_patches = ["a.patch"]
+
+def _fn():
+    my_patches = ["function_local.patch"]
+`
+	f, err := build.ParseBzl("defs.bzl", []byte(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := getGlobalVariables(f.Stmt)
+	if _, ok := vars["my_patches"]; !ok {
+		t.Fatalf("expected my_patches to be detected as a global variable")
+	}
+	// Ensure we don't treat function-local assignments as globals.
+	if _, ok := vars["_fn"]; ok {
+		t.Fatalf("unexpected: function name should not be treated as a variable")
+	}
+
+	// Variable targets are represented by a dummy Rule with nil Call.
+	varTarget := &build.Rule{ImplicitName: "my_patches"}
+
+	// Add b.patch to the variable list.
+	_, err = cmdAdd(NewOpts(), CmdEnvironment{
+		File: f,
+		Rule: varTarget,
+		Vars: vars,
+		Pkg:  "",
+		Args: []string{"patches", "b.patch"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove a.patch from the variable list.
+	_, err = cmdRemove(NewOpts(), CmdEnvironment{
+		File: f,
+		Rule: varTarget,
+		Vars: vars,
+		Pkg:  "",
+		Args: []string{"patches", "a.patch"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := strings.TrimSpace(string(build.Format(f)))
+	expected := `my_patches = ["b.patch"]
+
+def _fn():
+    my_patches = ["function_local.patch"]`
+	wantF, err := build.ParseBzl("defs.bzl", []byte(expected))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.TrimSpace(string(build.Format(wantF)))
+	if got != want {
+		t.Errorf("global variable edit in .bzl:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestExecuteCommandsInFile_RejectsUnsupportedVariableTargetCommands(t *testing.T) {
+	f, err := build.ParseBzl("defs.bzl", []byte(`v = ["a"]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := getGlobalVariables(f.Stmt)
+	varTarget := &build.Rule{ImplicitName: "v"} // Call == nil => variable target
+
+	cft := commandsForTarget{
+		target: "//pkg:v",
+		commands: []command{
+			{tokens: []string{"rename", "a", "b"}},
+		},
+	}
+	records := []*apipb.Output_Record{}
+	errs := []error{}
+	_, execErr := executeCommandsInFile(NewOpts(), f, cft, []*build.Rule{varTarget}, &records, vars, "", &errs)
+	if execErr == nil {
+		t.Fatalf("expected error when running unsupported command on variable target")
+	}
+	if !strings.Contains(execErr.Error(), "does not support variable targets") {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+}
+
+func TestExecuteCommandsInFile_AllowsSetOnVariableTarget(t *testing.T) {
+	f, err := build.ParseBzl("defs.bzl", []byte(`v = ["a"]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := getGlobalVariables(f.Stmt)
+	varTarget := &build.Rule{ImplicitName: "v"} // Call == nil => variable target
+
+	cft := commandsForTarget{
+		target: "//pkg:v",
+		commands: []command{
+			{tokens: []string{"set", "deps", "b", "c"}},
+		},
+	}
+	records := []*apipb.Output_Record{}
+	errs := []error{}
+	_, execErr := executeCommandsInFile(NewOpts(), f, cft, []*build.Rule{varTarget}, &records, vars, "", &errs)
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	got := strings.TrimSpace(string(build.Format(f)))
+	if got != `v = ["b", "c"]` {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, `v = ["b", "c"]`)
 	}
 }
 
