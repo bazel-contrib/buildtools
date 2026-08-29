@@ -761,6 +761,85 @@ func cmdSetSelect(opts *Options, env CmdEnvironment) (*build.File, error) {
 	return env.File, nil
 }
 
+// addToListSelect adds value under key in the last select() of a list attribute,
+// creating a new bare select if none exists, or concatenating one if the attribute
+// is already a plain list.
+func addToListSelect(r *build.Rule, attr, pkg, key string, value build.Expr) {
+	existing := r.Attr(attr)
+	selects := AllSelects(existing)
+
+	if len(selects) > 0 {
+		last := selects[len(selects)-1]
+		dict := last.List[0].(*build.DictExpr)
+		cur := DictionaryGet(dict, key)
+		if cur != nil {
+DictionarySet(dict, key, AddValueToList(cur, pkg, value, !attributeMustNotBeSorted(r.Name(), attr)))
+		} else {
+			DictionarySet(dict, key, &build.ListExpr{List: []build.Expr{value}})
+			if DictionaryGet(dict, "//conditions:default") == nil {
+				DictionarySet(dict, "//conditions:default", &build.ListExpr{})
+			}
+		}
+		r.SetAttr(attr, existing)
+		return
+	}
+
+	dict := &build.DictExpr{
+		List: []*build.KeyValueExpr{
+			{Key: &build.StringExpr{Value: key}, Value: &build.ListExpr{List: []build.Expr{value}}},
+			{Key: &build.StringExpr{Value: "//conditions:default"}, Value: &build.ListExpr{}},
+		},
+	}
+	sel := &build.CallExpr{List: []build.Expr{dict}}
+	sel.X = &build.Ident{Name: "select"}
+	if existing == nil {
+		r.SetAttr(attr, sel)
+	} else {
+		r.SetAttr(attr, &build.BinaryExpr{Op: "+", X: existing, Y: sel})
+	}
+}
+
+// addToScalarSelect sets value under key in the last select() of a scalar attribute,
+// creating a new select if none exists. An existing key is overwritten.
+func addToScalarSelect(r *build.Rule, attr, key string, value build.Expr) {
+	existing := r.Attr(attr)
+	selects := AllSelects(existing)
+
+	if len(selects) > 0 {
+		last := selects[len(selects)-1]
+		dict := last.List[0].(*build.DictExpr)
+		DictionarySet(dict, key, value)
+		r.SetAttr(attr, existing)
+		return
+	}
+	dict := &build.DictExpr{
+		List: []*build.KeyValueExpr{
+			{Key: &build.StringExpr{Value: key}, Value: value},
+		},
+	}
+	sel := &build.CallExpr{List: []build.Expr{dict}}
+	sel.X = &build.Ident{Name: "select"}
+	r.SetAttr(attr, sel)
+}
+
+func cmdAddSelect(opts *Options, env CmdEnvironment) (*build.File, error) {
+	attr := env.Args[0]
+	key := env.Args[1]
+	values := env.Args[2:]
+
+	if IsList(attr) {
+		for _, val := range values {
+			addToListSelect(env.Rule, attr, env.Pkg, key, getStringExpr(val, env.Pkg))
+		}
+	} else {
+		if len(values) != 1 {
+			return nil, fmt.Errorf("add_select: scalar attribute %q requires exactly one value", attr)
+		}
+		addToScalarSelect(env.Rule, attr, key, getStringExpr(values[0], env.Pkg))
+	}
+	return env.File, nil
+}
+
 // cmdDictSet adds a key to a dict, overwriting any previous values.
 func cmdDictSet(opts *Options, env CmdEnvironment) (*build.File, error) {
 	attr := env.Args[0]
@@ -985,6 +1064,7 @@ type CommandInfo struct {
 // of arguments.
 var AllCommands = map[string]CommandInfo{
 	"add":                   {cmdAdd, true, 2, -1, "<attr> <value(s)>"},
+	"add_select":            {cmdAddSelect, true, 3, -1, "<attr> <key> <value(s)>"},
 	"new_load":              {cmdNewLoad, false, 1, -1, "<path> <[to=]from(s)>"},
 	"replace_load":          {cmdReplaceLoad, false, 1, -1, "<path> <[to=]symbol(s)>"},
 	"substitute_load":       {cmdSubstituteLoad, false, 2, 2, "<old_regexp> <new_template>"},
