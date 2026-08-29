@@ -1282,14 +1282,6 @@ to [Symbolic Macros](https://bazel.build/extending/macros).
 + my_macro(name = "foo", env = "bar")
 ```
 
-The linter allows the following functions to be called with positional arguments:
-
-  * `load()`
-  * `vardef()`
-  * `export_files()`
-  * `licenses()`
-  * `print()`
-
 --------------------------------------------------------------------------------
 
 ## <a name="print"></a>`print()` is a debug function and shouldn't be submitted

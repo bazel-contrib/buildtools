@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "warn",
     srcs = [
+        "macro_analyzer.go",
         "multifile.go",
         "types.go",
         "warn.go",
@@ -35,6 +36,7 @@ go_test(
     name = "warn_test",
     size = "small",
     srcs = [
+        "macro_analyzer_test.go",
         "types_test.go",
         "warn_bazel_api_test.go",
         "warn_bazel_operation_test.go",
@@ -55,6 +57,7 @@ go_test(
         "//build",
         "//tables",
         "//testutils",
+        "@com_github_google_go_cmp//cmp",
     ],
 )
 

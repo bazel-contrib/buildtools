@@ -179,26 +179,28 @@ func positionalArgumentsWarning(f *build.File, fileReader *FileReader) (findings
 	if f.Type != build.TypeBuild {
 		return nil
 	}
-	macroAnalyzer := newMacroAnalyzer(fileReader)
-	macroAnalyzer.files[f.Pkg+":"+f.Label] = analyzeFile(f)
+	macroAnalyzer := NewMacroAnalyzer(fileReader)
 
 	for _, expr := range f.Stmt {
 		build.Walk(expr, func(x build.Expr, _ []build.Expr) {
 			if fnCall, ok := x.(*build.CallExpr); ok {
-				fnIdent, ok := fnCall.X.(*build.Ident)
-				if !ok {
+				report, err := macroAnalyzer.AnalyzeFnCall(f, fnCall)
+				if err != nil {
+					// TODO: Analysis errors are simply ignored as buildifier does not currently handle errors.
 					return
 				}
-
-				if macroAnalyzer.IsRuleOrMacro(function{pkg: f.Pkg, filename: f.Label, name: fnIdent.Name}).isRuleOrMacro {
+				if report.CanProduceTargets() {
 					for _, arg := range fnCall.List {
 						if _, ok := arg.(*build.AssignExpr); ok || arg == nil {
 							continue
 						}
 						findings = append(findings, makeLinterFinding(fnCall, fmt.Sprintf(
 							`All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro %q with positional arguments.`,
-							fnIdent.Name)))
+Found call to rule or macro %q with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+%s
+%s`,
+							report.SelfDescription, report.SelfDescription, report.PrintableCallStack())))
 						return
 					}
 				}

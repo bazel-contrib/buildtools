@@ -124,11 +124,40 @@ my_rule("foo", "bar")
 my_function("foo", "bar")
 `,
 		[]string{
-			`6: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_macro" with positional arguments.`,
-			`7: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_rule" with positional arguments.`,
+			`:6: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:6 my_macro" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:6 my_macro
+test/package:BUILD:1 macro`,
+			`:7: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:7 my_rule" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:7 my_rule
+test/package:BUILD:2 rule`,
 		},
+		scopeBuild)
+}
+
+func TestPositionalArgumentsWithNestedCalls(t *testing.T) {
+	checkFindings(t, "positional-args", `
+def macro3(foo, *args, **kwargs):
+  macro2()
+
+def macro2(foo, *, name):
+  macro1()
+
+def macro1(foo, name, bar):
+  native.java_library()
+
+macro3("foo")
+`,
+		[]string{`:10: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:10 macro3" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:10 macro3
+test/package:BUILD:2 macro2
+test/package:BUILD:5 macro1
+test/package:BUILD:8 native.java_library`},
 		scopeBuild)
 }
 
@@ -149,13 +178,25 @@ other_function(foo = my_function(x))
 `,
 		[]string{
 			`6: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_macro" with positional arguments.`,
-			`7: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_rule" with positional arguments.`,
-			`10: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_macro" with positional arguments.`,
-			`11: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
-Found call to rule or macro "my_rule" with positional arguments.`,
+Found call to rule or macro "test/package:BUILD:6 my_macro" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:6 my_macro
+test/package:BUILD:1 macro`,
+			`:7: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:7 my_rule" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:7 my_rule
+test/package:BUILD:2 rule`,
+			`:10: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:10 my_macro" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:10 my_macro
+test/package:BUILD:1 macro`,
+			`:11: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "test/package:BUILD:11 my_rule" with positional arguments.
+The function was considered a macro as it may produce targets via calls:
+test/package:BUILD:11 my_rule
+test/package:BUILD:2 rule`,
 		},
 		scopeBuild)
 
@@ -233,7 +274,7 @@ filegroup(
 )
 
 some_rule(
-    arg1 = "normal/path/file.txt", 
+    arg1 = "normal/path/file.txt",
     arg2 = "/external/repo/file.py",
     arg3 = ["file1.txt", "/external/another/file.cc"],
 )`,

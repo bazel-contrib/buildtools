@@ -925,13 +925,7 @@ warnings: {
     "```diff\n"
     "- my_macro(\"foo\", \"bar\")\n"
     "+ my_macro(name = \"foo\", env = \"bar\")\n"
-    "```\n\n"
-    "The linter allows the following functions to be called with positional arguments:\n\n"
-    "  * `load()`\n"
-    "  * `vardef()`\n"
-    "  * `export_files()`\n"
-    "  * `licenses()`\n"
-    "  * `print()`"
+    "```"
 }
 
 warnings: {

@@ -38,6 +38,23 @@ func NewFileReader(readFile func(string) ([]byte, error)) *FileReader {
 	}
 }
 
+// AddFileToCache adds the provided file to the filereader cache.
+func (fr *FileReader) AddFileToCache(f *build.File) {
+	if f != nil {
+		fr.cache[f.Path] = f
+	}
+}
+
+// IsCached returns true if the file is present in the cache.
+func (fr *FileReader) IsCached(pkg, label string) bool {
+	filename := label
+	if pkg != "" {
+		filename = pkg + "/" + label
+	}
+	_, contains := fr.cache[filename]
+	return contains
+}
+
 // retrieveFile reads a Starlark file using only the readFile method
 // (without using the cache).
 func (fr *FileReader) retrieveFile(filename string) *build.File {
@@ -72,6 +89,6 @@ func (fr *FileReader) GetFile(pkg, label string) *build.File {
 		file.Pkg = pkg
 		file.Label = label
 	}
-	fr.cache[filename] = file
+	fr.AddFileToCache(file)
 	return file
 }
