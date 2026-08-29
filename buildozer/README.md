@@ -336,7 +336,7 @@ Use `buildozer -f <file>` to load a list of commands and labels from a file (see
 ```shell
 $ cat /tmp/cmds
 # a comment
-new cc_library foo|//buildtools/buildozer/BUILD
+new cc_library foo|//buildtools/buildozer:__pkg__
 add deps //base //strings|add srcs foo.cc|//buildtools/buildozer:foo
 add deps :foo|//buildtools/buildozer
 
