@@ -131,10 +131,10 @@ func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*w
 	fileReader := getFileReader(f.WorkspaceRoot)
 
 	switch lint {
-	case "warn":
-		return warn.FileWarnings(f, *warningsList, nil, warn.ModeWarn, fileReader)
+	case "off":
+		return nil
 	case "fix":
 		warn.FixWarnings(f, *warningsList, verbose, fileReader)
 	}
-	return nil
+	return warn.FileWarnings(f, *warningsList, nil, warn.ModeWarn, fileReader)
 }
