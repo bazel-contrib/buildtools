@@ -215,6 +215,8 @@ func isSimpleExpression(expr *Expr) bool {
 		return len(x.List) == 0
 	case *SetExpr:
 		return len(x.List) == 0
+	case *EllipsisExpr:
+		return true
 	default:
 		return false
 	}
