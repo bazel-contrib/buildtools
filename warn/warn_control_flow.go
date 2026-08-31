@@ -480,9 +480,9 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 					}
 
 					// Parameters' types are defined in type params or in the outer scope.
-					typedIdent, ok := param.(*build.TypedIdent)
-					if ok {
-						collectUsedTypeSymbols(typedIdent.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
+					paramType := getParamType(param)
+					if paramType != nil {
+						collectUsedTypeSymbols(paramType, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
 					}
 				}
 
@@ -588,6 +588,23 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 	findings = appendUnusedVariableLinterFindings(findings, definedFunctions, "Function", usedSymbols, suppressedWarnings, ignoreTopLevel)
 
 	return usedSymbolsFromOuterScope, findings
+}
+
+// Return the type annotation of a function parameter, or nil if there is none.
+func getParamType(param build.Expr) build.Expr {
+	switch param := param.(type) {
+	case *build.TypedIdent:
+		return param.Type
+	case *build.AssignExpr:
+		return getParamType(param.LHS)
+	case *build.UnaryExpr:
+		if param.Op == "*" || param.Op == "**" {
+			return getParamType(param.X)
+		}
+		return nil
+	default:
+		return nil
+	}
 }
 
 // Collect identifiers into a type expression into appropriate used-symbol maps, depending on whether

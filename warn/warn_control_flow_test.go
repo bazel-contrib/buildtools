@@ -827,6 +827,26 @@ foo()
 		[]string{},
 		scopeEverywhere)
 
+	// Type parameter used in parameter annotation with a default value
+	checkFindings(t, "unused-variable", `
+def foo[T](x: T = 42):
+  print(x)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type parameter used in varargs/kwargs annotation
+	checkFindings(t, "unused-variable", `
+def foo[T, U](*args: T, **kwargs: U):
+  print(*args, **kwargs)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
 	// Type parameter used in an inner function
 	checkFindings(t, "unused-variable", `
 def foo[T]():
