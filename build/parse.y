@@ -387,7 +387,7 @@ def_header:
 
 def_header_type_opt:
 	def_header
-| def_header _ARROW test
+| def_header _ARROW type_expr
 	{
 		$1.Type = $3
 		$$ = $1
