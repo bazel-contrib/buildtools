@@ -239,6 +239,21 @@ function test_add_override_expr() {
 )'
 }
 
+function test_add_override_expr_with_dot_and_capital_e() {
+  in='go_library(
+    name = "edit",
+    deps = ["build"],
+)'
+  run "$in" 'add deps:expr SYSTEMS.SYS1' '//pkg:edit'
+  assert_equals 'go_library(
+    name = "edit",
+    deps = [
+        SYSTEMS.SYS1,
+        "build",
+    ],
+)'
+}
+
 function test_add_override_unknown_type() {
   in='go_library(
     name = "edit",
