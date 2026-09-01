@@ -364,6 +364,14 @@ func TestParseError(t *testing.T) {
 			in:   "tpye MyInt = int\n",
 			want: "test:1:11: syntax error near MyInt",
 		},
+
+		{
+			// Check that 'type' soft keyword support doesn't break syntax error handling for
+			// other occurrences of one identifier followed by another.
+			name: "ident followed by ident syntax error",
+			in:   "foo bar\n",
+			want: "test:1:8: syntax error near bar",
+		},
 	}
 
 	for _, tt := range tests {

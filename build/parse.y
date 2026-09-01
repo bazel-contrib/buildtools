@@ -138,6 +138,7 @@ package build
 %type	<expr>		parameter_type
 %type	<exprs>		parameters_type
 %type	<exprs>		parameters_type_opt
+%type <expr>		type_alias_stmt_start
 %type	<expr>		type_alias_stmt
 %type	<expr>		type_params_opt
 %type	<exprs>		type_params_idents
@@ -523,22 +524,33 @@ small_stmt:
 		}
 	}
 
-type_alias_stmt:
-	ident ident type_params_opt '=' type_expr
+// Split out of type_alias_stmp to improve error handling:
+// on two idents in sequence, e.g. "foo bar", we want to emit the error at "bar".
+type_alias_stmt_start:
+  ident ident
 	{
 		if $1.(*Ident).Name != "type" {
 			// Match 
 			_, end := $2.Span()
 			errorAt(yylex, end, "syntax error near " + $2.(*Ident).Name)
 		}
-		ystart, _ := $5.Span()
 		$$ = &TypeAliasStmt{
 			TypePos: $1.(*Ident).NamePos,
 			Name: *$2.(*Ident),
-			TypeParams: $3,
-			EqualPos: $4,
-			Type: $5,
-			LineBreak: $4.Line < ystart.Line,
+		}
+	}
+
+type_alias_stmt:
+	type_alias_stmt_start type_params_opt '=' type_expr
+	{
+		typeStart, _ := $4.Span()
+		$$ = &TypeAliasStmt{
+			TypePos: $1.(*TypeAliasStmt).TypePos,
+			Name: $1.(*TypeAliasStmt).Name,
+			TypeParams: $2,
+			EqualPos: $3,
+			Type: $4,
+			LineBreak: $3.Line < typeStart.Line,
 		}
 	}
 
