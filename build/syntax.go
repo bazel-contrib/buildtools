@@ -196,7 +196,7 @@ func (x *Ident) asString() *StringExpr {
 // May occur as a statement ("var statement") or as the LHS of AssignExpr when used as a statement.
 type TypedIdent struct {
 	Comments
-	Ident *Ident
+	Ident Expr // must be *Ident
 	Type  Expr
 }
 
@@ -211,6 +211,15 @@ func (x *TypedIdent) Span() (start, end Position) {
 func (x *TypedIdent) Copy() Expr {
 	n := *x
 	return &n
+}
+
+// Name returns the name of TypedIdent's variable name
+func (x *TypedIdent) Name() string {
+	ident, ok := x.Ident.(*Ident)
+	if !ok {
+		panic(fmt.Errorf("expected *build.Ident for variable of typed identifier, got %T", x.Ident))
+	}
+	return ident.Name
 }
 
 // A TypeExpr represents a type expression: a list of type_application nodes separated by '|'.
@@ -807,7 +816,7 @@ func (x *LoadStmt) Copy() Expr {
 type TypeAliasStmt struct {
 	Comments
 	TypePos    Position // position of "type" soft keyword
-	Name       Ident    // name of the type alias
+	Name       Expr     // name of the type alias; must be an *Ident
 	TypeParams Expr     // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
 	EqualPos   Position // position of "="
 	Type       Expr     // definition/target type expression
@@ -825,6 +834,15 @@ func (x *TypeAliasStmt) Span() (start, end Position) {
 func (x *TypeAliasStmt) Copy() Expr {
 	n := *x
 	return &n
+}
+
+// TypeName returns the type name of the TypeAliasStmt
+func (x *TypeAliasStmt) TypeName() string {
+	ident, ok := x.Name.(*Ident)
+	if !ok {
+		panic(fmt.Errorf("expected *build.Ident for variable of a type alias, got %T", x.Name))
+	}
+	return ident.Name
 }
 
 // A DefStmt represents a function definition expression: def foo(List):.

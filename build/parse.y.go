@@ -190,7 +190,7 @@ func binary(x Expr, pos Position, op string, y Expr) Expr {
 // typed returns a TypedIdent expression
 func typed(x, y Expr) *TypedIdent {
 	return &TypedIdent{
-		Ident: x.(*Ident),
+		Ident: x,
 		Type:  y,
 	}
 }
@@ -1420,7 +1420,7 @@ yydefault:
 			}
 			yyVAL.expr = &TypeAliasStmt{
 				TypePos: yyDollar[1].expr.(*Ident).NamePos,
-				Name:    *yyDollar[2].expr.(*Ident),
+				Name:    yyDollar[2].expr,
 			}
 		}
 	case 42:

@@ -31,7 +31,8 @@ func GetParamIdent(param Expr) (ident *Ident, op string) {
 	case *Ident:
 		return param, ""
 	case *TypedIdent:
-		return param.Ident, ""
+		ident, _ := GetParamIdent(param.Ident)
+		return ident, ""
 	case *AssignExpr:
 		// keyword parameter
 		return GetParamIdent(param.LHS)

@@ -536,7 +536,7 @@ type_alias_stmt_start:
 		}
 		$$ = &TypeAliasStmt{
 			TypePos: $1.(*Ident).NamePos,
-			Name: *$2.(*Ident),
+			Name: $2,
 		}
 	}
 
@@ -1319,7 +1319,7 @@ func binary(x Expr, pos Position, op string, y Expr) Expr {
 // typed returns a TypedIdent expression
 func typed(x, y Expr) *TypedIdent {
 	return &TypedIdent{
-		Ident: x.(*Ident),
+		Ident: x,
 		Type:  y,
 	}
 }

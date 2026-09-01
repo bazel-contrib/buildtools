@@ -513,11 +513,12 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 				// type parameter scope properly.
 
 				// The type alias name is defined in the current scope
-				if _, ok := definedTypes[expr.Name.Name]; !ok {
-					definedTypes[expr.Name.Name] = &expr.Name
+				typeName := expr.TypeName()
+				if _, ok := definedTypes[typeName]; !ok {
+					definedTypes[typeName] = expr.Name
 				}
 				if edit.ContainsComments(expr, "@unused") {
-					suppressedWarnings[expr.Name.Name] = true
+					suppressedWarnings[typeName] = true
 				}
 
 				usedSymbolsInTypeAlias, findingsInTypeAlias := unusedVariableCheck(f, expr)
@@ -687,17 +688,18 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 			findings = append(findings, makeLinterFinding(s.LHS, fmt.Sprintf("Variable %q has already been defined%s", left.Name, suffix)))
 
 		case *build.TypeAliasStmt:
-			if _, ok := definedSymbols[s.Name.Name]; !ok {
-				definedSymbols[s.Name.Name] = Type
+			typeName := s.TypeName()
+			if _, ok := definedSymbols[typeName]; !ok {
+				definedSymbols[typeName] = Type
 				continue
 			}
 
 			detail := ""
-			if definedSymbols[s.Name.Name] == Variable {
+			if definedSymbols[typeName] == Variable {
 				detail = " as a variable"
 			}
 			findings = append(findings,
-				makeLinterFinding(&s.Name, fmt.Sprintf("Type %q has already been defined%s. Redefining a type is incompatible with static type checking.", s.Name.Name, detail)))
+				makeLinterFinding(s.Name, fmt.Sprintf("Type %q has already been defined%s. Redefining a type is incompatible with static type checking.", typeName, detail)))
 
 		default:
 			continue
@@ -829,7 +831,7 @@ func collectLocalVariables(stmts []build.Expr) []*build.Ident {
 		case *build.AssignExpr:
 			variables = append(variables, bzlenv.CollectLValues(stmt.LHS)...)
 		case *build.TypedIdent:
-			variables = append(variables, stmt.Ident)
+			variables = append(variables, bzlenv.CollectLValues(stmt)...)
 		}
 		// Don't need to handle build.TypeAliasStmt - type alias statements must be top-level.
 	}

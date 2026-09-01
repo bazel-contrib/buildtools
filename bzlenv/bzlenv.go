@@ -128,7 +128,7 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			}
 		case *build.TypeAliasStmt:
 			// Type aliases allowed only at top level.
-			env.declare(node.Name.Name, Global, node)
+			env.declare(node.TypeName(), Global, node)
 		case *build.AssignExpr:
 			kind := Local
 			if env.Function == nil {
@@ -143,7 +143,7 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			if env.Function == nil {
 				kind = Global
 			}
-			env.declare(node.Ident.Name, kind, node)
+			env.declare(node.Name(), kind, node)
 		case *build.DefStmt:
 			env.declare(node.Name, Function, node)
 		}
@@ -158,9 +158,7 @@ func CollectLValues(node build.Expr) []*build.Ident {
 	case *build.Ident:
 		result = append(result, node)
 	case *build.TypedIdent:
-		if node.Ident != nil {
-			result = append(result, node.Ident)
-		}
+		result = CollectLValues(node.Ident)
 	case *build.TupleExpr:
 		for _, item := range node.List {
 			result = append(result, CollectLValues(item)...)
@@ -197,7 +195,7 @@ func declareLocalVariables(stmts []build.Expr, env *Environment) {
 			if env.Function == nil {
 				kind = Global
 			}
-			env.declare(node.Ident.Name, kind, node)
+			env.declare(node.Name(), kind, node)
 		case *build.IfStmt:
 			declareLocalVariables(node.True, env)
 			declareLocalVariables(node.False, env)

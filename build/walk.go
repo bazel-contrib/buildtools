@@ -16,8 +16,6 @@ limitations under the License.
 
 package build
 
-import "fmt"
-
 // StopTraversalError is a special error that tells the walker to not traverse
 // further and visit child nodes of the current node.
 type StopTraversalError struct{}
@@ -31,6 +29,7 @@ func (m *StopTraversalError) Error() string {
 //
 // The stk argument is the stack of expressions in the recursion above x,
 // from outermost to innermost.
+//
 func Walk(v Expr, f func(x Expr, stk []Expr)) {
 	var stack []Expr
 	walk1(&v, &stack, func(x *Expr, stk []Expr) (Expr, error) {
@@ -63,6 +62,7 @@ func WalkInterruptable(v Expr, f func(x Expr, stk []Expr) error) {
 //
 // The stk argument is the stack of expressions in the recursion above x,
 // from outermost to innermost.
+//
 func Edit(v Expr, f func(x Expr, stk []Expr) Expr) Expr {
 	var stack []Expr
 	return walk1(&v, &stack, func(x *Expr, stk []Expr) (Expr, error) {
@@ -144,27 +144,13 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		f(&v.LHS)
 		f(&v.RHS)
 	case *TypeAliasStmt:
-		updateableNameExpr := Expr(&v.Name)
-		f(&updateableNameExpr)
-		if updatedIdent, ok := updateableNameExpr.(*Ident); ok {
-			v.Name = *updatedIdent
-		} else {
-			// Don't support syntactically invalid edits
-			panic(fmt.Errorf("expected *build.Ident for type alias name, got %T", updateableNameExpr))
-		}
+		f(&v.Name)
 		if v.TypeParams != nil {
 			f(&v.TypeParams)
 		}
 		f(&v.Type)
 	case *TypedIdent:
-		updateableNameExpr := Expr(v.Ident)
-		f(&updateableNameExpr)
-		if updatedIdent, ok := updateableNameExpr.(*Ident); ok {
-			v.Ident = updatedIdent
-		} else {
-			// Don't support syntactically invalid edits
-			panic(fmt.Errorf("expected *build.Ident for typed ident, got %T", updateableNameExpr))
-		}
+		f(&v.Ident)
 		f(&v.Type)
 	case *TypeExpr:
 		for i := range v.List {
@@ -175,8 +161,6 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		for i := range v.Args {
 			f(&v.Args[i])
 		}
-	case *EllipsisExpr:
-		// no children
 	case *LambdaExpr:
 		for i := range v.Params {
 			f(&v.Params[i])
