@@ -307,7 +307,7 @@ func (in *input) parse() (f *File, err error) {
 // checkTypeAlias checks that type alias statements occur only at top-level.
 func checkTypeAlias(file *File) error {
 	var typeAliasErr error
-	WalkInterruptable(file, func(x Expr, stk []Expr) error {
+	WalkStatements(file, func(x Expr, stk []Expr) error {
 		if typeAliasErr != nil {
 			return &StopTraversalError{}
 		}
