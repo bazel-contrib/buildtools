@@ -705,6 +705,35 @@ sample_macro_with_used_foo()
 		[]string{},
 		scopeEverywhere)
 
+	// Unused variables declared by var statements
+	checkFindings(t, "unused-variable", `
+_x: int
+
+def foo():
+  y: str
+
+foo()
+`,
+		[]string{
+			":1: Variable \"_x\" is unused.",
+			":4: Variable \"y\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Unused variables declared by var statements but marked @unused
+	checkFindings(t, "unused-variable", `
+# @unused
+_x: int
+
+def foo():
+  # @unused
+  y: str
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
 	// Type alias used in function return annotation
 	checkFindings(t, "unused-variable", `
 type _Numeric = int | float

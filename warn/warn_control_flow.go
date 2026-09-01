@@ -236,18 +236,16 @@ func noEffectWarning(f *build.File) []*LinterFinding {
 //   - Named arguments of function calls: `foo` in `f(foo = "bar")`
 //   - Iterators of comprehension nodes and its usages: `x` in `[f(x) for x in y]`
 //   - Lambda arguments: `x` in `lambda x: x + 1`
-//   - LHS of var statements: `x` in `x: int | float` (since `x` cannot be used
-//     until it's assigned a value)
 //
 // Statements that contain other statements (for-loops, if-else blocks) are not
 // traversed inside.
-func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]bool) {
-	// The values for `assigned` are `true` if the warning for the variable should
+func extractIdentsFromStmt(stmt build.Expr) (defined, used map[*build.Ident]bool) {
+	// The values for `defined` are `true` if the warning for the variable should
 	// be suppressed, and `false` otherwise.
 	// It's still important to know that the variable has been assigned in the
 	// current scope because it could shadow a variable with the same name from an
 	// outer scope.
-	assigned = make(map[*build.Ident]bool)
+	defined = make(map[*build.Ident]bool)
 	used = make(map[*build.Ident]bool)
 
 	// Local scopes for comprehensions
@@ -307,7 +305,7 @@ func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]boo
 			}
 
 			for _, lValue := range bzlenv.CollectLValues(expr.LHS) {
-				assigned[lValue] = hasUnusedComment ||
+				defined[lValue] = hasUnusedComment ||
 					(!allLValuesUnderscored && strings.HasPrefix(lValue.Name, "_"))
 			}
 
@@ -325,7 +323,7 @@ func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]boo
 			//     for _, (_b, c) in iterable:
 			//         print(c)
 			for _, lValue := range bzlenv.CollectLValues(expr.Vars) {
-				assigned[lValue] = strings.HasPrefix(lValue.Name, "_")
+				defined[lValue] = strings.HasPrefix(lValue.Name, "_")
 			}
 
 			// Don't traverse inside the inner statements (but still traverse into
@@ -384,12 +382,18 @@ func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]boo
 			used[expr] = true
 
 		case *build.TypedIdent:
-			// If the TypedIdent is a top-level expression (thus a var statement),
-			// ignore the identifier, since it's not being assigned a value.
-			if node == stmt {
-				blockedNodes[expr.Ident] = true
+			ident := expr.GetIdent()
+			if _, ok := defined[ident]; ok {
+				// If the same ident (not the same variable but the same AST node)
+				// is already registered as defined, it means that our TypedIdent
+				// isn't a var statemet, but the LHS of an AssignExpr that already
+				// processed its lvalues. Nothing left to do here.
 				return
 			}
+			// Var statements declare only 1 variable, so unlike for AssignExpr,
+			// we don't need to check for allLValuesUnderscored.
+			hasUnusedComment := edit.ContainsComments(expr, "@unused")
+			defined[ident] = hasUnusedComment
 
 		default:
 			// Do nothing, just traverse further
@@ -397,13 +401,13 @@ func extractIdentsFromStmt(stmt build.Expr) (assigned, used map[*build.Ident]boo
 		return
 	})
 
-	for ident := range assigned {
+	for ident := range defined {
 		// If the same ident (not the same variable but the same AST node) is
 		// registered as both "assigned" and "used", it means it was in fact just
 		// assigned, remove it from "used".
 		delete(used, ident)
 	}
-	return assigned, used
+	return defined, used
 }
 
 // unusedVariableCheck checks for unused variables inside a given node `stmt` (either *build.File or
@@ -544,12 +548,12 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 			return
 
 		default:
-			assigned, used := extractIdentsFromStmt(expr)
+			defined, used := extractIdentsFromStmt(expr)
 
 			for symbol := range used {
 				usedSymbols[symbol.Name] = true
 			}
-			for symbol, isSuppressed := range assigned {
+			for symbol, isSuppressed := range defined {
 				if _, ok := definedSymbols[symbol.Name]; !ok {
 					definedSymbols[symbol.Name] = symbol
 					if isSuppressed {
