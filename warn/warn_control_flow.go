@@ -672,7 +672,7 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 				continue
 			}
 
-			if s.Op == "+=" && (types[s.LHS] == List || types[s.RHS] == List) {
+			if s.Op == "+=" && (types[s.LHS] == List || types[s.RHS] == List) && definedSymbols[left.Name] != Type {
 				// Not a reassignment, just appending to a list
 				continue
 			}

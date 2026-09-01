@@ -933,6 +933,14 @@ T = 42`,
 		scopeEverywhere)
 
 	checkFindings(t, "redefined-variable", `
+type T = int
+T += [42]`,
+		[]string{
+			":2: Variable \"T\" has already been defined as a type.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
 T = 42
 type T = int`,
 		[]string{
