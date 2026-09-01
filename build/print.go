@@ -1019,15 +1019,15 @@ type seqMode int
 const (
 	_ seqMode = iota
 
-	modeCall     // f(x)
-	modeList     // [x]
-	modeTuple    // (x,)
-	modeParen    // (x)
-	modeDict     // {x:y}
-	modeSeq      // x, y
-	modeDef      // def f(x, y)
-	modeLoad     // load(a, b, c)
-	modeTypeList // [int, str]
+	modeCall       // f(x)
+	modeList       // [x]
+	modeTuple      // (x,)
+	modeParen      // (x)
+	modeDict       // {x:y}
+	modeSeq        // x, y
+	modeDef        // def f(x, y)
+	modeLoad       // load(a, b, c)
+	modeTypeParams // [T, U]
 )
 
 // useCompactMode reports whether a sequence should be formatted in a compact mode
@@ -1055,7 +1055,7 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	// In the Default and .bzl printing modes try to keep the original printing style.
 	// Non-top-level statements and lists of arguments of a function definition
 	// should also keep the original style regardless of the mode.
-	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef || mode == modeTypeList) && mode != modeLoad {
+	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef || mode == modeTypeParams) && mode != modeLoad {
 		// If every element (including the brackets) ends on the same line where the next element starts,
 		// use the compact mode, otherwise use multiline mode.
 		// If an node's line number is 0, it means it doesn't appear in the original file,
@@ -1067,9 +1067,6 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 			start, end := x.Span()
 			isNewSeq = isNewSeq && start.Line == 0
 			if isDifferentLines(&start, previousEnd) {
-				return false
-			}
-			if mode == modeTypeList && len(*list) > 1 && start.Line != 0 && end.Line != 0 && start.Line != end.Line {
 				return false
 			}
 			if end.Line != 0 {
@@ -1188,7 +1185,7 @@ func (p *printer) optionalTypeParams(typeParams Expr) {
 		return
 	case *ListExpr:
 		p.precedingComments(typeParams)
-		p.seq("[]", &list.Start, &list.List, &list.End, modeTypeList, false, list.ForceMultiLine)
+		p.seq("[]", &list.Start, &list.List, &list.End, modeTypeParams, false, list.ForceMultiLine)
 		p.queueEndOfLineComments(typeParams)
 	default:
 		panic(fmt.Errorf("printer: expected ListExpr for type params, got %T", typeParams))
