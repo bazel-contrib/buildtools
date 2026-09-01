@@ -456,7 +456,7 @@ func usedModuleExtensionProxy(x Expr) (name string, isUseRepo bool) {
 	} else if assign, ok := x.(*AssignExpr); ok {
 		// Handles:
 		//   foo_deps = use_extension("//:foo.bzl", "foo_deps")
-		assignee, isIdent := assign.LHS.(*Ident)
+		assignee, isIdent := assign.LHSIdent()
 		if !isIdent {
 			return "", false
 		}
