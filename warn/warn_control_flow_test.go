@@ -1132,6 +1132,27 @@ def test(x: s1) -> List[s2]:
 			":9: Loaded symbol \"s3\" is unused.",
 		},
 		scopeEverywhere)
+
+	checkFindingsAndFix(t, "load", `
+load(":f.bzl", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8")
+
+s1: s2
+s3: s4 = s5
+type s6[s7] = s8
+`,
+		`
+load(":f.bzl", "s2", "s4", "s5", "s7", "s8")
+
+s1: s2
+s3: s4 = s5
+type s6[s7] = s8
+`,
+		[]string{
+			"1: Loaded symbol \"s1\" is unused.",
+			"1: Loaded symbol \"s3\" is unused.",
+			"1: Loaded symbol \"s6\" is unused.",
+		},
+		scopeEverywhere)
 }
 
 func TestUninitializedVariable(t *testing.T) {

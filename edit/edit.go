@@ -1050,10 +1050,21 @@ func UsedSymbols(stmt build.Expr) map[string]bool {
 		if !ok {
 			return
 		}
-		// Check if we are on the left-side of an assignment
+		// If we are on the left-side of an assignment or are declared by a var statement
+		// or type alias, it doesn't count as a use.
 		for _, e := range stack {
-			if as, ok := e.(*build.AssignExpr); ok {
-				if ident, ok := as.LHSIdent(); ok && ident == expr {
+			switch e := e.(type) {
+			case *build.AssignExpr:
+				// TODO: should we be checking all CollectLValues here?
+				if ident, ok := e.LHSIdent(); ok && ident == expr {
+					return
+				}
+			case *build.TypedIdent:
+				if expr == e.GetIdent() {
+					return
+				}
+			case *build.TypeAliasStmt:
+				if expr == e.GetIdent() {
 					return
 				}
 			}
