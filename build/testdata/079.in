@@ -30,3 +30,6 @@ def concat(name: str, transform: _Transform[_Numeric]|None, *args: _Setting[_Num
 
 def foo[T, U](a: T, b: U) -> dict[T, U]:
     return {a: b}
+
+def important_function[T](): # comment about important_function
+    pass

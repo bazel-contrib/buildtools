@@ -579,34 +579,7 @@ var opPrec = map[string]int{
 // expr must introduce parentheses to preserve the meaning
 // of the parse tree (see above).
 func (p *printer) expr(v Expr, outerPrec int) {
-	// Emit line-comments preceding this expression.
-	// If we are in the middle of an expression but not inside ( ) [ ] { }
-	// then we cannot just break the line: we'd have to end it with a \.
-	// However, even then we can't emit line comments since that would
-	// end the expression. This is only a concern if we have rewritten
-	// the parse tree. If comments were okay before this expression in
-	// the original input they're still okay now, in the absence of rewrites.
-	//
-	// TODO(bazel-team): Check whether it is valid to emit comments right now,
-	// and if not, insert them earlier in the output instead, at the most
-	// recent \n not following a \ line.
-	p.newlineIfNeeded()
-
-	if before := v.Comment().Before; len(before) > 0 {
-		// Want to print a line comment.
-		// Line comments must be at the current margin.
-		p.trim()
-		if p.indent() > 0 {
-			// There's other text on the line. Start a new line.
-			p.printc('\n')
-		}
-		// Re-indent to margin.
-		p.spaces(p.margin)
-		for _, com := range before {
-			p.prints(strings.TrimSpace(com.Token))
-			p.newline()
-		}
-	}
+	p.precedingComments(v)
 
 	// Do we introduce parentheses?
 	// The result depends on the kind of expression.
@@ -993,8 +966,42 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.printc(')')
 	}
 
-	// Queue end-of-line comments for printing when we
-	// reach the end of the line.
+	p.queueEndOfLineComments(v)
+}
+
+// Emit line-comments preceding a given expression.
+func (p *printer) precedingComments(v Expr) {
+	// If we are in the middle of an expression but not inside ( ) [ ] { }
+	// then we cannot just break the line: we'd have to end it with a \.
+	// However, even then we can't emit line comments since that would
+	// end the expression. This is only a concern if we have rewritten
+	// the parse tree. If comments were okay before this expression in
+	// the original input they're still okay now, in the absence of rewrites.
+	//
+	// TODO(bazel-team): Check whether it is valid to emit comments right now,
+	// and if not, insert them earlier in the output instead, at the most
+	// recent \n not following a \ line.
+	p.newlineIfNeeded()
+
+	if before := v.Comment().Before; len(before) > 0 {
+		// Want to print a line comment.
+		// Line comments must be at the current margin.
+		p.trim()
+		if p.indent() > 0 {
+			// There's other text on the line. Start a new line.
+			p.printc('\n')
+		}
+		// Re-indent to margin.
+		p.spaces(p.margin)
+		for _, com := range before {
+			p.prints(strings.TrimSpace(com.Token))
+			p.newline()
+		}
+	}
+}
+
+// Queue end-of-line comments for printing when we reach the end of the line.
+func (p *printer) queueEndOfLineComments(v Expr) {
 	p.comment = append(p.comment, v.Comment().Suffix...)
 }
 
@@ -1173,7 +1180,9 @@ func (p *printer) optionalTypeParams(typeParams Expr) {
 	case nil:
 		return
 	case *ListExpr:
+		p.precedingComments(typeParams)
 		p.seq("[]", &list.Start, &list.List, &list.End, modeTypeList, false, list.ForceMultiLine)
+		p.queueEndOfLineComments(typeParams)
 	default:
 		panic(fmt.Errorf("printer: expected ListExpr for type params, got %T", typeParams))
 	}
