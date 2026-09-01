@@ -523,19 +523,20 @@ small_stmt:
 		}
 	}
 
-// Split out of type_alias_stmp to improve error handling:
-// on two idents in sequence, e.g. "foo bar", we want to emit the error at "bar".
+// Split out of type_alias_stmt to improve error handling:
+// on two adjacent idents, e.g. "foo bar", we want to emit the error at "bar".
 type_alias_stmt_start:
   ident ident
 	{
 		if $1.(*Ident).Name != "type" {
-			// Match 
+			// two idents can be adjacent only if the first one is `type`.
 			_, end := $2.Span()
 			errorAt(yylex, end, "syntax error near " + $2.(*Ident).Name)
 		}
 		$$ = &TypeAliasStmt{
 			TypePos: $1.(*Ident).NamePos,
 			Name: $2,
+			// Rest of fields will be filled in by type_alias_stmt
 		}
 	}
 
@@ -543,14 +544,13 @@ type_alias_stmt:
 	type_alias_stmt_start type_params_opt '=' type_expr
 	{
 		typeStart, _ := $4.Span()
-		$$ = &TypeAliasStmt{
-			TypePos: $1.(*TypeAliasStmt).TypePos,
-			Name: $1.(*TypeAliasStmt).Name,
-			TypeParams: $2,
-			EqualPos: $3,
-			Type: $4,
-			LineBreak: $3.Line < typeStart.Line,
-		}
+		// Modify $1 in-place to fill in the remaining fields.
+		typeAlisStmt := $1.(*TypeAliasStmt)
+		typeAlisStmt.TypeParams = $2
+		typeAlisStmt.EqualPos = $3
+		typeAlisStmt.Type = $4
+		typeAlisStmt.LineBreak = $3.Line < typeStart.Line
+		$$ = typeAlisStmt
 	}
 
 type_params_opt:

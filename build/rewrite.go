@@ -1404,7 +1404,7 @@ func editFloats(f *File, _ *Rewriter) {
 		if !ok {
 			return
 		}
-		if l.Token == "..." || !strings.ContainsRune(l.Token, '.') {
+		if !strings.ContainsRune(l.Token, '.') {
 			return
 		}
 		if strings.HasPrefix(l.Token, ".") {

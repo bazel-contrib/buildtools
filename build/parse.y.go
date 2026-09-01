@@ -1413,28 +1413,28 @@ yydefault:
 //line build/parse.y:530
 		{
 			if yyDollar[1].expr.(*Ident).Name != "type" {
-				// Match
+				// two idents can be adjacent only if the first one is `type`.
 				_, end := yyDollar[2].expr.Span()
 				errorAt(yylex, end, "syntax error near "+yyDollar[2].expr.(*Ident).Name)
 			}
 			yyVAL.expr = &TypeAliasStmt{
 				TypePos: yyDollar[1].expr.(*Ident).NamePos,
 				Name:    yyDollar[2].expr,
+				// Rest of fields will be filled in by type_alias_stmt
 			}
 		}
 	case 42:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line build/parse.y:544
+//line build/parse.y:545
 		{
 			typeStart, _ := yyDollar[4].expr.Span()
-			yyVAL.expr = &TypeAliasStmt{
-				TypePos:    yyDollar[1].expr.(*TypeAliasStmt).TypePos,
-				Name:       yyDollar[1].expr.(*TypeAliasStmt).Name,
-				TypeParams: yyDollar[2].expr,
-				EqualPos:   yyDollar[3].pos,
-				Type:       yyDollar[4].expr,
-				LineBreak:  yyDollar[3].pos.Line < typeStart.Line,
-			}
+			// Modify $1 in-place to fill in the remaining fields.
+			typeAlisStmt := yyDollar[1].expr.(*TypeAliasStmt)
+			typeAlisStmt.TypeParams = yyDollar[2].expr
+			typeAlisStmt.EqualPos = yyDollar[3].pos
+			typeAlisStmt.Type = yyDollar[4].expr
+			typeAlisStmt.LineBreak = yyDollar[3].pos.Line < typeStart.Line
+			yyVAL.expr = typeAlisStmt
 		}
 	case 43:
 		yyDollar = yyS[yypt-0 : yypt+1]
