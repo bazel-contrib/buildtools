@@ -41,7 +41,6 @@ package build
 	// partial syntax trees
 	expr      Expr
 	exprs     []Expr
-	idents    []*Ident
 	kv        *KeyValueExpr
 	kvs       []*KeyValueExpr
 	string    *StringExpr
