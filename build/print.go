@@ -615,14 +615,6 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.prints(": ")
 		p.expr(v.Type, precLow)
 
-	case *TypeExpr:
-		for i, x := range v.List {
-			if i > 0 {
-				p.prints(" | ")
-			}
-			p.expr(x, precLow)
-		}
-
 	case *TypeAppExpr:
 		p.expr(v.Type, precSuffix)
 		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeCall, v.ForceCompact, v.ForceMultiLine)

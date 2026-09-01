@@ -1144,14 +1144,7 @@ type_expr:
 	}
 |	type_expr '|' type_atom
 	{
-		if te, ok := $1.(*TypeExpr); ok {
-			te.List = append(te.List, $3)
-			$$ = te
-		} else {
-			$$ = &TypeExpr{
-				List: []Expr{$1, $3},
-			}
-		}
+		$$ = binary($1, $2, $<tok>2, $3)
 	}
 
 type_atom:

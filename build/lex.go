@@ -815,10 +815,6 @@ func (in *input) order(v Expr) {
 	case *TypedIdent:
 		in.order(v.Ident)
 		in.order(v.Type)
-	case *TypeExpr:
-		for _, x := range v.List {
-			in.order(x)
-		}
 	case *TypeAppExpr:
 		in.order(v.Type)
 		for _, x := range v.Args {

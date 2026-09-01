@@ -59,12 +59,6 @@ func GetTypes(t Expr) []string {
 		return GetTypes(t.Type)
 	case *TypedIdent:
 		return GetTypes(t.Type)
-	case *TypeExpr:
-		var ret []string
-		for _, x := range t.List {
-			ret = append(ret, GetTypes(x)...)
-		}
-		return ret
 	case *TypeAppExpr:
 		ret := GetTypes(t.Type)
 		for _, x := range t.Args {

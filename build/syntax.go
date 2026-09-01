@@ -222,28 +222,6 @@ func (x *TypedIdent) GetIdent() *Ident {
 	return ident
 }
 
-// A TypeExpr represents a type expression: a list of type_application nodes separated by '|'.
-// e.g. int | float | list[int]
-type TypeExpr struct {
-	Comments
-	List []Expr
-}
-
-// Span returns the start and end positions of the node
-func (x *TypeExpr) Span() (start, end Position) {
-	if len(x.List) > 0 {
-		start, _ = x.List[0].Span()
-		_, end = x.List[len(x.List)-1].Span()
-	}
-	return start, end
-}
-
-// Copy creates and returns a non-deep copy of TypeExpr
-func (x *TypeExpr) Copy() Expr {
-	n := *x
-	return &n
-}
-
 // A TypeAppExpr represents a type application: a type_name followed by a type_list: struct[{"name": str}, ...], typing.Sequence[int].
 type TypeAppExpr struct {
 	Comments

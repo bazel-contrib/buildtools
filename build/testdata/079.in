@@ -19,6 +19,9 @@ type NumericResult = struct[{
     "data": Sequence[_Numeric] | None,
 }, ...]
 
+type UnionWithLineBreak = int | bool \
+    | float | str # End of union
+
 def concat(name: str, transform: _Transform[_Numeric]|None, *args: _Setting[_Numeric]) -> NumericResult:
     d: list[_Numeric] = []
     for s in args:

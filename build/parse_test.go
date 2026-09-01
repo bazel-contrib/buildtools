@@ -277,31 +277,31 @@ var parseTests = []struct {
 						End: End{Pos: Position{Line: 1, LineRune: 23, Byte: 22}},
 					},
 					EqualPos: Position{Line: 1, LineRune: 25, Byte: 24},
-					Type: &TypeExpr{
-						List: []Expr{
-							&TypeAppExpr{
-								Type: &Ident{
-									Name:    "dict",
-									NamePos: Position{Line: 1, LineRune: 27, Byte: 26},
-								},
-								ArgsStart: Position{Line: 1, LineRune: 31, Byte: 30},
-								Args: []Expr{
-									&Ident{
-										Name:    "T",
-										NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
-									},
-									&Ident{
-										Name:    "U",
-										NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
-									},
-								},
-								End:          End{Pos: Position{Line: 1, LineRune: 36, Byte: 35}},
-								ForceCompact: true,
+					Type: &BinaryExpr{
+						X: &TypeAppExpr{
+							Type: &Ident{
+								Name:    "dict",
+								NamePos: Position{Line: 1, LineRune: 27, Byte: 26},
 							},
-							&Ident{
-								Name:    "None",
-								NamePos: Position{Line: 1, LineRune: 40, Byte: 39},
+							ArgsStart: Position{Line: 1, LineRune: 31, Byte: 30},
+							Args: []Expr{
+								&Ident{
+									Name:    "T",
+									NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
+								},
+								&Ident{
+									Name:    "U",
+									NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
+								},
 							},
+							End:          End{Pos: Position{Line: 1, LineRune: 36, Byte: 35}},
+							ForceCompact: true,
+						},
+						Op:      "|",
+						OpStart: Position{Line: 1, LineRune: 38, Byte: 37},
+						Y: &Ident{
+							Name:    "None",
+							NamePos: Position{Line: 1, LineRune: 40, Byte: 39},
 						},
 					},
 				},
