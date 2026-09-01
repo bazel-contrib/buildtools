@@ -171,18 +171,6 @@ func CollectLValues(node build.Expr) []*build.Ident {
 	return result
 }
 
-// If node is a single identifier or typed identifier, returns the identifier; otherwise, returns nil.
-func GetIdent(node build.Expr) *build.Ident {
-	switch node := node.(type) {
-	case *build.Ident:
-		return node
-	case *build.TypedIdent:
-		return GetIdent(node.Ident)
-	default:
-		return nil
-	}
-}
-
 func declareParams(fct *build.DefStmt, env *Environment) {
 	for _, node := range fct.Params {
 		name, _ := build.GetParamName(node)
