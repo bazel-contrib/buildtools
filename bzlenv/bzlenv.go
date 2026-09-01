@@ -128,7 +128,7 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			}
 		case *build.TypeAliasStmt:
 			// Type aliases allowed only at top level.
-			env.declare(node.TypeName(), Global, node)
+			env.declare(node.GetIdent().Name, Global, node)
 		case *build.AssignExpr:
 			kind := Local
 			if env.Function == nil {
@@ -143,7 +143,7 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			if env.Function == nil {
 				kind = Global
 			}
-			env.declare(node.Name(), kind, node)
+			env.declare(node.GetIdent().Name, kind, node)
 		case *build.DefStmt:
 			env.declare(node.Name, Function, node)
 		}
@@ -171,6 +171,18 @@ func CollectLValues(node build.Expr) []*build.Ident {
 	return result
 }
 
+// If node is a single identifier or typed identifier, returns the identifier; otherwise, returns nil.
+func GetIdent(node build.Expr) *build.Ident {
+	switch node := node.(type) {
+	case *build.Ident:
+		return node
+	case *build.TypedIdent:
+		return GetIdent(node.Ident)
+	default:
+		return nil
+	}
+}
+
 func declareParams(fct *build.DefStmt, env *Environment) {
 	for _, node := range fct.Params {
 		name, _ := build.GetParamName(node)
@@ -195,7 +207,7 @@ func declareLocalVariables(stmts []build.Expr, env *Environment) {
 			if env.Function == nil {
 				kind = Global
 			}
-			env.declare(node.Name(), kind, node)
+			env.declare(node.GetIdent().Name, kind, node)
 		case *build.IfStmt:
 			declareLocalVariables(node.True, env)
 			declareLocalVariables(node.False, env)

@@ -150,7 +150,7 @@ func analyzeFile(f *build.File) fileData {
 		switch stmt := stmt.(type) {
 		case *build.AssignExpr:
 			// Analyze aliases (`foo = bar`) or rule declarations (`foo = rule(...)`)
-			lhsIdent, ok := stmt.LHS.(*build.Ident)
+			lhsIdent, ok := stmt.LHSIdent()
 			if !ok {
 				continue
 			}

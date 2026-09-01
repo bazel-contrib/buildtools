@@ -1053,7 +1053,7 @@ func UsedSymbols(stmt build.Expr) map[string]bool {
 		// Check if we are on the left-side of an assignment
 		for _, e := range stack {
 			if as, ok := e.(*build.AssignExpr); ok {
-				if as.LHS == expr {
+				if ident, ok := as.LHSIdent(); ok && ident == expr {
 					return
 				}
 			}

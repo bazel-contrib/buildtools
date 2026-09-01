@@ -1060,7 +1060,7 @@ func paramType(param build.Expr) (int, string) {
 	switch param := param.(type) {
 	case *build.AssignExpr:
 		if param.Op == "=" {
-			ident, ok := param.LHS.(*build.Ident)
+			ident, ok := param.LHSIdent()
 			if ok {
 				return typeKeyword, ident.Name
 			}

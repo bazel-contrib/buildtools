@@ -163,7 +163,7 @@ func overlyNestedDepsetWarning(f *build.File) []*LinterFinding {
 			return
 		}
 		// Is the LHS an ident?
-		lhs, ok := assign.LHS.(*build.Ident)
+		lhs, ok := assign.LHSIdent()
 		if !ok {
 			return
 		}

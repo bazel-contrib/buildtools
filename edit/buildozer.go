@@ -1192,7 +1192,7 @@ func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) 
 	vars = make(map[string]*build.AssignExpr)
 	for _, expr := range exprs {
 		if as, ok := expr.(*build.AssignExpr); ok {
-			if lhs, ok := as.LHS.(*build.Ident); ok {
+			if lhs, ok := as.LHSIdent(); ok {
 				vars[lhs.Name] = as
 			}
 		}

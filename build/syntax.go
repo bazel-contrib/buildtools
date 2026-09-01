@@ -213,13 +213,13 @@ func (x *TypedIdent) Copy() Expr {
 	return &n
 }
 
-// Name returns the name of TypedIdent's variable name
-func (x *TypedIdent) Name() string {
+// GetIdent returns TypedIdent's variable
+func (x *TypedIdent) GetIdent() *Ident {
 	ident, ok := x.Ident.(*Ident)
 	if !ok {
 		panic(fmt.Errorf("expected *build.Ident for variable of typed identifier, got %T", x.Ident))
 	}
-	return ident.Name
+	return ident
 }
 
 // A TypeExpr represents a type expression: a list of type_application nodes separated by '|'.
@@ -655,6 +655,19 @@ func (x *AssignExpr) Copy() Expr {
 	return &n
 }
 
+// LHSIdent returns the identifier of the LHS if it is a single identifier
+// (or a single typed identifier). Otherwise, returns nil, false.
+func (x *AssignExpr) LHSIdent() (*Ident, bool) {
+	switch node := x.LHS.(type) {
+	case *Ident:
+		return node, true
+	case *TypedIdent:
+		return node.GetIdent(), true
+	default:
+		return nil, false
+	}
+}
+
 // A ParenExpr represents a parenthesized expression: (X).
 type ParenExpr struct {
 	Comments
@@ -836,13 +849,13 @@ func (x *TypeAliasStmt) Copy() Expr {
 	return &n
 }
 
-// TypeName returns the type name of the TypeAliasStmt
-func (x *TypeAliasStmt) TypeName() string {
+// GetIdent returns the variable defined by TypeAliasStmt
+func (x *TypeAliasStmt) GetIdent() *Ident {
 	ident, ok := x.Name.(*Ident)
 	if !ok {
 		panic(fmt.Errorf("expected *build.Ident for variable of a type alias, got %T", x.Name))
 	}
-	return ident.Name
+	return ident
 }
 
 // A DefStmt represents a function definition expression: def foo(List):.

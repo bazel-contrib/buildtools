@@ -513,7 +513,7 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 				// type parameter scope properly.
 
 				// The type alias name is defined in the current scope
-				typeName := expr.TypeName()
+				typeName := expr.GetIdent().Name
 				if _, ok := definedTypes[typeName]; !ok {
 					definedTypes[typeName] = expr.Name
 				}
@@ -664,7 +664,7 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 	for _, s := range f.Stmt {
 		switch s := s.(type) {
 		case *build.AssignExpr:
-			left, ok := s.LHS.(*build.Ident)
+			left, ok := s.LHSIdent()
 			if !ok {
 				continue
 			}
@@ -688,7 +688,7 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 			findings = append(findings, makeLinterFinding(s.LHS, fmt.Sprintf("Variable %q has already been defined%s", left.Name, suffix)))
 
 		case *build.TypeAliasStmt:
-			typeName := s.TypeName()
+			typeName := s.GetIdent().Name
 			if _, ok := definedSymbols[typeName]; !ok {
 				definedSymbols[typeName] = Type
 				continue
