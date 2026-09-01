@@ -871,7 +871,14 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.prints("def ")
 		p.prints(v.Name)
 		p.optionalTypeParams(v.TypeParams)
-		p.seq("()", &v.StartPos, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
+
+		// Line anchor for the opening '(' of the params list
+		paramsAnchor := v.StartPos
+		if v.TypeParams != nil {
+			_, paramsAnchor = v.TypeParams.Span()
+		}
+
+		p.seq("()", &paramsAnchor, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.prints(" -> ")
 			p.expr(v.Type, precLow)

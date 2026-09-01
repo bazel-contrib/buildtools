@@ -42,3 +42,10 @@ def foo[T, U](a: T, b: U) -> dict[T, U]:
 
 def important_function[T]():  # comment about important_function
     pass
+
+def lots_of_type_params[
+    T,
+    U,
+    V,
+](x: int, y: str) -> None:
+    pass
