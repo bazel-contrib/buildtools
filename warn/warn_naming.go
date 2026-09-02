@@ -50,6 +50,11 @@ func confusingNameWarning(f *build.File) []*LinterFinding {
 		switch expr := expr.(type) {
 		case *build.DefStmt:
 			findings = ambiguousNameCheck(expr, expr.Name, findings)
+			if expr.TypeParams != nil {
+				for _, ident := range bzlenv.CollectLValues(expr.TypeParams) {
+					findings = ambiguousNameCheck(ident, ident.Name, findings)
+				}
+			}
 			for _, param := range expr.Params {
 				name, _ := build.GetParamName(param)
 				findings = ambiguousNameCheck(param, name, findings)
@@ -64,6 +69,13 @@ func confusingNameWarning(f *build.File) []*LinterFinding {
 					continue
 				}
 				for _, ident := range bzlenv.CollectLValues(forClause.Vars) {
+					findings = ambiguousNameCheck(ident, ident.Name, findings)
+				}
+			}
+		case *build.TypeAliasStmt:
+			findings = ambiguousNameCheck(expr, expr.GetIdent().Name, findings)
+			if expr.TypeParams != nil {
+				for _, ident := range bzlenv.CollectLValues(expr.TypeParams) {
 					findings = ambiguousNameCheck(ident, ident.Name, findings)
 				}
 			}

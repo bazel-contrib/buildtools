@@ -93,6 +93,19 @@ def f(x):
 			":5: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
 			":5: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
 		}, scopeEverywhere)
+
+	checkFindings(t, "confusing-name", `
+type I = int
+type J[l] = list[l]
+
+def f[O]():
+    pass
+`,
+		[]string{
+			":1: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+			":2: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+			":4: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+		}, scopeEverywhere)
 }
 
 func TestVariableNames(t *testing.T) {
