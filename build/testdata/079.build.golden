@@ -10,7 +10,7 @@ type _Transform[U] = \
             _Setting[U],
             str,
         ],
-        _Setting[U],
+        _Setting[U]
     ]
 
 type _OptionalDict[
@@ -25,7 +25,7 @@ type NumericResult = struct[
         "name": str,
         "data": Sequence[_Numeric] | None,
     },
-    ...,
+    ...
 ]
 
 type UnionWithLineBreak = int | bool | \

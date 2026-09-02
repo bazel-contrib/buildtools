@@ -17,13 +17,13 @@ def foo(a, *, b, **kwargs):
 
 def foo(a: str, b: int | float, *, c: Callable[
     ...,
-    dict[str, int],
+    dict[str, int]
 ], *args: int, **kwargs: bool) -> struct[
     {
         "a": str,
         "b": int | float,
     },
-    ...,
+    ...
 ]:
     return bar(a, b, c, *args, **kwargs)
 

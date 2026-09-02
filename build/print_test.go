@@ -538,12 +538,12 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
 			name: "multiline type application",
 			input: `type T = list[
     int,
-    str,
+    str
 ]
 `,
 			want: `type T = list[
     int,
-    str,
+    str
 ]
 `,
 		},
@@ -553,7 +553,7 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
     # comment 1
     int,
     # comment 2
-    str,
+    str
     # comment 3
 ] = [123, "four"]
 `,
@@ -561,7 +561,7 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
     # comment 1
     int,
     # comment 2
-    str,
+    str
     # comment 3
 ] = [123, "four"]
 `,
@@ -599,7 +599,7 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
         "a": int,
         "b": str,
     },
-    ...,
+    ...
 ]
 `,
 			want: `type T = struct[
@@ -607,7 +607,7 @@ func TestPrintTypeExprForceMultiLine(t *testing.T) {
         "a": int,
         "b": str,
     },
-    ...,
+    ...
 ]
 `,
 		},

@@ -1165,15 +1165,15 @@ type_name:
 	}
 
 type_application:
-	type_name '[' type_args commas_opt ']'
+	type_name '[' type_args ']'
 	{
 		$$ = &TypeAppExpr{
 			Type: $1,
 			ArgsStart: $2,
 			Args: $3,
-			End: End{Pos: $5},
-			ForceCompact: forceCompact($2, $3, $5),
-			ForceMultiLine: forceMultiLine($2, $3, $5),
+			End: End{Pos: $4},
+			ForceCompact: forceCompact($2, $3, $4),
+			ForceMultiLine: forceMultiLine($2, $3, $4),
 		}
 	}
 

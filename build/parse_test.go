@@ -352,6 +352,12 @@ func TestParseError(t *testing.T) {
 		in   string
 		want string
 	}{
+		{
+			name: "no trailing commas in type applications",
+			in:   "x: dict[str, int,]",
+			want: "test:1:19: syntax error near ]",
+		},
+
 		// type alias errors
 		{
 			name: "type alias not at top level",

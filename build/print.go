@@ -617,7 +617,7 @@ func (p *printer) expr(v Expr, outerPrec int) {
 
 	case *TypeAppExpr:
 		p.expr(v.Type, precSuffix)
-		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeCall, v.ForceCompact, v.ForceMultiLine)
+		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeTypeApp, v.ForceCompact, v.ForceMultiLine)
 
 	case *EllipsisExpr:
 		p.prints("...")
@@ -1020,6 +1020,7 @@ const (
 	modeSeq        // x, y
 	modeDef        // def f(x, y)
 	modeLoad       // load(a, b, c)
+	modeTypeApp    // dict[str, int]
 	modeTypeParams // [T, U]
 )
 
@@ -1040,8 +1041,8 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	if mode == modeSeq {
 		return true
 	}
-	// Use compact mode for empty call expressions if ForceMultiLine is not set
-	if mode == modeCall && len(*list) == 0 && !forceMultiLine {
+	// Use compact mode for empty call expressions or type applications if ForceMultiLine is not set
+	if (mode == modeCall || mode == modeTypeApp) && len(*list) == 0 && !forceMultiLine {
 		return true
 	}
 
@@ -1192,6 +1193,9 @@ func needsTrailingComma(mode seqMode, v Expr) bool {
 	case modeDef:
 		return false
 	case modeParen:
+		return false
+	case modeTypeApp:
+		// Syntax error!
 		return false
 	case modeCall:
 		// *args and **kwargs in fn calls
