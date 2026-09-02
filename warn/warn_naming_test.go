@@ -114,7 +114,7 @@ BAZ: int
 Baz: int
 type MyInt = int
 type _MyInt = int
-type my_int = int
+type My_Int = int
 `,
 		[]string{
 			`:4: Variable name "Foo" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
@@ -123,7 +123,7 @@ type my_int = int
 			`:12: Variable name "_Foo_bar" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:12: Variable name "foo_Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:15: Variable name "Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
-			`:18: Type name "my_int" should be UpperCamelCase (possibly prefixed with an underscore).`,
+			`:18: Type name "My_Int" should be lower_snake_case or UpperCamelCase (possibly prefixed with an underscore).`,
 		}, scopeEverywhere)
 
 	checkFindings(t, "name-conventions", `

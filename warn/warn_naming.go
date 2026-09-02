@@ -104,14 +104,8 @@ func nameConventionsWarning(f *build.File) []*LinterFinding {
 			ident := stmt.GetIdent()
 			findings = appendVariableNameConventionsWarning(ident, findings)
 		case *build.TypeAliasStmt:
-			// provider-like naming philosophy
 			ident := stmt.GetIdent()
-			if isUpperCamelCase(ident.Name) {
-				return
-			}
-			findings = append(findings,
-				makeLinterFinding(ident,
-					fmt.Sprintf(`Type name "%s" should be UpperCamelCase (possibly prefixed with an underscore).`, ident.Name)))
+			findings = appendTypeNameConventionsWarning(ident, findings)
 		}
 		return
 	})
@@ -129,4 +123,16 @@ func appendVariableNameConventionsWarning(ident *build.Ident, findings []*Linter
 	return append(findings,
 		makeLinterFinding(ident,
 			fmt.Sprintf(`Variable name "%s" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`, ident.Name)))
+}
+
+func appendTypeNameConventionsWarning(ident *build.Ident, findings []*LinterFinding) []*LinterFinding {
+	if isLowerSnakeCase(ident.Name) || isUpperCamelCase(ident.Name) {
+		// Built-in types are either lower_snake (str, dict, list) or UpperCamel (Callable, Sequence).
+		// User-defined types and type params should follow the same pattern.
+		// Note that providers (expected to be UpperCamelCase) are also types.
+		return findings
+	}
+	return append(findings,
+		makeLinterFinding(ident,
+			fmt.Sprintf(`Type name "%s" should be lower_snake_case or UpperCamelCase (possibly prefixed with an underscore).`, ident.Name)))
 }
