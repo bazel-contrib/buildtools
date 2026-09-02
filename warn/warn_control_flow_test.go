@@ -853,13 +853,18 @@ type _Numeric = int | float
 
 	// Unused type parameter
 	checkFindings(t, "unused-variable", `
-def foo[T]():
+def foo[
+	T,
+	_U,
+	# @unused
+	V,
+	]():
   pass
 
 foo()
 `,
 		[]string{
-			":1: Type \"T\" is unused.",
+			":2: Type \"T\" is unused.",
 		},
 		scopeEverywhere)
 

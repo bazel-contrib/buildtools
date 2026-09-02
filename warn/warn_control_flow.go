@@ -467,6 +467,9 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 			if expr.TypeParams != nil {
 				for _, typeParam := range bzlenv.CollectLValues(expr.TypeParams) {
 					definedTypes[typeParam.Name] = typeParam
+					if strings.HasPrefix(typeParam.Name, "_") || edit.ContainsComments(typeParam, "@unused") {
+						suppressedWarnings[typeParam.Name] = true
+					}
 				}
 			}
 			// Collect its (normal) parameters as defined in the current scope.
@@ -538,6 +541,9 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 			if expr.TypeParams != nil {
 				for _, typeParam := range bzlenv.CollectLValues(expr.TypeParams) {
 					definedTypes[typeParam.Name] = typeParam
+					if strings.HasPrefix(typeParam.Name, "_") || edit.ContainsComments(typeParam, "@unused") {
+						suppressedWarnings[typeParam.Name] = true
+					}
 				}
 			}
 			collectUsedTypeSymbols(expr.Type, definedTypes, usedSymbols, usedSymbolsFromOuterScope)
