@@ -335,7 +335,7 @@ This is important for tooling and automation.
   * Otherwise, add a "name" argument. If possible, use that name when calling other macros/rules.`, report.fc.nameAlias, report.fc.line, def.Name)
 		}
 		finding := makeLinterFinding(def, msg)
-		finding.End = def.ColonPos
+		_, finding.End = def.HeaderSpan()
 		findings = append(findings, finding)
 	}
 

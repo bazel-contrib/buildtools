@@ -43,3 +43,15 @@ def lots_of_type_params[
     V,
 ](x: int, y: str) -> None:
     pass
+
+def well_commented[
+    T,  # comment about T
+    U,  # comment about U
+    # comment after U
+](
+        x: T,  # comment about x
+        y: U  # comment about y
+        # comment after y
+) -> T:  # comment after type
+    # comment in body
+    return x

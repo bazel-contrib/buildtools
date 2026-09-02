@@ -236,7 +236,7 @@ func functionDocstringWarning(f *build.File) []*LinterFinding {
 		message := fmt.Sprintf(`The function %q has no docstring.
 A docstring is a string literal (not a comment) which should be the first statement of a function body (it may follow comment lines).`, def.Name)
 		finding := makeLinterFinding(def, message)
-		finding.End = def.ColonPos
+		_, finding.End = def.HeaderSpan()
 		findings = append(findings, finding)
 	}
 	return findings
@@ -307,7 +307,7 @@ func functionDocstringArgsWarning(f *build.File) []*LinterFinding {
 			if name == "" {
 				continue
 			}
-			name = op + name  // *args or **kwargs
+			name = op + name // *args or **kwargs
 			paramNames[name] = true
 			if _, ok := info.args[name]; !ok {
 				notDocumentedArguments = append(notDocumentedArguments, name)

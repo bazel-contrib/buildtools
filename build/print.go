@@ -870,12 +870,13 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			_, paramsAnchor = v.TypeParams.Span()
 		}
 
-		p.seq("()", &paramsAnchor, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
+		p.seq("()", &paramsAnchor, &v.Params, &v.ParamsEnd, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.prints(" -> ")
 			p.expr(v.Type, precLow)
 		}
 		p.printc(':')
+		p.queueEndOfLineComments(&v.ColonPos)
 		p.nestedStatements(v.Body)
 
 	case *ForStmt:
@@ -1156,15 +1157,17 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		}
 	}
 	// Final comments.
+	printedFinalComments := false
 	if end != nil {
 		for _, com := range end.Before {
 			p.newline()
 			p.prints(strings.TrimSpace(com.Token))
+			printedFinalComments = true
 		}
 	}
 	p.margin -= indentation
 	// in modeDef print the closing bracket on the same line
-	if mode != modeDef {
+	if mode != modeDef || printedFinalComments {
 		p.newline()
 	}
 }

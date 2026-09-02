@@ -380,6 +380,7 @@ def_header:
 			},
 			Name: $<tok>2,
 			TypeParams: $3,
+			ParamsEnd: End{Pos: $6},
 			ForceCompact: forceCompact($4, $5, $6),
 			ForceMultiLine: forceMultiLine($4, $5, $6),
 		}
@@ -397,7 +398,7 @@ block_stmt:
 	def_header_type_opt ':' suite
 	{
 		$1.Function.Body = $3
-		$1.ColonPos = $2
+		$1.ColonPos = End{Pos: $2}
 		$$ = $1
 		$<lastStmt>$ = $<lastStmt>3
 	}
