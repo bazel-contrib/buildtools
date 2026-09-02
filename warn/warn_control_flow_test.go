@@ -976,6 +976,21 @@ type T = int`,
 			":2: Type \"T\" has already been defined as a variable.",
 		},
 		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
+T: int
+type T = int`,
+		[]string{
+			":2: Type \"T\" has already been defined as a variable.",
+		},
+		scopeEverywhere)
+
+	// Ok to assign a variable after declaring it.
+	checkFindings(t, "redefined-variable", `
+T: int
+T = 42`,
+		[]string{},
+		scopeEverywhere)
 }
 
 func TestWarnUnusedLoad(t *testing.T) {

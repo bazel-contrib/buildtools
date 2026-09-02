@@ -659,8 +659,9 @@ func unusedVariableWarning(f *build.File) []*LinterFinding {
 func redefinedVariableWarning(f *build.File) []*LinterFinding {
 	findings := []*LinterFinding{}
 	const (
-		Variable = iota
-		Type
+		DeclaredVariable = iota
+		AssignedVariable
+		TypeAlias
 	)
 	definedSymbols := make(map[string]int)
 
@@ -672,18 +673,18 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 			if !ok {
 				continue
 			}
-			if _, ok := definedSymbols[left.Name]; !ok {
-				definedSymbols[left.Name] = Variable
+			if kind, ok := definedSymbols[left.Name]; !ok || kind == DeclaredVariable {
+				definedSymbols[left.Name] = AssignedVariable
 				continue
 			}
 
-			if s.Op == "+=" && (types[s.LHS] == List || types[s.RHS] == List) && definedSymbols[left.Name] != Type {
+			if s.Op == "+=" && (types[s.LHS] == List || types[s.RHS] == List) && definedSymbols[left.Name] == AssignedVariable {
 				// Not a reassignment, just appending to a list
 				continue
 			}
 
 			suffix := ""
-			if definedSymbols[left.Name] == Type {
+			if definedSymbols[left.Name] == TypeAlias {
 				suffix = " as a type. Redefining a type is incompatible with static type checking."
 			} else {
 				suffix = ". Redefining a global value is discouraged and will be forbidden in the future. Consider using a new variable instead."
@@ -691,15 +692,26 @@ func redefinedVariableWarning(f *build.File) []*LinterFinding {
 
 			findings = append(findings, makeLinterFinding(s.LHS, fmt.Sprintf("Variable %q has already been defined%s", left.Name, suffix)))
 
+		case *build.TypedIdent:
+			ident := s.GetIdent()
+			if _, ok := definedSymbols[ident.Name]; !ok {
+				definedSymbols[ident.Name] = DeclaredVariable
+				continue
+			}
+			// TODO(#1500): don't report a warning for a var statement that redeclares a global variable because
+			// 1. this cannot be a warning that could be ignored - it is a static fatal error; and
+			// 2. it must be a fatal error for local variables too (not just globals).
+			// To fix, we need a proper resolver stage after parsing. See https://github.com/bazel-contrib/buildtools/issues/1500
+
 		case *build.TypeAliasStmt:
 			typeName := s.GetIdent().Name
 			if _, ok := definedSymbols[typeName]; !ok {
-				definedSymbols[typeName] = Type
+				definedSymbols[typeName] = TypeAlias
 				continue
 			}
 
 			detail := ""
-			if definedSymbols[typeName] == Variable {
+			if definedSymbols[typeName] != TypeAlias {
 				detail = " as a variable"
 			}
 			findings = append(findings,
