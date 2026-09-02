@@ -1156,7 +1156,7 @@ s3: s4 = s5
 type s6[s7] = s8
 `,
 		`
-load(":f.bzl", "s2", "s4", "s5", "s7", "s8")
+load(":f.bzl", "s2", "s4", "s5", "s8")
 
 s1: s2
 s3: s4 = s5
@@ -1166,6 +1166,7 @@ type s6[s7] = s8
 			"1: Loaded symbol \"s1\" is unused.",
 			"1: Loaded symbol \"s3\" is unused.",
 			"1: Loaded symbol \"s6\" is unused.",
+			"1: Loaded symbol \"s7\" is unused.",
 		},
 		scopeEverywhere)
 }

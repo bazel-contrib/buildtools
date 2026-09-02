@@ -1051,12 +1051,16 @@ func UsedSymbols(stmt build.Expr) map[string]bool {
 			return
 		}
 		// If we are on the left-side of an assignment or are declared by a var statement
-		// or type alias, it doesn't count as a use.
+		// or type alias, or are a type parameter, it doesn't count as a use.
 		for _, e := range stack {
 			switch e := e.(type) {
 			case *build.AssignExpr:
 				// TODO: should we be checking all CollectLValues here?
 				if ident, ok := e.LHSIdent(); ok && ident == expr {
+					return
+				}
+			case *build.DefStmt:
+				if contains(e.TypeParams, expr) {
 					return
 				}
 			case *build.TypedIdent:
@@ -1067,11 +1071,29 @@ func UsedSymbols(stmt build.Expr) map[string]bool {
 				if expr == e.GetIdent() {
 					return
 				}
+				if contains(e.TypeParams, expr) {
+					return
+				}
 			}
 		}
 		symbols[literal.Name] = true
 	})
 	return symbols
+}
+
+func contains(haystack build.Expr, needle build.Expr) bool {
+	if haystack == nil {
+		return false
+	}
+	found := false
+	build.WalkInterruptable(haystack, func(expr build.Expr, stack []build.Expr) error {
+		if expr == needle {
+			found = true
+			return &build.StopTraversalError{}
+		}
+		return nil
+	})
+	return found
 }
 
 // UsedTypes returns the set of types used in the BUILD file (variables, function names).
