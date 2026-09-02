@@ -644,6 +644,11 @@ func appendUnusedVariableLinterFindings(findings []*LinterFinding, definedSymbol
 		if ignoreTopLevel && !strings.HasPrefix(name, "_") {
 			continue
 		}
+		if name == "_" {
+			// The "_" name is a strong signal that the variable is intentionally unused;
+			// it's also part of the `_: Any  # Enable type checking` idiom.
+			continue
+		}
 		findings = append(findings,
 			makeLinterFinding(expr, fmt.Sprintf(`%s %q is unused. Please remove it.`, symbolKind, name)))
 	}

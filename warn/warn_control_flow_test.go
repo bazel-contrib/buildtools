@@ -734,6 +734,23 @@ foo()
 		[]string{},
 		scopeEverywhere)
 
+	// "_" is always allowed to be unused
+	checkFindings(t, "unused-variable", `
+_: Any  # Enable type checking
+
+def foo():
+  _: None  # Enable type checking
+
+  def callback(_):
+    pass
+
+  callback(None)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
 	// Type alias used in function return annotation
 	checkFindings(t, "unused-variable", `
 type _Numeric = int | float
