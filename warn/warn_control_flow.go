@@ -525,6 +525,8 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 					suppressedWarnings[typeName] = true
 				}
 
+				// TODO: if Bazel/Buck2 ever support recursive type aliases, we'll want to
+				// check for type aliases that are only used in their own definition.
 				usedSymbolsInTypeAlias, findingsInTypeAlias := unusedVariableCheck(f, expr)
 				findings = append(findings, findingsInTypeAlias...)
 				for symbol := range usedSymbolsInTypeAlias {
