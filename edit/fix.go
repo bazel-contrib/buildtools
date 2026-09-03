@@ -408,36 +408,71 @@ func cleanUnusedLoads(f *build.File) bool {
 }
 
 // movePackageDeclarationToTheTop ensures that the call to package() is done
-// before everything else (except comments).
+// before everything else (except comments, docstrings, and loads).
 func movePackageDeclarationToTheTop(f *build.File) bool {
 	pkg := ExistingPackageDeclaration(f)
 	if pkg == nil {
 		return false
 	}
-	all := []build.Expr{}
-	inserted := false // true when the package declaration has been inserted
+
+	// Collect variables defined by assignment statements before package()
+	definedVars := make(map[string]bool)
 	for _, stmt := range f.Stmt {
-		_, isComment := stmt.(*build.CommentBlock)
-		_, isString := stmt.(*build.StringExpr)     // typically a docstring
-		_, isAssignExpr := stmt.(*build.AssignExpr) // e.g. variable declaration
-		_, isLoad := stmt.(*build.LoadStmt)
-		if isComment || isString || isAssignExpr || isLoad {
-			all = append(all, stmt)
+		if stmt == pkg.Call {
+			break
+		}
+		if assign, ok := stmt.(*build.AssignExpr); ok {
+			if ident, ok := assign.LHS.(*build.Ident); ok {
+				definedVars[ident.Name] = true
+			}
+		}
+	}
+
+	// Check if the package() call uses any of the defined variables.
+	// If so, we can't as easily move it.
+	usedSymbols := UsedSymbols(pkg.Call)
+	for varName := range definedVars {
+		if usedSymbols[varName] {
+			return false
+		}
+	}
+
+	var beforePkg []build.Expr
+	var afterPkg []build.Expr
+	seenPkg := false
+	pkgMisplaced := false
+
+	for _, stmt := range f.Stmt {
+		if stmt == pkg.Call {
+			seenPkg = true
 			continue
 		}
-		if stmt == pkg.Call {
-			if inserted {
-				// remove the old package
-				continue
+		_, isComment := stmt.(*build.CommentBlock)
+		_, isString := stmt.(*build.StringExpr)
+		_, isLoad := stmt.(*build.LoadStmt)
+		_, isLicenses := ExprToRule(stmt, "licenses")
+		_, isPackageGroup := ExprToRule(stmt, "package_group")
+		shouldSkip := isComment || isString || isLoad || isLicenses || isPackageGroup
+
+		if shouldSkip {
+			beforePkg = append(beforePkg, stmt)
+		} else {
+			if !seenPkg {
+				pkgMisplaced = true
 			}
-			return false // the file was ok
+			afterPkg = append(afterPkg, stmt)
 		}
-		if !inserted {
-			all = append(all, pkg.Call)
-			inserted = true
-		}
-		all = append(all, stmt)
 	}
+
+	if !pkgMisplaced {
+		return false
+	}
+
+	all := make([]build.Expr, 0, len(f.Stmt))
+	all = append(all, beforePkg...)
+	all = append(all, pkg.Call)
+	all = append(all, afterPkg...)
+
 	f.Stmt = all
 	return true
 }

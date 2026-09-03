@@ -72,6 +72,74 @@ load(":path.bzl", "x")
 foo()`,
 			false,
 		},
+		{`"""Docstring."""
+
+# Some comment 1
+
+load(":path.bzl", "some_target")
+
+# Some comment 2
+
+package_group(name = "my_group")
+
+licenses(["my_license"])
+
+some_target(name = "foo")
+
+some_list = []
+
+[
+    some_target(name = "x")
+    for x in some_list
+]
+
+package(default_visibility = ["//visibility:public"])`,
+			`"""Docstring."""
+
+# Some comment 1
+
+load(":path.bzl", "some_target")
+
+# Some comment 2
+
+package_group(name = "my_group")
+
+licenses(["my_license"])
+
+package(default_visibility = ["//visibility:public"])
+
+some_target(name = "foo")
+
+some_list = []
+
+[
+    some_target(name = "x")
+    for x in some_list
+]
+`,
+			true},
+		{`VISIBILITY = ["//visibility:public"]
+
+foo()
+
+package(default_visibility = VISIBILITY)`,
+			`VISIBILITY = ["//visibility:public"]
+
+foo()
+
+package(default_visibility = VISIBILITY)`,
+			false},
+		{`VISIBILITY = "//visibility:public"
+
+foo()
+
+package(default_visibility = [VISIBILITY])`,
+			`VISIBILITY = "//visibility:public"
+
+foo()
+
+package(default_visibility = [VISIBILITY])`,
+			false},
 	}
 
 	for i, tst := range tests {

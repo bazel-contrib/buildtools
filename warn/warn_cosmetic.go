@@ -37,18 +37,19 @@ func packageOnTopWarning(f *build.File) []*LinterFinding {
 		return nil
 	}
 
-	// Find the misplaced load statements
+	// Collect variables defined by assignment statements and find misplaced packages
 	misplacedPackages := make(map[int]*build.CallExpr)
-	firstStmtIndex := -1 // index of the first seen non string, comment or load statement
+	firstStmtIndex := -1 // index of the first seen non-skippable statement
+	definedVars := make(map[string]bool)
+
 	for i := 0; i < len(f.Stmt); i++ {
 		stmt := f.Stmt[i]
 
-		// Assign statements may define variables that are used by the package statement,
-		// e.g. visibility declarations. To avoid false positive detections and also
-		// for keeping things simple, the warning should be just suppressed if there's
-		// any assignment statement, even if it's not used by the package declaration.
-		if _, ok := stmt.(*build.AssignExpr); ok {
-			break
+		// Track variables defined by assignment statements that could be used in the package() call
+		if assign, ok := stmt.(*build.AssignExpr); ok {
+			if ident, ok := assign.LHS.(*build.Ident); ok {
+				definedVars[ident.Name] = true
+			}
 		}
 
 		_, isString := stmt.(*build.StringExpr) // typically a docstring
@@ -69,6 +70,19 @@ func packageOnTopWarning(f *build.File) []*LinterFinding {
 		if firstStmtIndex == -1 {
 			continue
 		}
+		// Check if the package() call uses any of the defined variables.
+		// If so, we can't easily move it.
+		usedSymbols := edit.UsedSymbols(rule.Call)
+		usesDefinedVar := false
+		for varName := range definedVars {
+			if usedSymbols[varName] {
+				usesDefinedVar = true
+				break
+			}
+		}
+		if usesDefinedVar {
+			continue
+		}
 		misplacedPackages[i] = rule.Call
 	}
 	offset := len(misplacedPackages)
@@ -76,29 +90,36 @@ func packageOnTopWarning(f *build.File) []*LinterFinding {
 		return nil
 	}
 
-	// Calculate a fix:
+	// Calculate a fix by building the new statement order
 	if firstStmtIndex == -1 {
 		firstStmtIndex = 0
 	}
-	var replacements []LinterReplacement
-	for i := range f.Stmt {
+
+	// Build lists of different statement types
+	var beforePkg []build.Expr // statements before firstStmtIndex (comments, docstrings, loads)
+	var packages []build.Expr  // misplaced package() calls
+	var afterPkg []build.Expr  // other statements (assignments, rules, macros)
+
+	for i, stmt := range f.Stmt {
 		if i < firstStmtIndex {
-			// Docstring or comment or load in the beginning, skip
+			beforePkg = append(beforePkg, stmt)
 			continue
-		} else if _, ok := misplacedPackages[i]; ok {
-			// A misplaced load statement, should be moved up to the `firstStmtIndex` position
-			replacements = append(replacements, LinterReplacement{&f.Stmt[firstStmtIndex], f.Stmt[i]})
-			firstStmtIndex++
-			offset--
-			if offset == 0 {
-				// No more statements should be moved
-				break
-			}
-		} else {
-			// An actual statement (not a docstring or a comment in the beginning), should be moved
-			// `offset` positions down.
-			replacements = append(replacements, LinterReplacement{&f.Stmt[i+offset], f.Stmt[i]})
 		}
+		if _, ok := misplacedPackages[i]; ok {
+			packages = append(packages, stmt)
+			continue
+		}
+		afterPkg = append(afterPkg, stmt)
+	}
+
+	newOrder := make([]build.Expr, 0, len(f.Stmt))
+	newOrder = append(newOrder, beforePkg...)
+	newOrder = append(newOrder, packages...)
+	newOrder = append(newOrder, afterPkg...)
+
+	var replacements []LinterReplacement
+	for i := firstStmtIndex; i < len(f.Stmt); i++ {
+		replacements = append(replacements, LinterReplacement{&f.Stmt[i], newOrder[i]})
 	}
 
 	var findings []*LinterFinding
