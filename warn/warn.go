@@ -78,7 +78,7 @@ type Replacement struct {
 }
 
 func docURL(cat string) string {
-	return "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#" + cat
+	return "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#" + cat
 }
 
 // makeFinding creates a Finding object
