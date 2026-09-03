@@ -293,6 +293,9 @@ cat > golden/.buildifier.example.json <<EOF
     "ctx-actions",
     "ctx-args",
     "deprecated-function",
+    "deprecated-module-ext",
+    "deprecated-module-ext-tag",
+    "deprecated-rule",
     "depset-items",
     "depset-iteration",
     "depset-union",
@@ -676,10 +679,10 @@ diff -u json_report ../../golden/json_report_invalid_file_golden || die "$1: wro
 
 cd ../..
 
-# Test the multifile functionality
+# Test deprecated functions
 
-mkdir multifile
-cd multifile
+mkdir -p test_dir/multifile_deprecated_function
+cd test_dir/multifile_deprecated_function
 
 cat > lib.bzl <<EOF
 def foo():
@@ -715,7 +718,127 @@ EOF
 $buildifier --lint=warn --warnings=deprecated-function BUILD 2> report || ret=$?
 diff -u report_golden report || die "$1: wrong console output for multifile warnings (WORKSPACE exists)"
 
-cd ..
+cd ../..
+
+# Test that use_extension checks catch a deprecated module extensions
+
+mkdir -p test_dir/deprecated_module_extension
+cd test_dir/deprecated_module_extension
+
+cat > ext_dep.bzl <<EOF
+def _ext_impl(ctx):
+  """
+  Deprecated:
+    Use something else.
+  """
+  pass
+
+my_ext = module_extension(implementation = _ext_impl)
+EOF
+
+cat > MODULE.bazel <<EOF
+my_ext = use_extension("//:ext_dep.bzl", "my_ext")
+EOF
+
+cat > report_golden_ext <<EOF
+MODULE.bazel:1: deprecated-module-ext: The module extension "my_ext" defined in "//ext_dep.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-module-ext)
+EOF
+
+$buildifier --lint=warn --warnings=deprecated-module-ext MODULE.bazel 2> report || ret=$?
+diff -u report_golden_ext report || die "$1: wrong console output for deprecated-module-ext"
+
+cd ../..
+
+# Test that module extension tag use checks catch a deprecated tag_class
+
+mkdir -p test_dir/deprecated_module_extension_tag_class
+cd test_dir/deprecated_module_extension_tag_class
+cat > ext_tag_dep.bzl <<EOF
+def _ext_impl(ctx):
+    pass
+
+my_ext = module_extension(
+    implementation = _ext_impl,
+    tag_classes = {
+        "tag": tag_class(
+            doc = "Deprecated: tag is deprecated",
+        ),
+    },
+)
+EOF
+
+cat > MODULE.bazel <<EOF
+my_ext = use_extension("//:ext_tag_dep.bzl", "my_ext")
+my_ext.tag()
+EOF
+
+cat > report_golden_tag <<EOF
+MODULE.bazel:2: deprecated-module-ext-tag: The tag class "tag" of module extension "my_ext" defined in "//ext_tag_dep.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-module-ext-tag)
+EOF
+
+$buildifier --lint=warn --warnings=deprecated-module-ext-tag MODULE.bazel 2> report || ret=$?
+diff -u report_golden_tag report || die "$1: wrong console output for deprecated-module-ext-tag"
+
+cd ../..
+
+# Test that use_repo_rule checks catch a deprecated repository rule
+
+mkdir -p test_dir/deprecated_rule
+cd test_dir/deprecated_rule
+cat > rules_dep.bzl <<EOF
+def _repo_impl(ctx):
+  """
+  Deprecated:
+    Use something else.
+  """
+  pass
+
+my_repo = repository_rule(implementation = _repo_impl)
+EOF
+
+cat > MODULE.bazel <<EOF
+use_repo_rule("//:rules_dep.bzl", "my_repo")
+EOF
+
+cat > report_golden_repo <<EOF
+MODULE.bazel:1: deprecated-rule: The rule "my_repo" defined in "//rules_dep.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-rule)
+EOF
+
+$buildifier --lint=warn --warnings=deprecated-rule MODULE.bazel 2> report || ret=$?
+diff -u report_golden_repo report || die "$1: wrong console output for deprecated-rule"
+
+cd ../..
+
+# Test that load checks catch a deprecated rule in a BUILD file
+
+mkdir -p test_dir/deprecated_rule_load
+cd test_dir/deprecated_rule_load
+cat > rules.bzl <<EOF
+def _rule_impl(ctx):
+  pass
+
+my_rule = rule(
+  implementation = _rule_impl,
+  doc = "Deprecated: use something else.",
+)
+EOF
+
+touch WORKSPACE
+
+cat > BUILD <<EOF
+load("//:rules.bzl", "my_rule")
+
+my_rule(name = "foo")
+EOF
+
+cat > report_golden_load <<EOF
+BUILD:1: deprecated-rule: The rule "my_rule" defined in "//rules.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-rule)
+EOF
+
+$buildifier --lint=warn --warnings=deprecated-rule BUILD 2> report || ret=$?
+diff -u report_golden_load report || die "$1: wrong console output for deprecated-rule via load"
+
+cd ../..
 
 # Test allowed symbol load locations
 

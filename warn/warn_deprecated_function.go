@@ -34,16 +34,7 @@ func checkDeprecatedFunction(stmt build.Expr, loadedSymbols *map[string]*build.I
 	if !ok {
 		return nil
 	}
-	docstring, ok := getDocstring(def.Body)
-	if !ok {
-		return nil
-	}
-	str, ok := (*docstring).(*build.StringExpr)
-	if !ok {
-		return nil
-	}
-	docstringInfo := parseFunctionDocstring(str)
-	if !docstringInfo.deprecated {
+	if !isFunctionDeprecated(def) {
 		return nil
 	}
 
@@ -82,4 +73,17 @@ func deprecatedFunctionWarning(f *build.File, fileReader *FileReader) []*LinterF
 
 	}
 	return findings
+}
+
+func isFunctionDeprecated(def *build.DefStmt) bool {
+	docstring, ok := getDocstring(def.Body)
+	if !ok {
+		return false
+	}
+	str, ok := (*docstring).(*build.StringExpr)
+	if !ok {
+		return false
+	}
+	docstringInfo := parseFunctionDocstring(str)
+	return docstringInfo.deprecated
 }
