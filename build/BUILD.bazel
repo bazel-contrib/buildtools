@@ -44,7 +44,7 @@ go_test(
     ],
     data = glob(["testdata/*"]) + [
         # parse.y.go is checked in to satisfy the Go community
-        # https://github.com/bazelbuild/buildtools/issues/14
+        # https://github.com/bazel-contrib/buildtools/issues/14
         # this test ensures it doesn't get stale.
         "parse.y.baz.go",
         "parse.y.go",
