@@ -5,6 +5,10 @@ go_library(
     srcs = ["file.go"],
     importpath = "github.com/bazelbuild/buildtools/file",
     visibility = ["//visibility:public"],
+    deps = [
+        "//wspace",
+        "@com_github_google_safeopen//:safeopen",
+    ],
 )
 
 alias(

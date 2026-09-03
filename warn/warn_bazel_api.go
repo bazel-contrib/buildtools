@@ -99,21 +99,52 @@ func isFunctionCall(expr build.Expr, name string) (*build.CallExpr, bool) {
 
 // globalVariableUsageCheck checks whether there's a usage of a given global variable in the file.
 // It's ok to shadow the name with a local variable and use it.
-func globalVariableUsageCheck(f *build.File, global, alternative string) []*LinterFinding {
+// Type expressions are checked only if isType is true.
+func globalVariableUsageCheck(f *build.File, global string, isType bool, alternative string) []*LinterFinding {
 	var findings []*LinterFinding
 
 	if f.Type != build.TypeBzl {
 		return findings
 	}
 
+	// Nodes that will be ignored
+	skipNodes := make(map[build.Expr]bool)
+
 	var walk func(e *build.Expr, env *bzlenv.Environment)
 	walk = func(e *build.Expr, env *bzlenv.Environment) {
-		defer bzlenv.WalkOnceWithEnvironment(*e, env, walk)
-
-		ident, ok := (*e).(*build.Ident)
-		if !ok {
+		if _, ok := skipNodes[*e]; ok {
 			return
 		}
+		var ident *build.Ident
+		// Recurse into type syntax only if isType is set.
+		switch node := (*e).(type) {
+		case *build.Ident:
+			ident = node
+		case *build.TypedIdent:
+			// Either recurse or process the ident now without recursing
+			if isType {
+				defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
+			} else {
+				ident = node.GetIdent()
+			}
+		case *build.TypeAliasStmt:
+			if isType {
+				defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
+			}
+		case *build.DefStmt:
+			if node.Type != nil && !isType {
+				skipNodes[node.Type] = true
+			}
+			defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
+
+		default:
+			defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
+		}
+
+		if ident == nil {
+			return
+		}
+
 		if ident.Name != global {
 			return
 		}
@@ -662,11 +693,11 @@ func fileTypeWarning(f *build.File) []*LinterFinding {
 }
 
 func packageNameWarning(f *build.File) []*LinterFinding {
-	return globalVariableUsageCheck(f, "PACKAGE_NAME", "native.package_name()")
+	return globalVariableUsageCheck(f, "PACKAGE_NAME", false, "native.package_name()")
 }
 
 func repositoryNameWarning(f *build.File) []*LinterFinding {
-	return globalVariableUsageCheck(f, "REPOSITORY_NAME", "native.repository_name()")
+	return globalVariableUsageCheck(f, "REPOSITORY_NAME", false, "native.repository_name()")
 }
 
 func outputGroupWarning(f *build.File) []*LinterFinding {
@@ -1060,7 +1091,7 @@ func paramType(param build.Expr) (int, string) {
 	switch param := param.(type) {
 	case *build.AssignExpr:
 		if param.Op == "=" {
-			ident, ok := param.LHS.(*build.Ident)
+			ident, ok := param.LHSIdent()
 			if ok {
 				return typeKeyword, ident.Name
 			}

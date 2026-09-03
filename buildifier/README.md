@@ -55,6 +55,8 @@ cat foo.bar | buildifier --type=bzl
 cat foo.bar | buildifier --type=workspace
 cat foo.bar | buildifier --type=default
 cat foo.bar | buildifier --type=module
+cat foo.bar | buildifier --type=repo
+cat foo.bar | buildifier --type=vendor
 ```
 
 ## Linter
@@ -232,3 +234,14 @@ The output format is the following:
 When the `--format` flag is provided, buildifier always returns `0` unless there are internal
 failures or wrong input parameters, this means the output can be parsed as JSON, and its `success`
 field should be used to determine whether the diagnostics result is positive.
+
+## Symlink Safety
+
+By default, Buildifier will not write to symlinks pointing outside of the Bazel workspace to prevent unintended path traversal.
+
+To disable this behavior and allow writing through symlinks pointing outside the workspace, use the `--disable_symlink_safety` flag or set `"disable_symlink_safety": true` in `.buildifier.json`:
+
+```bash
+buildifier --disable_symlink_safety path/to/file
+```
+

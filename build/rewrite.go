@@ -111,8 +111,8 @@ func rewriteSetContains(w *Rewriter, name string) bool {
 // Each rewrite function can be either applied for BUILD files, other files (such as .bzl),
 // or all files.
 const (
-	scopeDefault = TypeDefault | TypeBzl                  // .bzl and generic Starlark files
-	scopeBuild   = TypeBuild | TypeWorkspace | TypeModule // BUILD, WORKSPACE, and MODULE files
+	scopeDefault = TypeDefault | TypeBzl                                          // .bzl and generic Starlark files
+	scopeBuild   = TypeBuild | TypeWorkspace | TypeModule | TypeRepo | TypeVendor // BUILD, WORKSPACE, MODULE, REPO, and VENDOR files
 	scopeBoth    = scopeDefault | scopeBuild
 )
 
@@ -672,7 +672,7 @@ func sortStringExprs(list []Expr) []Expr {
 			}
 		}
 
-		var chunk []stringSortKey
+		chunk := make([]stringSortKey, 0, j-i)
 		for index, x := range list[i:j] {
 			chunk = append(chunk, makeSortKey(index, x.(*StringExpr)))
 		}

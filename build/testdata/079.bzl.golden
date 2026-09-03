@@ -1,0 +1,57 @@
+_: Any  # Enable type checking.
+
+type _Numeric = int | float
+
+type _Setting[T] = dict[str, T]
+
+type _Transform[U] = \
+    Callable[[_Setting[U], str], _Setting[U]]
+
+type _OptionalDict[
+    # blah
+    K,  # key
+    V,  # value
+    # blah blah
+] = dict[K, V] | None
+
+type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+
+type UnionWithLineBreak = int | bool | \
+                          float | str  # End of union
+
+def concat(name: str, transform: _Transform[_Numeric] | None, *args: _Setting[_Numeric]) -> NumericResult:
+    d: list[_Numeric] = []
+    for s in args:
+        if transform != None:
+            s = transform(s, "concat")
+        if s.get("data") is not None:
+            d.extend(s["data"])
+    return struct(name = name, data = d)
+
+def foo[T, U](a: T, b: U) -> dict[T, U]:
+    return {a: b}
+
+def important_function[T]():  # comment about important_function
+    pass
+
+def lots_of_type_params[
+    T,
+    U,
+    V,
+](x: int, y: str) -> None:
+    pass
+
+def well_commented[
+    T,  # comment about T
+    U,  # comment about U
+    # comment after U
+](
+        x: T,  # comment about x
+        y: U  # comment about y
+        # comment after y
+) -> T:  # comment after type
+    # comment in body
+    return x

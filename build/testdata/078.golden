@@ -1,0 +1,22 @@
+def f():
+    pass
+
+# comment after a compact def
+
+def g():
+    if True:
+        pass
+
+    # comment after a nested compact if
+
+def h():
+    for x in [1]:
+        pass
+
+    # comment after a nested compact for
+
+def i():
+    pass
+
+# comment between a compact def and a statement
+x = 1

@@ -454,6 +454,30 @@ warnings: {
 }
 
 warnings: {
+  name: "make-location"
+  header: "The `$(location)` make variable is deprecated"
+  description:
+    "The `$(location)` and `$(locations)` make variables are legacy synonyms for\n"
+    "`$(execpath)` and `$(rootpath)` whose behavior depends on the attribute being\n"
+    "expanded. Use `$(execpath ...)` when you need the execution path, or\n"
+    "`$(rootpath ...)` when you need the runfiles path.\n\n"
+    "Examples that trigger this warning:\n\n"
+    "```python\n"
+    "genrule(\n"
+    "    name = \"example\",\n"
+    "    srcs = [\":input\"],\n"
+    "    outs = [\"output\"],\n"
+    "    cmd = \"cp $(location :input) $@\",\n"
+    ")\n"
+    "```\n\n"
+    "Instead, use an explicit make variable:\n\n"
+    "```python\n"
+    "cmd = \"cp $(execpath :input) $@\",\n"
+    "```"
+  autofix: false
+}
+
+warnings: {
   name: "module-docstring"
   header: "The file has no module docstring"
   description:

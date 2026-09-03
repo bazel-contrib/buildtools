@@ -15,6 +15,7 @@ go_library(
         "//api_proto",
         "//build",
         "//build_proto",
+        "//bzlenv",
         "//edit/bzlmod",
         "//file",
         "//labels",

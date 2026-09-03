@@ -144,6 +144,7 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"keyword-positional-params":     keywordPositionalParametersWarning,
 	"list-append":                   listAppendWarning,
 	"load":                          unusedLoadWarning,
+	"make-location":                 makeLocationVariableWarning,
 	"module-docstring":              moduleDocstringWarning,
 	"name-conventions":              nameConventionsWarning,
 	"native-build":                  nativeInBuildFilesWarning,
@@ -310,8 +311,7 @@ func runWarningsFunction(category string, f *build.File, fct func(f *build.File,
 
 // HasDisablingComment checks if a node has a comment that disables a certain warning
 func HasDisablingComment(expr build.Expr, warning string) bool {
-	return edit.ContainsComments(expr, "buildifier: disable="+warning) ||
-		edit.ContainsComments(expr, "buildozer: disable="+warning)
+	return edit.ContainsDisableComment(expr, warning)
 }
 
 // DisabledWarning checks if the warning was disabled by a comment.
@@ -372,7 +372,18 @@ func FileWarnings(f *build.File, enabledWarnings []string, formatted *[]byte, mo
 			os.Exit(1)
 		}
 	}
-	sort.Slice(findings, func(i, j int) bool { return findings[i].Start.Line < findings[j].Start.Line })
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Start.Line != findings[j].Start.Line {
+			return findings[i].Start.Line < findings[j].Start.Line
+		}
+		if findings[i].Start.LineRune != findings[j].Start.LineRune {
+			return findings[i].Start.LineRune < findings[j].Start.LineRune
+		}
+		if findings[i].Category != findings[j].Category {
+			return findings[i].Category < findings[j].Category
+		}
+		return findings[i].Message < findings[j].Message
+	})
 	return findings
 }
 

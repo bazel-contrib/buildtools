@@ -36,6 +36,7 @@ Warning categories supported by buildifier's linter:
   * [`list-append`](#list-append)
   * [`load`](#load)
   * [`load-on-top`](#load-on-top)
+  * [`make-location`](#make-location)
   * [`module-docstring`](#module-docstring)
   * [`name-conventions`](#name-conventions)
   * [`native-android`](#native-android)
@@ -110,6 +111,19 @@ Warning categories supported by buildifier's linter:
 All warnings can be disabled / suppressed / ignored by adding a special comment `# buildifier: disable=<category_name>` to
 the expression that causes the warning. Historically comments with `buildozer` instead of
 `buildifier` are also supported, they are equivalent.
+
+To disable multiple warnings, you can specify them as a comma-separated list on a single line:
+
+```python
+# buildifier: disable=warning1,warning2
+```
+
+Or place them on separate lines:
+
+```python
+# buildifier: disable=warning1
+# buildifier: disable=warning2
+```
 
 #### Examples
 
@@ -680,6 +694,36 @@ Obsolete; the warning has been implemented in the formatter and the fix is now a
 
 Load statements should be first statements (with the exception of `WORKSPACE` files),
 they can follow only comments and docstrings.
+
+--------------------------------------------------------------------------------
+
+## <a name="make-location"></a>The `$(location)` make variable is deprecated
+
+  * Category name: `make-location`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=make-location`
+
+The `$(location)` and `$(locations)` make variables are legacy synonyms for
+`$(execpath)` and `$(rootpath)` whose behavior depends on the attribute being
+expanded. Use `$(execpath ...)` when you need the execution path, or
+`$(rootpath ...)` when you need the runfiles path.
+
+Examples that trigger this warning:
+
+```python
+genrule(
+    name = "example",
+    srcs = [":input"],
+    outs = ["output"],
+    cmd = "cp $(location :input) $@",
+)
+```
+
+Instead, use an explicit make variable:
+
+```python
+cmd = "cp $(execpath :input) $@",
+```
 
 --------------------------------------------------------------------------------
 

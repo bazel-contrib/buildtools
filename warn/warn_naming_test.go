@@ -93,6 +93,19 @@ def f(x):
 			":5: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
 			":5: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
 		}, scopeEverywhere)
+
+	checkFindings(t, "confusing-name", `
+type I = int
+type J[l] = list[l]
+
+def f[O]():
+    pass
+`,
+		[]string{
+			":1: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+			":2: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+			":4: Never use 'l', 'I', or 'O' as names (they're too easily confused with 'I', 'l', or '0').",
+		}, scopeEverywhere)
 }
 
 func TestVariableNames(t *testing.T) {
@@ -109,6 +122,12 @@ _FooInfo = 12
 _BAR = 13
 _baz = 14
 _Foo_bar, foo_Baz = 15, 16
+baz: int
+BAZ: int
+Baz: int
+type MyInt = int
+type _MyInt = int
+type My_Int = int
 `,
 		[]string{
 			`:4: Variable name "Foo" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
@@ -116,6 +135,8 @@ _Foo_bar, foo_Baz = 15, 16
 			`:7: Variable name "fOO" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:12: Variable name "_Foo_bar" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:12: Variable name "foo_Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
+			`:15: Variable name "Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
+			`:18: Type name "My_Int" should be lower_snake_case or UpperCamelCase (possibly prefixed with an underscore).`,
 		}, scopeEverywhere)
 
 	checkFindings(t, "name-conventions", `
@@ -132,6 +153,9 @@ def f(x, _, Arg = None):
   _BAR = 13
   _baz = 14
   _Foo_bar, foo_Baz = 15, 16
+  baz: int
+  BAZ: int
+  Baz: int
 `,
 		[]string{
 			`:5: Variable name "Foo" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
@@ -139,6 +163,7 @@ def f(x, _, Arg = None):
 			`:8: Variable name "fOO" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:13: Variable name "_Foo_bar" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 			`:13: Variable name "foo_Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
+			`:16: Variable name "Baz" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`,
 		}, scopeEverywhere)
 
 	checkFindings(t, "name-conventions", `

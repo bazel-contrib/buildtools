@@ -75,6 +75,7 @@ func ExampleExample() {
 	//     "keyword-positional-params",
 	//     "list-append",
 	//     "load",
+	//     "make-location",
 	//     "module-docstring",
 	//     "name-conventions",
 	//     "native-android",
@@ -158,6 +159,7 @@ func ExampleFlagSet() {
 	// config: path to .buildifier.json config file ("")
 	// d: alias for -mode=diff ("false")
 	// diff_command: command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command) ("")
+	// disable_symlink_safety: per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior ("false")
 	// format: diagnostics format: text or json (default text) ("")
 	// help: print usage information ("false")
 	// lint: lint mode: off, warn, or fix (default off) ("")
@@ -166,7 +168,7 @@ func ExampleFlagSet() {
 	// path: assume BUILD file has this path relative to the workspace directory ("")
 	// r: find starlark files recursively ("false")
 	// tables: path to JSON file with custom table definitions which will replace the built-in tables ("")
-	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
+	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
 	// v: print verbose information to standard error ("false")
 	// version: print the version of buildifier ("false")
 	// warnings: comma-separated warnings used in the lint mode or "all" ("")
@@ -183,6 +185,7 @@ func ExampleFlagSet_parse() {
 		"--config=/path/to/.buildifier.json",
 		"-d",
 		"--diff_command=diff",
+		"--disable_symlink_safety=true",
 		"--format=json",
 		"--help",
 		"--lint=fix",
@@ -224,7 +227,8 @@ func ExampleFlagSet_parse() {
 	//   "allowsort": [
 	//     "proto_library.deps",
 	//     "proto_library.srcs"
-	//   ]
+	//   ],
+	//   "disable_symlink_safety": true
 	// }
 }
 
@@ -259,8 +263,10 @@ func TestValidate(t *testing.T) {
 		"type workspace":        {options: "--type=workspace"},
 		"type default":          {options: "--type=default"},
 		"type module":           {options: "--type=module"},
+		"type repo":             {options: "--type=repo"},
+		"type vendor":           {options: "--type=vendor"},
 		"type auto":             {options: "--type=auto"},
-		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, auto")},
+		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, repo, vendor, auto")},
 		"warnings all": {options: "--warnings=all", wantWarnings: []string{
 			"allowed-symbol-load-locations",
 			"attr-applicable_licenses",
@@ -294,6 +300,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -394,6 +401,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -494,6 +502,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -594,6 +603,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",

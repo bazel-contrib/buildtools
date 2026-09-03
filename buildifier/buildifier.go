@@ -30,6 +30,7 @@ import (
 	"github.com/bazelbuild/buildtools/buildifier/config"
 	"github.com/bazelbuild/buildtools/buildifier/utils"
 	"github.com/bazelbuild/buildtools/differ"
+	"github.com/bazelbuild/buildtools/file"
 	"github.com/bazelbuild/buildtools/wspace"
 )
 
@@ -145,6 +146,7 @@ func main() {
 	// Pass down debug flags into build package
 	build.DisableRewrites = c.DisableRewrites
 	build.AllowSort = c.AllowSort
+	file.DisableSymlinkSafety = c.DisableSymlinkSafety
 
 	differ, deprecationWarning := differ.Find()
 	if c.DiffCommand != "" {
@@ -361,7 +363,7 @@ func (b *buildifier) processFile(filename string, data []byte, displayFileNames 
 			return fileDiagnostics, exitCode
 		}
 
-		err := os.WriteFile(filename, ndata, 0666)
+		err := file.WriteFileMode(filename, ndata, 0666)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "buildifier: %s\n", err)
 			return fileDiagnostics, 3

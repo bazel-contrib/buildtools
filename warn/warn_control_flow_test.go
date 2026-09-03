@@ -282,6 +282,13 @@ def foo():
 		`:4: The statement is unreachable.`,
 	}, scopeEverywhere)
 
+	// unreachable comment is ok
+	checkFindings(t, "unreachable", `
+def foo():
+  fail("die")
+
+  # comment
+`, []string{}, scopeEverywhere)
 }
 
 func TestNoEffect(t *testing.T) {
@@ -697,6 +704,213 @@ sample_macro_with_used_foo()
 `,
 		[]string{},
 		scopeEverywhere)
+
+	// Unused variables declared by var statements
+	checkFindings(t, "unused-variable", `
+_x: int
+
+def foo():
+  y: str
+
+foo()
+`,
+		[]string{
+			":1: Variable \"_x\" is unused.",
+			":4: Variable \"y\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Unused variables declared by var statements but marked @unused
+	checkFindings(t, "unused-variable", `
+# @unused
+_x: int
+
+def foo():
+  # @unused
+  y: str
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// "_" is always allowed to be unused
+	checkFindings(t, "unused-variable", `
+_: Any  # Enable type checking
+
+def foo():
+  _: None  # Enable type checking
+
+  def callback(_):
+    pass
+
+  callback(None)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in function return annotation
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo() -> _Numeric:
+  return 42
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in function parameter annotation
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo(x: _Numeric):
+  print(x)
+
+foo(42)
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias unused - shadowed by function type parameter
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+def foo[_Numeric](x: _Numeric):
+  print(x)
+
+foo(42)
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type alias used in an assignment LHS
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+_x: _Numeric = 42
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in a var statement
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+_x: _Numeric
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias used in another type alias
+	checkFindings(t, "unused-variable", `
+
+type _Numeric = int | float
+
+# @unused
+type _OptionalNumeric = _Numeric | None
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type alias unused - shadowed by type alias type parameter
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+
+# @unused
+type _Opt[_T] = _T | None
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type alias explicitly marked @unused
+	checkFindings(t, "unused-variable", `
+# @unused
+type _Numeric = int | float
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Unused type alias
+	checkFindings(t, "unused-variable", `
+type _Numeric = int | float
+`,
+		[]string{
+			":1: Type \"_Numeric\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Unused type parameter
+	checkFindings(t, "unused-variable", `
+def foo[
+	T,
+	_U,
+	# @unused
+	V,
+	]():
+  pass
+
+foo()
+`,
+		[]string{
+			":2: Type \"T\" is unused.",
+		},
+		scopeEverywhere)
+
+	// Type parameter used in parameter annotation
+	checkFindings(t, "unused-variable", `
+def foo[T](x: T):
+  print(x)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type parameter used in parameter annotation with a default value
+	checkFindings(t, "unused-variable", `
+def foo[T](x: T = 42):
+  print(x)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type parameter used in varargs/kwargs annotation
+	checkFindings(t, "unused-variable", `
+def foo[T, U](*args: T, **kwargs: U):
+  print(*args, **kwargs)
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Type parameter used in an inner function
+	checkFindings(t, "unused-variable", `
+def foo[T]():
+  def bar():
+    x: T = 42
+    print(x)
+
+  bar()
+
+foo()
+`,
+		[]string{},
+		scopeEverywhere)
 }
 
 func TestRedefinedVariable(t *testing.T) {
@@ -759,6 +973,45 @@ e += foo`,
 		[]string{
 			":15: Variable \"e\" has already been defined.",
 		},
+		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
+type T = int
+T = 42`,
+		[]string{
+			":2: Variable \"T\" has already been defined as a type.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
+type T = int
+T += [42]`,
+		[]string{
+			":2: Variable \"T\" has already been defined as a type.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
+T = 42
+type T = int`,
+		[]string{
+			":2: Type \"T\" has already been defined as a variable.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "redefined-variable", `
+T: int
+type T = int`,
+		[]string{
+			":2: Type \"T\" has already been defined as a variable.",
+		},
+		scopeEverywhere)
+
+	// Ok to assign a variable after declaring it.
+	checkFindings(t, "redefined-variable", `
+T: int
+T = 42`,
+		[]string{},
 		scopeEverywhere)
 }
 
@@ -914,6 +1167,28 @@ def test(x: s1) -> List[s2]:
 `,
 		[]string{
 			":9: Loaded symbol \"s3\" is unused.",
+		},
+		scopeEverywhere)
+
+	checkFindingsAndFix(t, "load", `
+load(":f.bzl", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8")
+
+s1: s2
+s3: s4 = s5
+type s6[s7] = s8
+`,
+		`
+load(":f.bzl", "s2", "s4", "s5", "s8")
+
+s1: s2
+s3: s4 = s5
+type s6[s7] = s8
+`,
+		[]string{
+			"1: Loaded symbol \"s1\" is unused.",
+			"1: Loaded symbol \"s3\" is unused.",
+			"1: Loaded symbol \"s6\" is unused.",
+			"1: Loaded symbol \"s7\" is unused.",
 		},
 		scopeEverywhere)
 }
@@ -1327,6 +1602,25 @@ def foo():
   [x, y] = [1, 2]
   x = 3
   print(x)
+`,
+		[]string{},
+		scopeEverywhere)
+
+	checkFindings(t, "uninitialized", `
+def f():
+  x: int
+  return x
+`,
+		[]string{
+			":3: Variable \"x\" may not have been initialized.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "uninitialized", `
+def f():
+  x: int
+  x = 1
+  return x
 `,
 		[]string{},
 		scopeEverywhere)

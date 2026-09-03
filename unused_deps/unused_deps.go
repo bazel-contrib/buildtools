@@ -35,6 +35,7 @@ import (
 	depspb "github.com/bazelbuild/buildtools/deps_proto"
 	"github.com/bazelbuild/buildtools/edit"
 	eapb "github.com/bazelbuild/buildtools/extra_actions_base_proto"
+	"github.com/bazelbuild/buildtools/file"
 	"github.com/bazelbuild/buildtools/labels"
 	"github.com/golang/protobuf/proto"
 )
@@ -43,12 +44,13 @@ var (
 	buildVersion     = "redacted"
 	buildScmRevision = "redacted"
 
-	version             = flag.Bool("version", false, "Print the version of unused_deps")
-	cQuery              = flag.Bool("cquery", false, "Use 'cquery' command instead of 'query'")
-	buildTool           = flag.String("build_tool", config.DefaultBuildTool, config.BuildToolHelp)
-	extraActionFileName = flag.String("extra_action_file", "", config.ExtraActionFileNameHelp)
-	outputFileName      = flag.String("output_file", "", "used only with extra_action_file")
-	buildOptions        = stringList("extra_build_flags", "Extra build flags to use when building the targets.")
+	version              = flag.Bool("version", false, "Print the version of unused_deps")
+	cQuery               = flag.Bool("cquery", false, "Use 'cquery' command instead of 'query'")
+	buildTool            = flag.String("build_tool", config.DefaultBuildTool, config.BuildToolHelp)
+	extraActionFileName  = flag.String("extra_action_file", "", config.ExtraActionFileNameHelp)
+	outputFileName       = flag.String("output_file", "", "used only with extra_action_file")
+	buildOptions         = stringList("extra_build_flags", "Extra build flags to use when building the targets.")
+	disableSymlinkSafety = flag.Bool("disable_symlink_safety", false, "per default unused_deps will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior")
 
 	blazeFlags = []string{"--tool_tag=unused_deps", "--keep_going", "--color=yes", "--curses=yes"}
 
@@ -306,11 +308,11 @@ func setupAspect() (string, error) {
 		return "", err
 	}
 	for _, f := range []string{"MODULE.bazel", "WORKSPACE", "BUILD"} {
-		if err := os.WriteFile(path.Join(tmp, f), []byte{}, 0666); err != nil {
+		if err := file.WriteFileMode(path.Join(tmp, f), []byte{}, 0666); err != nil {
 			return "", err
 		}
 	}
-	if err := os.WriteFile(path.Join(tmp, "unused_deps.bzl"), []byte(aspect), 0666); err != nil {
+	if err := file.WriteFileMode(path.Join(tmp, "unused_deps.bzl"), []byte(aspect), 0666); err != nil {
 		return "", err
 	}
 	return tmp, nil
@@ -330,6 +332,7 @@ Note these may be used at run time; see documentation for more information.
 func main() {
 	flag.Usage = usage
 	flag.Parse()
+	file.DisableSymlinkSafety = *disableSymlinkSafety
 	if *version {
 		fmt.Printf("unused_deps version: %s \n", buildVersion)
 		fmt.Printf("unused_deps scm revision: %s \n", buildScmRevision)

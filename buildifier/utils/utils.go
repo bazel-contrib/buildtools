@@ -99,6 +99,10 @@ func GetParser(inputType string) func(filename string, data []byte) (*build.File
 		return build.ParseWorkspace
 	case "module":
 		return build.ParseModule
+	case "repo":
+		return build.ParseRepo
+	case "vendor":
+		return build.ParseVendor
 	default:
 		return build.ParseDefault
 	}

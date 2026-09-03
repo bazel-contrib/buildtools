@@ -139,7 +139,7 @@ func (f *File) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of File
+// Copy creates and returns a non-deep copy of File
 func (f *File) Copy() Expr {
 	n := *f
 	return &n
@@ -157,7 +157,7 @@ func (x *CommentBlock) Span() (start, end Position) {
 	return x.Start, x.Start
 }
 
-//Copy creates and returns a non-deep copy of CommentBlock
+// Copy creates and returns a non-deep copy of CommentBlock
 func (x *CommentBlock) Copy() Expr {
 	n := *x
 	return &n
@@ -175,7 +175,7 @@ func (x *Ident) Span() (start, end Position) {
 	return x.NamePos, x.NamePos.add(x.Name)
 }
 
-//Copy creates and returns a non-deep copy of Ident
+// Copy creates and returns a non-deep copy of Ident
 func (x *Ident) Copy() Expr {
 	n := *x
 	return &n
@@ -192,9 +192,11 @@ func (x *Ident) asString() *StringExpr {
 }
 
 // An TypedIdent represents an identifier with type annotation: "foo: int".
+//
+// May occur as a statement ("var statement") or as the LHS of AssignExpr when used as a statement.
 type TypedIdent struct {
 	Comments
-	Ident *Ident
+	Ident Expr // must be *Ident
 	Type  Expr
 }
 
@@ -205,8 +207,57 @@ func (x *TypedIdent) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of TypedIdent
+// Copy creates and returns a non-deep copy of TypedIdent
 func (x *TypedIdent) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// GetIdent returns TypedIdent's variable
+func (x *TypedIdent) GetIdent() *Ident {
+	ident, ok := x.Ident.(*Ident)
+	if !ok {
+		panic(fmt.Errorf("expected *build.Ident for variable of typed identifier, got %T", x.Ident))
+	}
+	return ident
+}
+
+// A TypeAppExpr represents a type application: a type_name followed by a type_list: struct[{"name": str}, ...], typing.Sequence[int].
+type TypeAppExpr struct {
+	Comments
+	Type           Expr     // *Ident or *DotExpr
+	ArgsStart      Position // position of [
+	Args           []Expr
+	End                 // position of ]
+	ForceCompact   bool // force compact (non-multiline) form when printing
+	ForceMultiLine bool // force multiline form when printing
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeAppExpr) Span() (start, end Position) {
+	start, _ = x.Type.Span()
+	return start, x.End.Pos.add("]")
+}
+
+// Copy creates and returns a non-deep copy of TypeAppExpr
+func (x *TypeAppExpr) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// An EllipsisExpr represents the '...' token in a type_arg.
+type EllipsisExpr struct {
+	Comments
+	Pos Position
+}
+
+// Span returns the start and end positions of the node
+func (x *EllipsisExpr) Span() (start, end Position) {
+	return x.Pos, x.Pos.add("...")
+}
+
+// Copy creates and returns a non-deep copy of EllipsisExpr
+func (x *EllipsisExpr) Copy() Expr {
 	n := *x
 	return &n
 }
@@ -223,7 +274,7 @@ func (x *BranchStmt) Span() (start, end Position) {
 	return x.TokenPos, x.TokenPos.add(x.Token)
 }
 
-//Copy creates and returns a non-deep copy of BranchStmt
+// Copy creates and returns a non-deep copy of BranchStmt
 func (x *BranchStmt) Copy() Expr {
 	n := *x
 	return &n
@@ -241,7 +292,7 @@ func (x *LiteralExpr) Span() (start, end Position) {
 	return x.Start, x.Start.add(x.Token)
 }
 
-//Copy creates and returns a non-deep copy of LiteralExpr
+// Copy creates and returns a non-deep copy of LiteralExpr
 func (x *LiteralExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -267,7 +318,7 @@ func (x *StringExpr) Span() (start, end Position) {
 	return x.Start, x.End
 }
 
-//Copy creates and returns a non-deep copy of StringExpr
+// Copy creates and returns a non-deep copy of StringExpr
 func (x *StringExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -285,7 +336,7 @@ func (x *End) Span() (start, end Position) {
 	return x.Pos, x.Pos.add(")")
 }
 
-//Copy creates and returns a non-deep copy of End
+// Copy creates and returns a non-deep copy of End
 func (x *End) Copy() Expr {
 	n := *x
 	return &n
@@ -308,7 +359,7 @@ func (x *CallExpr) Span() (start, end Position) {
 	return start, x.End.Pos.add(")")
 }
 
-//Copy creates and returns a non-deep copy of CallExpr
+// Copy creates and returns a non-deep copy of CallExpr
 func (x *CallExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -329,7 +380,7 @@ func (x *DotExpr) Span() (start, end Position) {
 	return start, x.NamePos.add(x.Name)
 }
 
-//Copy creates and returns a non-deep copy of DotExpr
+// Copy creates and returns a non-deep copy of DotExpr
 func (x *DotExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -351,7 +402,7 @@ func (x *Comprehension) Span() (start, end Position) {
 	return x.Lbrack, x.End.Pos.add("]")
 }
 
-//Copy creates and returns a non-deep copy of Comprehension
+// Copy creates and returns a non-deep copy of Comprehension
 func (x *Comprehension) Copy() Expr {
 	n := *x
 	return &n
@@ -372,7 +423,7 @@ func (x *ForClause) Span() (start, end Position) {
 	return x.For, end
 }
 
-//Copy creates and returns a non-deep copy of ForClause
+// Copy creates and returns a non-deep copy of ForClause
 func (x *ForClause) Copy() Expr {
 	n := *x
 	return &n
@@ -391,7 +442,7 @@ func (x *IfClause) Span() (start, end Position) {
 	return x.If, end
 }
 
-//Copy creates and returns a non-deep copy of IfClause
+// Copy creates and returns a non-deep copy of IfClause
 func (x *IfClause) Copy() Expr {
 	n := *x
 	return &n
@@ -412,7 +463,7 @@ func (x *KeyValueExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of KeyValueExpr
+// Copy creates and returns a non-deep copy of KeyValueExpr
 func (x *KeyValueExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -432,7 +483,7 @@ func (x *DictExpr) Span() (start, end Position) {
 	return x.Start, x.End.Pos.add("}")
 }
 
-//Copy creates and returns a non-deep copy of DictExpr
+// Copy creates and returns a non-deep copy of DictExpr
 func (x *DictExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -452,7 +503,7 @@ func (x *ListExpr) Span() (start, end Position) {
 	return x.Start, x.End.Pos.add("]")
 }
 
-//Copy creates and returns a non-deep copy of ListExpr
+// Copy creates and returns a non-deep copy of ListExpr
 func (x *ListExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -472,7 +523,7 @@ func (x *SetExpr) Span() (start, end Position) {
 	return x.Start, x.End.Pos.add("}")
 }
 
-//Copy creates and returns a non-deep copy of SetExpr
+// Copy creates and returns a non-deep copy of SetExpr
 func (x *SetExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -499,7 +550,7 @@ func (x *TupleExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of TupleExpr
+// Copy creates and returns a non-deep copy of TupleExpr
 func (x *TupleExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -522,7 +573,7 @@ func (x *UnaryExpr) Span() (start, end Position) {
 	return x.OpStart, end
 }
 
-//Copy creates and returns a non-deep copy of UnaryExpr
+// Copy creates and returns a non-deep copy of UnaryExpr
 func (x *UnaryExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -545,7 +596,7 @@ func (x *BinaryExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of BinaryExpr
+// Copy creates and returns a non-deep copy of BinaryExpr
 func (x *BinaryExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -576,10 +627,23 @@ func (x *AssignExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of AssignExpr
+// Copy creates and returns a non-deep copy of AssignExpr
 func (x *AssignExpr) Copy() Expr {
 	n := *x
 	return &n
+}
+
+// LHSIdent returns the identifier of the LHS if it is a single identifier
+// (or a single typed identifier). Otherwise, returns nil, false.
+func (x *AssignExpr) LHSIdent() (*Ident, bool) {
+	switch node := x.LHS.(type) {
+	case *Ident:
+		return node, true
+	case *TypedIdent:
+		return node.GetIdent(), true
+	default:
+		return nil, false
+	}
 }
 
 // A ParenExpr represents a parenthesized expression: (X).
@@ -596,7 +660,7 @@ func (x *ParenExpr) Span() (start, end Position) {
 	return x.Start, x.End.Pos.add(")")
 }
 
-//Copy creates and returns a non-deep copy of ParenExpr
+// Copy creates and returns a non-deep copy of ParenExpr
 func (x *ParenExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -621,7 +685,7 @@ func (x *SliceExpr) Span() (start, end Position) {
 	return start, x.End.add("]")
 }
 
-//Copy creates and returns a non-deep copy of SliceExpr
+// Copy creates and returns a non-deep copy of SliceExpr
 func (x *SliceExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -642,7 +706,7 @@ func (x *IndexExpr) Span() (start, end Position) {
 	return start, x.End.add("]")
 }
 
-//Copy creates and returns a non-deep copy of IndexExpr
+// Copy creates and returns a non-deep copy of IndexExpr
 func (x *IndexExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -662,7 +726,7 @@ func (x *Function) Span() (start, end Position) {
 	return x.StartPos, end
 }
 
-//Copy creates and returns a non-deep copy of Function
+// Copy creates and returns a non-deep copy of Function
 func (x *Function) Copy() Expr {
 	n := *x
 	return &n
@@ -679,7 +743,7 @@ func (x *LambdaExpr) Span() (start, end Position) {
 	return x.Function.Span()
 }
 
-//Copy creates and returns a non-deep copy of LambdaExpr
+// Copy creates and returns a non-deep copy of LambdaExpr
 func (x *LambdaExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -704,7 +768,7 @@ func (x *ConditionalExpr) Span() (start, end Position) {
 	return start, end
 }
 
-//Copy creates and returns a non-deep copy of ConditionalExpr
+// Copy creates and returns a non-deep copy of ConditionalExpr
 func (x *ConditionalExpr) Copy() Expr {
 	n := *x
 	return &n
@@ -733,10 +797,43 @@ func (x *LoadStmt) Span() (start, end Position) {
 	return x.Load, x.Rparen.Pos.add(")")
 }
 
-//Copy creates and returns a non-deep copy of LoadStmt
+// Copy creates and returns a non-deep copy of LoadStmt
 func (x *LoadStmt) Copy() Expr {
 	n := *x
 	return &n
+}
+
+// A TypeAliasStmt represents a type alias definition: "type Foo = int" or "type Foo[T, U] = dict[T, U]".
+type TypeAliasStmt struct {
+	Comments
+	TypePos    Position // position of "type" soft keyword
+	Name       Expr     // name of the type alias; must be an *Ident
+	TypeParams Expr     // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
+	EqualPos   Position // position of "="
+	Type       Expr     // definition/target type expression
+	LineBreak  bool     // insert line break between '=' and Type
+}
+
+// Span returns the start and end positions of the node
+func (x *TypeAliasStmt) Span() (start, end Position) {
+	start = x.TypePos
+	_, end = x.Type.Span()
+	return start, end
+}
+
+// Copy creates and returns a non-deep copy of TypeAliasStmt
+func (x *TypeAliasStmt) Copy() Expr {
+	n := *x
+	return &n
+}
+
+// GetIdent returns the variable defined by TypeAliasStmt
+func (x *TypeAliasStmt) GetIdent() *Ident {
+	ident, ok := x.Name.(*Ident)
+	if !ok {
+		panic(fmt.Errorf("expected *build.Ident for variable of a type alias, got %T", x.Name))
+	}
+	return ident
 }
 
 // A DefStmt represents a function definition expression: def foo(List):.
@@ -744,10 +841,12 @@ type DefStmt struct {
 	Comments
 	Function
 	Name           string
-	ColonPos       Position // position of the ":"
-	ForceCompact   bool     // force compact (non-multiline) form when printing the arguments
-	ForceMultiLine bool     // force multiline form when printing the arguments
-	Type           Expr     // type annotation
+	TypeParams     Expr // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
+	ParamsEnd      Expr // an End representing the ")" that closes the params list
+	ColonPos       Expr // an End representing the ":"
+	ForceCompact   bool // force compact (non-multiline) form when printing the arguments
+	ForceMultiLine bool // force multiline form when printing the arguments
+	Type           Expr // type annotation
 }
 
 // Span returns the start and end positions of the node
@@ -755,7 +854,7 @@ func (x *DefStmt) Span() (start, end Position) {
 	return x.Function.Span()
 }
 
-//Copy creates and returns a non-deep copy of DefStmt
+// Copy creates and returns a non-deep copy of DefStmt
 func (x *DefStmt) Copy() Expr {
 	n := *x
 	return &n
@@ -763,7 +862,12 @@ func (x *DefStmt) Copy() Expr {
 
 // HeaderSpan returns the span of the function header `def f(...):`
 func (x *DefStmt) HeaderSpan() (start, end Position) {
-	return x.Function.StartPos, x.ColonPos
+	start = x.Function.StartPos
+	// Attempt to support printing a partially-defined DefStmt
+	if x.ColonPos != nil {
+		_, end = x.ColonPos.Span()
+	}
+	return
 }
 
 // A ReturnStmt represents a return statement: return f(x).
@@ -782,7 +886,7 @@ func (x *ReturnStmt) Span() (start, end Position) {
 	return x.Return, end
 }
 
-//Copy creates and returns a non-deep copy of ReturnStmt
+// Copy creates and returns a non-deep copy of ReturnStmt
 func (x *ReturnStmt) Copy() Expr {
 	n := *x
 	return &n
@@ -804,7 +908,7 @@ func (x *ForStmt) Span() (start, end Position) {
 	return x.For, end
 }
 
-//Copy creates and returns a non-deep copy of ForStmt
+// Copy creates and returns a non-deep copy of ForStmt
 func (x *ForStmt) Copy() Expr {
 	n := *x
 	return &n
@@ -831,7 +935,7 @@ func (x *IfStmt) Span() (start, end Position) {
 	return x.If, end
 }
 
-//Copy creates and returns a non-deep copy of IfStmt
+// Copy creates and returns a non-deep copy of IfStmt
 func (x *IfStmt) Copy() Expr {
 	n := *x
 	return &n

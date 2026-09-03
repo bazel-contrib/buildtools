@@ -123,6 +123,7 @@ package build
 %token	<pos>	_CONTINUE // keyword continue
 %token	<pos>	_INDENT  // indentation
 %token	<pos>	_UNINDENT // unindentation
+%token	<pos>	_ELLIPSIS // ... token
 
 %type	<pos>		comma_opt
 %type	<pos>		commas
@@ -136,6 +137,22 @@ package build
 %type	<expr>		parameter_type
 %type	<exprs>		parameters_type
 %type	<exprs>		parameters_type_opt
+%type <expr>		type_alias_stmt_start
+%type	<expr>		type_alias_stmt
+%type	<expr>		type_params_opt
+%type	<exprs>		type_params_idents
+%type	<expr>		type_expr
+%type	<expr>		type_atom
+%type	<expr>		type_application
+%type	<expr>		type_name
+%type	<expr>		type_list
+%type	<exprs>		type_args_opt
+%type	<exprs>		type_args
+%type	<expr>		type_arg
+%type	<expr>		type_dict
+%type	<kvs>			type_keyvalues_opt
+%type	<kvs>			type_keyvalues
+%type	<kv>			type_keyvalue
 %type	<expr>		test
 %type	<expr>		test_opt
 %type	<exprs>		tests_opt
@@ -318,7 +335,14 @@ stmts:
 	{
 		$$ = $1
 		$<lastStmt>$ = $<lastStmt>1
-		if $<lastStmt>$ == nil {
+		if $<lastStmt>$ == nil || isBlockStmt($<lastStmt>$) {
+			// Comments after a block statement (e.g. a compact `def f(): pass`)
+			// must become a standalone CommentBlock, matching how the same
+			// comment is parsed when the block is written in its expanded,
+			// indented form (see extractTrailingComments). Attaching it to the
+			// block's After list instead makes the printer emit it without the
+			// blank line that separates a block from a trailing comment, so
+			// formatting would need a second pass to become stable.
 			cb := &CommentBlock{Start: $2}
 			$$ = append($$, cb)
 			$<lastStmt>$ = cb
@@ -347,22 +371,24 @@ stmt:
 	}
 
 def_header:
-	_DEF _IDENT '(' parameters_type_opt ')'
+	_DEF _IDENT type_params_opt '(' parameters_type_opt ')'
 	{
 		$$ = &DefStmt{
 			Function: Function{
 				StartPos: $1,
-				Params: $4,
+				Params: $5,
 			},
 			Name: $<tok>2,
-			ForceCompact: forceCompact($3, $4, $5),
-			ForceMultiLine: forceMultiLine($3, $4, $5),
+			TypeParams: $3,
+			ParamsEnd: &End{Pos: $6},
+			ForceCompact: forceCompact($4, $5, $6),
+			ForceMultiLine: forceMultiLine($4, $5, $6),
 		}
 	}
 
 def_header_type_opt:
 	def_header
-| def_header _ARROW test
+| def_header _ARROW type_expr
 	{
 		$1.Type = $3
 		$$ = $1
@@ -372,7 +398,7 @@ block_stmt:
 	def_header_type_opt ':' suite
 	{
 		$1.Function.Body = $3
-		$1.ColonPos = $2
+		$1.ColonPos = &End{Pos: $2}
 		$$ = $1
 		$<lastStmt>$ = $<lastStmt>3
 	}
@@ -472,7 +498,9 @@ small_stmt:
 		}
 	}
 |	expr '=' expr      { $$ = binary($1, $2, $<tok>2, $3) }
-|	ident ':' test '=' expr  { $$ = binary(typed($1, $3), $4, $<tok>4, $5) }
+|	ident ':' type_expr '=' expr  { $$ = binary(typed($1, $3), $4, $<tok>4, $5) }
+|	ident ':' type_expr           { $$ = typed($1, $3) }
+|	type_alias_stmt
 |	expr _AUGM expr    { $$ = binary($1, $2, $<tok>2, $3) }
 |	_PASS
 	{
@@ -494,6 +522,60 @@ small_stmt:
 			Token: $<tok>1,
 			TokenPos: $1,
 		}
+	}
+
+// Split out of type_alias_stmt to improve error handling:
+// on two adjacent idents, e.g. "foo bar", we want to emit the error at "bar".
+type_alias_stmt_start:
+  ident ident
+	{
+		if $1.(*Ident).Name != "type" {
+			// two idents can be adjacent only if the first one is `type`.
+			_, end := $2.Span()
+			errorAt(yylex, end, "syntax error near " + $2.(*Ident).Name)
+		}
+		$$ = &TypeAliasStmt{
+			TypePos: $1.(*Ident).NamePos,
+			Name: $2,
+			// Rest of fields will be filled in by type_alias_stmt
+		}
+	}
+
+type_alias_stmt:
+	type_alias_stmt_start type_params_opt '=' type_expr
+	{
+		typeStart, _ := $4.Span()
+		// Modify $1 in-place to fill in the remaining fields.
+		typeAlisStmt := $1.(*TypeAliasStmt)
+		typeAlisStmt.TypeParams = $2
+		typeAlisStmt.EqualPos = $3
+		typeAlisStmt.Type = $4
+		typeAlisStmt.LineBreak = $3.Line < typeStart.Line
+		$$ = typeAlisStmt
+	}
+
+type_params_opt:
+	{
+		$$ = nil
+	}
+	| '[' type_params_idents comma_opt ']'
+	{
+		$$ = &ListExpr{
+			Start: $1,
+			List: $2,
+			End: End{Pos: $4},
+			ForceMultiLine: forceMultiLine($1, $2, $4),
+		}
+	}
+
+type_params_idents:
+	ident
+	{
+		$$ = []Expr{$1}
+	}
+|	type_params_idents ',' ident
+	{
+		$$ = append($1, $3)
 	}
 
 semi_opt:
@@ -785,19 +867,19 @@ parameter:
 parameter_type:
 	parameter
 |
-	ident ':' test
+	ident ':' type_expr
 	{
 		$$ = typed($1, $3)
 	}
-|	ident ':' test '=' test
+|	ident ':' type_expr '=' test
 	{
 		$$ = binary(typed($1, $3), $4, $<tok>4, $5)
 	}
-|	'*' ident ':' test
+|	'*' ident ':' type_expr
 	{
 		$$ = unary($1, $<tok>1, typed($2, $4))
 	}
-|	_STAR_STAR ident ':' test
+|	_STAR_STAR ident ':' type_expr
 	{
 		$$ = unary($1, $<tok>1, typed($2, $4))
 	}
@@ -1056,6 +1138,137 @@ for_clauses_with_if_clauses_opt:
 		$$ = append($1, $2...)
 	}
 
+type_expr:
+	type_atom
+	{
+		$$ = $1
+	}
+|	type_expr '|' type_atom
+	{
+		$$ = binary($1, $2, $<tok>2, $3)
+	}
+
+type_atom:
+	type_name
+|	type_application
+
+type_name:
+	ident
+|	type_name '.' _IDENT
+	{
+		$$ = &DotExpr{
+			X: $1,
+			Dot: $2,
+			NamePos: $3,
+			Name: $<tok>3,
+		}
+	}
+
+type_application:
+	type_name '[' type_args ']'
+	{
+		$$ = &TypeAppExpr{
+			Type: $1,
+			ArgsStart: $2,
+			Args: $3,
+			End: End{Pos: $4},
+			ForceCompact: forceCompact($2, $3, $4),
+			ForceMultiLine: forceMultiLine($2, $3, $4),
+		}
+	}
+
+type_list:
+	'[' type_args_opt ']'
+	{
+		$$ = &ListExpr{
+			Start: $1,
+			List: $2,
+			End: End{Pos: $3},
+			ForceMultiLine: forceMultiLine($1, $2, $3),
+		}
+	}
+
+type_args_opt:
+	{
+		$$ = nil
+	}
+| type_args commas_opt
+	{
+		$$ = $1
+	}
+
+type_args:
+	type_arg
+	{
+		$$ = []Expr{$1}
+	}
+|	type_args commas type_arg
+	{
+		$$ = append($1, $3)
+	}
+
+type_arg:
+	type_expr
+|	type_list
+|	type_dict
+|	'(' ')'
+	{
+		$$ = &TupleExpr{
+			Start: $1,
+			End: End{Pos: $2},
+		}
+	}
+|	_ELLIPSIS
+	{
+		$$ = &EllipsisExpr{
+			Pos: $1,
+		}
+	}
+
+type_dict:
+	'{' type_keyvalues_opt '}'
+	{
+		exprValues := make([]Expr, 0, len($2))
+		for _, kv := range $2 {
+			exprValues = append(exprValues, Expr(kv))
+		}
+		$$ = &DictExpr{
+			Start: $1,
+			List: $2,
+			End: End{Pos: $3},
+			ForceMultiLine: forceMultiLine($1, exprValues, $3),
+		}
+	}
+
+type_keyvalues_opt:
+	{
+		$$ = nil
+	}
+|	type_keyvalues commas_opt
+	{
+		$$ = $1
+	}
+
+type_keyvalues:
+	type_keyvalue
+	{
+		$$ = []*KeyValueExpr{$1}
+	}
+|	type_keyvalues commas type_keyvalue
+	{
+		$$ = append($1, $3)
+	}
+
+type_keyvalue:
+	string ':' type_arg
+	{
+		$$ = &KeyValueExpr{
+			Key: $1,
+			Colon: $2,
+			Value: $3,
+		}
+	}
+
 %%
 
 // Go helper code.
@@ -1099,7 +1312,7 @@ func binary(x Expr, pos Position, op string, y Expr) Expr {
 // typed returns a TypedIdent expression
 func typed(x, y Expr) *TypedIdent {
 	return &TypedIdent{
-		Ident: x.(*Ident),
+		Ident: x,
 		Type:  y,
 	}
 }
@@ -1124,6 +1337,8 @@ func isSimpleExpression(expr *Expr) bool {
 		return len(x.List) == 0
 	case *SetExpr:
 		return len(x.List) == 0
+	case *EllipsisExpr:
+		return true
 	default:
 		return false
 	}
@@ -1221,6 +1436,19 @@ func forceMultiLineComprehension(start Position, expr Expr, clauses []Expr, end 
 	return previousEnd.Line != end.Line
 }
 
+// isBlockStmt reports whether x is a statement with an indentable body
+// (def, for, or if). Line comments that follow such statements should form
+// standalone CommentBlock statements rather than being attached to the block
+// as After-comments, matching how the same comments are parsed when the
+// block is written in its expanded form (see extractTrailingComments).
+func isBlockStmt(x Expr) bool {
+	switch x.(type) {
+	case *DefStmt, *ForStmt, *IfStmt:
+		return true
+	}
+	return false
+}
+
 // extractTrailingComments extracts trailing comments of an indented block starting with the first
 // comment line with indentation less than the block indentation.
 // The comments can either belong to CommentBlock statements or to the last non-comment statement
@@ -1304,4 +1532,17 @@ func getLastBody(stmt Expr) *[]Expr {
 		return &block.False
 	}
 	return nil
+}
+
+// Expose lex.ErrorAt to the parser.
+type yyLexerWithErrorAt interface {
+	ErrorAt(pos Position, s string)
+}
+
+func errorAt(yylex yyLexer, pos Position, s string) {
+	if lex, ok := yylex.(yyLexerWithErrorAt); ok {
+		lex.ErrorAt(pos, s)
+	} else {
+		yylex.Error(s)
+	}
 }

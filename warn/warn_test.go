@@ -32,9 +32,11 @@ const (
 	scopeWorkspace   = build.TypeWorkspace
 	scopeDefault     = build.TypeDefault
 	scopeModule      = build.TypeModule
-	scopeEverywhere  = scopeBuild | scopeBzl | scopeWorkspace | scopeDefault | scopeModule
-	scopeBazel       = scopeBuild | scopeBzl | scopeWorkspace | scopeModule
-	scopeDeclarative = scopeBuild | scopeWorkspace | scopeModule
+	scopeRepo        = build.TypeRepo
+	scopeVendor      = build.TypeVendor
+	scopeEverywhere  = scopeBuild | scopeBzl | scopeWorkspace | scopeDefault | scopeModule | scopeRepo | scopeVendor
+	scopeBazel       = scopeBuild | scopeBzl | scopeWorkspace | scopeModule | scopeRepo | scopeVendor
+	scopeDeclarative = scopeBuild | scopeWorkspace | scopeModule | scopeRepo | scopeVendor
 )
 
 // A global FileReader object that can be used by tests. If a test redefines it it must
@@ -88,6 +90,10 @@ func getFilename(fileType build.FileType) string {
 		return "test_file.bzl"
 	case build.TypeModule:
 		return "MODULE.bazel"
+	case build.TypeRepo:
+		return "REPO.bazel"
+	case build.TypeVendor:
+		return "VENDOR.bazel"
 	default:
 		return "test_file.strlrk"
 	}
@@ -359,6 +365,9 @@ cc_library(
 
 # buildifier: disable=skylark-comment
 # some comment mentioning skylark
+
+def foo(x, y): # buildifier: disable=unused-variable
+    pass
 `
 
 	f, err := build.ParseBzl("file.bzl", []byte(contents))
@@ -406,6 +415,11 @@ cc_library(
 			end:      17,
 			category: "skylark-comment",
 		},
+		{
+			start:    19,
+			end:      19,
+			category: "unused-variable",
+		},
 	}
 
 	linesCount := strings.Count(contents, "\n")
@@ -416,6 +430,62 @@ cc_library(
 			shouldBeDisabled := line >= tc.start && line <= tc.end
 			if disabled != shouldBeDisabled {
 				t.Errorf("Wrong disabled status for the category %q, want %t, got %t", tc.category, shouldBeDisabled, disabled)
+			}
+		}
+	}
+}
+
+func TestDisabledWarningMultiple(t *testing.T) {
+	contents := `foo()
+
+# buildifier: disable=depset-iteration,print
+for x in depset([1, 2, 3]):
+    print(x)
+
+# buildozer: disable=string-iteration, no-effect (with explanation)
+for y in "foobar":
+    y
+`
+	f, err := build.ParseBzl("file.bzl", []byte(contents))
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	tests := []struct {
+		start    int
+		end      int
+		category string
+	}{
+		{
+			start:    3,
+			end:      5,
+			category: "depset-iteration",
+		},
+		{
+			start:    3,
+			end:      5,
+			category: "print",
+		},
+		{
+			start:    7,
+			end:      9,
+			category: "string-iteration",
+		},
+		{
+			start:    7,
+			end:      9,
+			category: "no-effect",
+		},
+	}
+
+	linesCount := strings.Count(contents, "\n")
+
+	for _, tc := range tests {
+		for line := 1; line <= linesCount; line++ {
+			disabled := DisabledWarning(f, line, tc.category)
+			shouldBeDisabled := line >= tc.start && line <= tc.end
+			if disabled != shouldBeDisabled {
+				t.Errorf("Wrong disabled status for category %q at line %d: want %t, got %t", tc.category, line, shouldBeDisabled, disabled)
 			}
 		}
 	}

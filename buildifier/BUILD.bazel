@@ -93,7 +93,7 @@ sh_test(
     size = "small",
     srcs = ["integration_test.sh"],
     args = [
-        "$(location :buildifier)",
+        "$(rootpath :buildifier)",
     ],
     data = [
         ":buildifier",
@@ -115,6 +115,7 @@ go_library(
         "//buildifier/config",
         "//buildifier/utils",
         "//differ",
+        "//file",
         "//wspace",
     ],
 )

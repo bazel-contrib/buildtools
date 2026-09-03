@@ -50,6 +50,11 @@ func confusingNameWarning(f *build.File) []*LinterFinding {
 		switch expr := expr.(type) {
 		case *build.DefStmt:
 			findings = ambiguousNameCheck(expr, expr.Name, findings)
+			if expr.TypeParams != nil {
+				for _, ident := range bzlenv.CollectLValues(expr.TypeParams) {
+					findings = ambiguousNameCheck(ident, ident.Name, findings)
+				}
+			}
 			for _, param := range expr.Params {
 				name, _ := build.GetParamName(param)
 				findings = ambiguousNameCheck(param, name, findings)
@@ -64,6 +69,13 @@ func confusingNameWarning(f *build.File) []*LinterFinding {
 					continue
 				}
 				for _, ident := range bzlenv.CollectLValues(forClause.Vars) {
+					findings = ambiguousNameCheck(ident, ident.Name, findings)
+				}
+			}
+		case *build.TypeAliasStmt:
+			findings = ambiguousNameCheck(expr, expr.GetIdent().Name, findings)
+			if expr.TypeParams != nil {
+				for _, ident := range bzlenv.CollectLValues(expr.TypeParams) {
 					findings = ambiguousNameCheck(ident, ident.Name, findings)
 				}
 			}
@@ -93,25 +105,46 @@ func nameConventionsWarning(f *build.File) []*LinterFinding {
 	var findings []*LinterFinding
 
 	build.WalkStatements(f, func(stmt build.Expr, stack []build.Expr) (err error) {
-		// looking for provider declaration statements: `xxx = provider()`
-		// note that the code won't trigger on complex assignments, such as `x, y = foo, provider()`
-		binary, ok := stmt.(*build.AssignExpr)
-		if !ok {
-			return
-		}
-		for _, ident := range bzlenv.CollectLValues(binary.LHS) {
-			if isLowerSnakeCase(ident.Name) || isUpperSnakeCase(ident.Name) {
-				continue
+		switch stmt := stmt.(type) {
+		case *build.AssignExpr:
+			// looking for provider declaration statements: `xxx = provider()`
+			// note that the code won't trigger on complex assignments, such as `x, y = foo, provider()`
+			for _, ident := range bzlenv.CollectLValues(stmt.LHS) {
+				findings = appendVariableNameConventionsWarning(ident, findings)
 			}
-			if isUpperCamelCase(ident.Name) && strings.HasSuffix(ident.Name, "Info") {
-				continue
-			}
-			findings = append(findings,
-				makeLinterFinding(ident,
-					fmt.Sprintf(`Variable name "%s" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`, ident.Name)))
+		case *build.TypedIdent:
+			ident := stmt.GetIdent()
+			findings = appendVariableNameConventionsWarning(ident, findings)
+		case *build.TypeAliasStmt:
+			ident := stmt.GetIdent()
+			findings = appendTypeNameConventionsWarning(ident, findings)
 		}
 		return
 	})
 
 	return findings
+}
+
+func appendVariableNameConventionsWarning(ident *build.Ident, findings []*LinterFinding) []*LinterFinding {
+	if isLowerSnakeCase(ident.Name) || isUpperSnakeCase(ident.Name) {
+		return findings
+	}
+	if isUpperCamelCase(ident.Name) && strings.HasSuffix(ident.Name, "Info") {
+		return findings
+	}
+	return append(findings,
+		makeLinterFinding(ident,
+			fmt.Sprintf(`Variable name "%s" should be lower_snake_case (for variables), UPPER_SNAKE_CASE (for constants), or UpperCamelCase ending with 'Info' (for providers).`, ident.Name)))
+}
+
+func appendTypeNameConventionsWarning(ident *build.Ident, findings []*LinterFinding) []*LinterFinding {
+	if isLowerSnakeCase(ident.Name) || isUpperCamelCase(ident.Name) {
+		// Built-in types are either lower_snake (str, dict, list) or UpperCamel (Callable, Sequence).
+		// User-defined types and type params should follow the same pattern.
+		// Note that providers (expected to be UpperCamelCase) are also types.
+		return findings
+	}
+	return append(findings,
+		makeLinterFinding(ident,
+			fmt.Sprintf(`Type name "%s" should be lower_snake_case or UpperCamelCase (possibly prefixed with an underscore).`, ident.Name)))
 }

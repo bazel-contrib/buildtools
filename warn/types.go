@@ -179,8 +179,7 @@ func DetectTypes(f *build.File) map[build.Expr]Type {
 				// If the right hand side is not a string, the left hand side can still be a string
 				return
 			}
-			ident, ok := (node.LHS).(*build.Ident)
-			if !ok {
+			ident, ok := node.LHSIdent(); if !ok {
 				return
 			}
 			binding := env.Get(ident.Name)

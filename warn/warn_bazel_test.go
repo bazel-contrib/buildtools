@@ -207,3 +207,41 @@ def f(x):
 		},
 		scopeBazel)
 }
+
+func TestMakeLocationVariable(t *testing.T) {
+	checkFindings(t, "make-location", `
+genrule(
+    name = "a",
+    srcs = [":foo"],
+    outs = ["out"],
+    cmd = "cp $(location :foo) $@",
+)
+
+genrule(
+    name = "b",
+    srcs = [":a", ":b"],
+    outs = ["out"],
+    cmd = "cat $(locations :a :b) > $@",
+)
+
+genrule(
+    name = "c",
+    srcs = [":foo"],
+    outs = ["out"],
+    cmd = "cp $$(location :foo) $$@",
+)
+
+cc_test(
+    name = "d",
+    args = ["--config=$(execpath :cfg)"],
+)
+
+load("location", "symbol")
+`,
+		[]string{
+			`:5: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:12: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:19: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+		},
+		scopeBuild)
+}
