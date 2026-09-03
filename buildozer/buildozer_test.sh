@@ -2287,6 +2287,37 @@ EOF
   diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
 }
 
+function test_use_repo_set() {
+  cat > MODULE.bazel <<EOF
+module(
+    name = "foo",
+    version = "0.27.0",
+)
+
+bazel_dep(name = "gazelle", version = "0.30.0")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(go_deps, my_repo = "com_example_foo")
+EOF
+
+  cat > MODULE.bazel.expected <<EOF
+module(
+    name = "foo",
+    version = "0.27.0",
+)
+
+bazel_dep(name = "gazelle", version = "0.30.0")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(go_deps, "org_example_bar", my_repo = "org_example_foo")
+EOF
+
+  $buildozer 'use_repo_set @gazelle//:extensions.bzl go_deps my_repo=org_example_foo org_example_bar' //MODULE.bazel:all
+  diff -u MODULE.bazel.expected MODULE.bazel || fail "Output didn't match"
+}
+
 function test_use_repo_remove() {
   cat > MODULE.bazel <<EOF
 module(

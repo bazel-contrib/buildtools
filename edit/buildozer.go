@@ -903,6 +903,10 @@ func cmdUseRepoAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
 	return cmdImplUseRepo(env, "use_repo_add")
 }
 
+func cmdUseRepoSet(opts *Options, env CmdEnvironment) (*build.File, error) {
+	return cmdImplUseRepo(env, "use_repo_set")
+}
+
 func cmdUseRepoRemove(opts *Options, env CmdEnvironment) (*build.File, error) {
 	return cmdImplUseRepo(env, "use_repo_remove")
 }
@@ -947,9 +951,12 @@ func cmdImplUseRepo(env CmdEnvironment, mode string) (*build.File, error) {
 		useRepos = []*build.CallExpr{newUseRepo}
 	}
 
-	if mode == "use_repo_add" {
+	switch mode {
+	case "use_repo_add":
 		bzlmod.AddRepoUsages(useRepos, repos...)
-	} else {
+	case "use_repo_set":
+		bzlmod.SetRepoUsages(useRepos, repos...)
+	default:
 		bzlmod.RemoveRepoUsages(useRepos, repos...)
 	}
 
@@ -1016,6 +1023,7 @@ var AllCommands = map[string]CommandInfo{
 	"dict_replace_if_equal": {cmdDictReplaceIfEqual, true, 4, 4, "<attr> <key> <old_value> <new_value>"},
 	"dict_list_add":         {cmdDictListAdd, true, 3, -1, "<attr> <key> <value(s)>"},
 	"use_repo_add":          {cmdUseRepoAdd, false, 2, -1, "([dev] <extension .bzl file> <extension name>|<use_extension variable name>) <repo(s)>"},
+	"use_repo_set":          {cmdUseRepoSet, false, 2, -1, "([dev] <extension .bzl file> <extension name>|<use_extension variable name>) <repo(s)>"},
 	"use_repo_remove":       {cmdUseRepoRemove, false, 2, -1, "([dev] <extension .bzl file> <extension name>|<use_extension variable name>) <repo(s)>"},
 	"format":                {cmdFormat, false, 0, 0, ""},
 }
