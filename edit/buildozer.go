@@ -121,10 +121,14 @@ func cmdAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
 		return nil, err
 	}
 	for _, val := range env.Args[1:] {
-		if attrType == rawAttr || (attrType == notProvidedTypeAttr && IsIntList(attr)) {
-			AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.LiteralExpr{Token: val}, &env.Vars)
-			continue
-		}
+		if attrType == rawAttr {
+	    	AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.Ident{Name: val}, &env.Vars)
+	    	continue
+    	}
+	    if attrType == notProvidedTypeAttr && IsIntList(attr) {
+	    	AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.LiteralExpr{Token: val}, &env.Vars)
+	    	continue
+	    }
 		var strVal build.Expr
 		strVal = getLabelStringExpr(val, env.Pkg)
 		AddValueToListAttribute(env.Rule, attr, env.Pkg, strVal, &env.Vars)
