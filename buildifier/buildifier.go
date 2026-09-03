@@ -26,12 +26,12 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/buildifier/config"
-	"github.com/bazelbuild/buildtools/buildifier/utils"
-	"github.com/bazelbuild/buildtools/differ"
-	"github.com/bazelbuild/buildtools/file"
-	"github.com/bazelbuild/buildtools/wspace"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/buildifier/config"
+	"github.com/bazel-contrib/buildtools/v10/buildifier/utils"
+	"github.com/bazel-contrib/buildtools/v10/differ"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 )
 
 var buildVersion = "redacted"

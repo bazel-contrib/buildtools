@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/tables"
-	"github.com/bazelbuild/buildtools/testutils"
+	"github.com/bazel-contrib/buildtools/v10/tables"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
 )
 
 // List of test files that have irreversible changes (e.g. if a list is sorted only for Bzl,

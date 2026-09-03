@@ -27,9 +27,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/tables"
-	"github.com/bazelbuild/buildtools/warn"
-	"github.com/bazelbuild/buildtools/wspace"
+	"github.com/bazel-contrib/buildtools/v10/tables"
+	"github.com/bazel-contrib/buildtools/v10/warn"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 )
 
 const buildifierJSONFilename = ".buildifier.json"

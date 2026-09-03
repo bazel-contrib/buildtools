@@ -24,9 +24,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit"
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 type flagArray []string

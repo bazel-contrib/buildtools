@@ -25,8 +25,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/labels"
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/labels"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 // DisableRewrites disables certain rewrites (for debugging).

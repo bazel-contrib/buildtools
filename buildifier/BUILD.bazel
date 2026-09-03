@@ -104,7 +104,7 @@ sh_test(
 go_library(
     name = "buildifier_lib",
     srcs = ["buildifier.go"],
-    importpath = "github.com/bazelbuild/buildtools/buildifier",
+    importpath = "github.com/bazel-contrib/buildtools/v10/buildifier",
     visibility = ["//visibility:private"],
     x_defs = {
         "main.buildVersion": "{STABLE_buildVersion}",

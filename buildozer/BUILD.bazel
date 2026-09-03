@@ -4,7 +4,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 go_library(
     name = "buildozer_lib",
     srcs = ["main.go"],
-    importpath = "github.com/bazelbuild/buildtools/buildozer",
+    importpath = "github.com/bazel-contrib/buildtools/v10/buildozer",
     visibility = ["//visibility:private"],
     x_defs = {
         "main.buildVersion": "{STABLE_buildVersion}",

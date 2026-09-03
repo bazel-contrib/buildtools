@@ -21,7 +21,7 @@ proto_library(
 
 go_proto_library(
     name = "go_default_library",
-    importpath = "github.com/bazelbuild/buildtools/extra_actions_base_proto",
+    importpath = "github.com/bazel-contrib/buildtools/v10/extra_actions_base_proto",
     proto = ":blaze_proto",
     visibility = ["//visibility:public"],
 )
@@ -29,6 +29,6 @@ go_proto_library(
 go_library(
     name = "extra_actions_base_proto",
     embed = [":go_default_library"],
-    importpath = "github.com/bazelbuild/buildtools/extra_actions_base_proto",
+    importpath = "github.com/bazel-contrib/buildtools/v10/extra_actions_base_proto",
     visibility = ["//visibility:public"],
 )

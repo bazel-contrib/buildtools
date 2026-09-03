@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 type defaultBuildifier struct{}

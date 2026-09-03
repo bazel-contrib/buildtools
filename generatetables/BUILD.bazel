@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "generatetables_lib",
     srcs = ["generate_tables.go"],
-    importpath = "github.com/bazelbuild/buildtools/generatetables",
+    importpath = "github.com/bazel-contrib/buildtools/v10/generatetables",
     visibility = ["//visibility:private"],
     deps = [
         "//build_proto",

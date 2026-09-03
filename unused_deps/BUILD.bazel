@@ -6,7 +6,7 @@ go_library(
         "jar_manifest.go",
         "unused_deps.go",
     ],
-    importpath = "github.com/bazelbuild/buildtools/unused_deps",
+    importpath = "github.com/bazel-contrib/buildtools/v10/unused_deps",
     visibility = ["//visibility:private"],
     x_defs = {
         "main.buildVersion": "{STABLE_buildVersion}",

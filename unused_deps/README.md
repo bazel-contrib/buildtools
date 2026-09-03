@@ -10,7 +10,7 @@ prunings.
 Build a binary and put it into your $GOPATH/bin:
 
 ```bash
-go install github.com/bazelbuild/buildtools/unused_deps@latest
+go install github.com/bazel-contrib/buildtools/v10/unused_deps@latest
 ```
 
 ## Usage

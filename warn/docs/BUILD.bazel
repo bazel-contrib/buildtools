@@ -19,7 +19,7 @@ go_binary(
 go_library(
     name = "docs_lib",
     srcs = ["docs.go"],
-    importpath = "github.com/bazelbuild/buildtools/warn/docs",
+    importpath = "github.com/bazel-contrib/buildtools/v10/warn/docs",
     visibility = ["//visibility:private"],
     deps = [
         ":proto_go_proto",
@@ -52,7 +52,7 @@ proto_library(
 
 go_proto_library(
     name = "proto_go_proto",
-    importpath = "github.com/bazelbuild/buildtools/warn/docs/proto",
+    importpath = "github.com/bazel-contrib/buildtools/v10/warn/docs/proto",
     proto = ":docs_proto",
     visibility = ["//visibility:public"],
 )

@@ -39,7 +39,7 @@ test_suite(
 )
 
 # gazelle:go_naming_convention import_alias
-# gazelle:prefix github.com/bazelbuild/buildtools
+# gazelle:prefix github.com/bazel-contrib/buildtools/v10
 gazelle(
     name = "gazelle",
 )

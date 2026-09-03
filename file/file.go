@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/bazelbuild/buildtools/wspace"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 	"github.com/google/safeopen"
 )
 

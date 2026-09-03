@@ -19,9 +19,9 @@ limitations under the License.
 package edit
 
 import (
-	buildpb "github.com/bazelbuild/buildtools/build_proto"
-	"github.com/bazelbuild/buildtools/lang"
-	"github.com/bazelbuild/buildtools/tables"
+	buildpb "github.com/bazel-contrib/buildtools/v10/build_proto"
+	"github.com/bazel-contrib/buildtools/v10/lang"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 var typeOf = lang.TypeOf

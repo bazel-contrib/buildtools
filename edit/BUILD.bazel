@@ -9,7 +9,7 @@ go_library(
         "fix.go",
         "types.go",
     ],
-    importpath = "github.com/bazelbuild/buildtools/edit",
+    importpath = "github.com/bazel-contrib/buildtools/v10/edit",
     visibility = ["//visibility:public"],
     deps = [
         "//api_proto",
