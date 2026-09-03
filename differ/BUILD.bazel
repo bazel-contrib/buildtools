@@ -7,7 +7,7 @@ go_library(
         "isatty_other.go",
         "isatty_windows.go",
     ],
-    importpath = "github.com/bazelbuild/buildtools/differ",
+    importpath = "github.com/bazel-contrib/buildtools/v10/differ",
     visibility = ["//visibility:public"],
 )
 

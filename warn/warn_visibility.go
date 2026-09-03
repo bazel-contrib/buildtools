@@ -23,8 +23,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/labels"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/labels"
 )
 
 var internalDirectory = regexp.MustCompile("/(internal|private)[/:]")

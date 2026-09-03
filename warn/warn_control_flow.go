@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/bzlenv"
-	"github.com/bazelbuild/buildtools/edit"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
+	"github.com/bazel-contrib/buildtools/v10/edit"
 )
 
 // findReturnsWithoutValue searches for return statements without a value, calls `callback` on

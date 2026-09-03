@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 func symbolLoadLocationWarning(f *build.File) []*LinterFinding {

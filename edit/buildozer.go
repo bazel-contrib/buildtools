@@ -33,12 +33,12 @@ import (
 	"strconv"
 	"strings"
 
-	apipb "github.com/bazelbuild/buildtools/api_proto"
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit/bzlmod"
-	"github.com/bazelbuild/buildtools/file"
-	"github.com/bazelbuild/buildtools/labels"
-	"github.com/bazelbuild/buildtools/wspace"
+	apipb "github.com/bazel-contrib/buildtools/v10/api_proto"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit/bzlmod"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/labels"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )

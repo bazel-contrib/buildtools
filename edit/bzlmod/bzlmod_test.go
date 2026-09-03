@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 const proxiesNoModuleHeader = ``

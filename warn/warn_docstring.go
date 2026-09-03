@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 // FunctionLengthDocstringThreshold is a limit for a function size (in statements), above which

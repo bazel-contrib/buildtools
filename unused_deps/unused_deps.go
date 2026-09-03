@@ -30,13 +30,13 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/config"
-	depspb "github.com/bazelbuild/buildtools/deps_proto"
-	"github.com/bazelbuild/buildtools/edit"
-	eapb "github.com/bazelbuild/buildtools/extra_actions_base_proto"
-	"github.com/bazelbuild/buildtools/file"
-	"github.com/bazelbuild/buildtools/labels"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/config"
+	depspb "github.com/bazel-contrib/buildtools/v10/deps_proto"
+	"github.com/bazel-contrib/buildtools/v10/edit"
+	eapb "github.com/bazel-contrib/buildtools/v10/extra_actions_base_proto"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/labels"
 	"github.com/golang/protobuf/proto"
 )
 

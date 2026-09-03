@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 // locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.

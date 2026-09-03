@@ -23,12 +23,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/bzlenv"
-	"github.com/bazelbuild/buildtools/edit"
-	"github.com/bazelbuild/buildtools/edit/bzlmod"
-	"github.com/bazelbuild/buildtools/labels"
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
+	"github.com/bazel-contrib/buildtools/v10/edit"
+	"github.com/bazel-contrib/buildtools/v10/edit/bzlmod"
+	"github.com/bazel-contrib/buildtools/v10/labels"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 // Bazel API-specific warnings
