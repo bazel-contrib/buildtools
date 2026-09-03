@@ -29,7 +29,6 @@ func (m *StopTraversalError) Error() string {
 //
 // The stk argument is the stack of expressions in the recursion above x,
 // from outermost to innermost.
-//
 func Walk(v Expr, f func(x Expr, stk []Expr)) {
 	var stack []Expr
 	walk1(&v, &stack, func(x *Expr, stk []Expr) (Expr, error) {
@@ -62,7 +61,6 @@ func WalkInterruptable(v Expr, f func(x Expr, stk []Expr) error) {
 //
 // The stk argument is the stack of expressions in the recursion above x,
 // from outermost to innermost.
-//
 func Edit(v Expr, f func(x Expr, stk []Expr) Expr) Expr {
 	var stack []Expr
 	return walk1(&v, &stack, func(x *Expr, stk []Expr) (Expr, error) {
@@ -143,6 +141,20 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 	case *AssignExpr:
 		f(&v.LHS)
 		f(&v.RHS)
+	case *TypeAliasStmt:
+		f(&v.Name)
+		if v.TypeParams != nil {
+			f(&v.TypeParams)
+		}
+		f(&v.Type)
+	case *TypedIdent:
+		f(&v.Ident)
+		f(&v.Type)
+	case *TypeAppExpr:
+		f(&v.Type)
+		for i := range v.Args {
+			f(&v.Args[i])
+		}
 	case *LambdaExpr:
 		for i := range v.Params {
 			f(&v.Params[i])
@@ -199,9 +211,17 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 			v.To[i] = to.(*Ident)
 		}
 	case *DefStmt:
+		if v.TypeParams != nil {
+			f(&v.TypeParams)
+		}
 		for i := range v.Params {
 			f(&v.Params[i])
 		}
+		f(&v.ParamsEnd) // for comments
+		if v.Type != nil {
+			f(&v.Type)
+		}
+		f(&v.ColonPos) // for comments
 		for i := range v.Body {
 			f(&v.Body[i])
 		}

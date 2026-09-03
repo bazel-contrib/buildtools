@@ -26,12 +26,13 @@ type ValueKind int
 
 // List of ValueKind values.
 const (
-	Builtin   ValueKind = iota // language builtin
-	Imported                   // declared with load()
-	Global                     // declared with assignment on top-level
-	Function                   // declared with a def
-	Parameter                  // function parameter
-	Local                      // local variable, defined with assignment or as a loop variable
+	Builtin       ValueKind = iota // language builtin
+	Imported                       // declared with load()
+	Global                         // declared with assignment on top-level
+	Function                       // declared with a def
+	Parameter                      // function parameter
+	Local                          // local variable, defined with assignment or as a loop variable
+	TypeParameter                  // type parameter of a type alias or a generic function
 )
 
 func (k ValueKind) String() string {
@@ -48,6 +49,8 @@ func (k ValueKind) String() string {
 		return "parameter"
 	case Local:
 		return "local"
+	case TypeParameter:
+		return "type parameter"
 	default:
 		panic(k)
 	}
@@ -123,6 +126,9 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			for _, ident := range node.To {
 				env.declare(ident.Name, Imported, ident)
 			}
+		case *build.TypeAliasStmt:
+			// Type aliases allowed only at top level.
+			env.declare(node.GetIdent().Name, Global, node)
 		case *build.AssignExpr:
 			kind := Local
 			if env.Function == nil {
@@ -131,6 +137,13 @@ func declareGlobals(stmts []build.Expr, env *Environment) {
 			for _, id := range CollectLValues(node.LHS) {
 				env.declare(id.Name, kind, node)
 			}
+		case *build.TypedIdent:
+			// var statement
+			kind := Local
+			if env.Function == nil {
+				kind = Global
+			}
+			env.declare(node.GetIdent().Name, kind, node)
 		case *build.DefStmt:
 			env.declare(node.Name, Function, node)
 		}
@@ -144,6 +157,8 @@ func CollectLValues(node build.Expr) []*build.Ident {
 	switch node := node.(type) {
 	case *build.Ident:
 		result = append(result, node)
+	case *build.TypedIdent:
+		result = CollectLValues(node.Ident)
 	case *build.TupleExpr:
 		for _, item := range node.List {
 			result = append(result, CollectLValues(item)...)
@@ -174,6 +189,13 @@ func declareLocalVariables(stmts []build.Expr, env *Environment) {
 			for _, id := range CollectLValues(node.LHS) {
 				env.declare(id.Name, kind, node)
 			}
+		case *build.TypedIdent:
+			// var statement
+			kind := Local
+			if env.Function == nil {
+				kind = Global
+			}
+			env.declare(node.GetIdent().Name, kind, node)
 		case *build.IfStmt:
 			declareLocalVariables(node.True, env)
 			declareLocalVariables(node.False, env)
@@ -194,6 +216,12 @@ func WalkOnceWithEnvironment(node build.Expr, env *Environment, fct func(e *buil
 		declareGlobals(node.Stmt, env)
 		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
 	case *build.DefStmt:
+		if node.TypeParams != nil {
+			env.enterBlock()
+			for _, id := range CollectLValues(node.TypeParams) {
+				env.declare(id.Name, TypeParameter, node)
+			}
+		}
 		env.enterBlock()
 		env.Function = node
 		declareParams(node, env)
@@ -201,6 +229,20 @@ func WalkOnceWithEnvironment(node build.Expr, env *Environment, fct func(e *buil
 		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
 		env.Function = nil
 		env.exitBlock()
+		if node.TypeParams != nil {
+			env.exitBlock()
+		}
+	case *build.TypeAliasStmt:
+		if node.TypeParams != nil {
+			env.enterBlock()
+			for _, id := range CollectLValues(node.TypeParams) {
+				env.declare(id.Name, TypeParameter, node)
+			}
+		}
+		build.WalkOnce(node, func(e *build.Expr) { fct(e, env) })
+		if node.TypeParams != nil {
+			env.exitBlock()
+		}
 	case *build.Comprehension:
 		env.enterBlock()
 		for _, clause := range node.Clauses {

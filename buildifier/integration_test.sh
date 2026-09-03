@@ -504,8 +504,8 @@ EOF
   diff -u test_dir/fix_report golden/fix_report_golden || die "$1: wrong console output for --lint=fix"
 }
 
-test_lint "default" "" "test_dir/fixed_golden.bzl" "$error_bzl"$'\n'"$error_docstring"$'\n'"$error_integer"$'\n'"$error_cfg" 2
-test_lint "all" "--warnings=all" "test_dir/fixed_golden_all.bzl" "$error_bzl"$'\n'"$error_docstring"$'\n'"$error_integer"$'\n'"$error_dict"$'\n'"$error_cfg" 2
+test_lint "default" "" "test_dir/fixed_golden.bzl" "$error_docstring"$'\n'"$error_bzl"$'\n'"$error_integer"$'\n'"$error_cfg" 2
+test_lint "all" "--warnings=all" "test_dir/fixed_golden_all.bzl" "$error_docstring"$'\n'"$error_bzl"$'\n'"$error_integer"$'\n'"$error_dict"$'\n'"$error_cfg" 2
 test_lint "cfg" "--warnings=attr-cfg" "test_dir/fixed_golden_cfg.bzl" "$error_cfg" 0
 test_lint "custom" "--warnings=-bzl-visibility,-integer-division,+unsorted-dict-items" "test_dir/fixed_golden_dict_cfg.bzl" "$error_docstring"$'\n'"$error_dict"$'\n'"$error_cfg" 1
 

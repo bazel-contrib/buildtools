@@ -150,7 +150,7 @@ func analyzeFile(f *build.File) fileData {
 		switch stmt := stmt.(type) {
 		case *build.AssignExpr:
 			// Analyze aliases (`foo = bar`) or rule declarations (`foo = rule(...)`)
-			lhsIdent, ok := stmt.LHS.(*build.Ident)
+			lhsIdent, ok := stmt.LHSIdent()
 			if !ok {
 				continue
 			}
@@ -335,7 +335,7 @@ This is important for tooling and automation.
   * Otherwise, add a "name" argument. If possible, use that name when calling other macros/rules.`, report.fc.nameAlias, report.fc.line, def.Name)
 		}
 		finding := makeLinterFinding(def, msg)
-		finding.End = def.ColonPos
+		_, finding.End = def.HeaderSpan()
 		findings = append(findings, finding)
 	}
 

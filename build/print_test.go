@@ -527,3 +527,122 @@ func (eq *eqchecker) checkValue(v, w reflect.Value) error {
 	}
 	return nil
 }
+
+func TestPrintTypeExprForceMultiLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "multiline type application",
+			input: `type T = list[
+    int,
+    str
+]
+`,
+			want: `type T = list[
+    int,
+    str
+]
+`,
+		},
+		{
+			name: "multiline type application with comments",
+			input: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str
+    # comment 3
+] = [123, "four"]
+`,
+			want: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str
+    # comment 3
+] = [123, "four"]
+`,
+		},
+		{
+			name: "multiline type list in compact type application",
+			input: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+			want: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+		},
+		{
+			name: "multiline type dict in compact type application",
+			input: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+			want: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+		},
+		{
+			name: "multiline type dict in non-compact type application",
+			input: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...
+]
+`,
+			want: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...
+]
+`,
+		},
+		{
+			name:  "dotted type name",
+			input: "type T = typing.Sequence\n",
+			want:  "type T = typing.Sequence\n",
+		},
+		{
+			name:  "dotted type name in type application",
+			input: "type T = typing.Sequence[int]\n",
+			want:  "type T = typing.Sequence[int]\n",
+		},
+		{
+			name:  "multi-dotted type name in type application",
+			input: "type T = a.b.c.D[int, str]\n",
+			want:  "type T = a.b.c.D[int, str]\n",
+		},
+		{
+			name:  "nested dotted type names",
+			input: "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+			want:  "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := Parse("test.bzl", []byte(tt.input))
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+			got := string(Format(f))
+			if got != tt.want {
+				t.Errorf("Format() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

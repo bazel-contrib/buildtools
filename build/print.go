@@ -456,7 +456,7 @@ func usedModuleExtensionProxy(x Expr) (name string, isUseRepo bool) {
 	} else if assign, ok := x.(*AssignExpr); ok {
 		// Handles:
 		//   foo_deps = use_extension("//:foo.bzl", "foo_deps")
-		assignee, isIdent := assign.LHS.(*Ident)
+		assignee, isIdent := assign.LHSIdent()
 		if !isIdent {
 			return "", false
 		}
@@ -579,34 +579,7 @@ var opPrec = map[string]int{
 // expr must introduce parentheses to preserve the meaning
 // of the parse tree (see above).
 func (p *printer) expr(v Expr, outerPrec int) {
-	// Emit line-comments preceding this expression.
-	// If we are in the middle of an expression but not inside ( ) [ ] { }
-	// then we cannot just break the line: we'd have to end it with a \.
-	// However, even then we can't emit line comments since that would
-	// end the expression. This is only a concern if we have rewritten
-	// the parse tree. If comments were okay before this expression in
-	// the original input they're still okay now, in the absence of rewrites.
-	//
-	// TODO(bazel-team): Check whether it is valid to emit comments right now,
-	// and if not, insert them earlier in the output instead, at the most
-	// recent \n not following a \ line.
-	p.newlineIfNeeded()
-
-	if before := v.Comment().Before; len(before) > 0 {
-		// Want to print a line comment.
-		// Line comments must be at the current margin.
-		p.trim()
-		if p.indent() > 0 {
-			// There's other text on the line. Start a new line.
-			p.printc('\n')
-		}
-		// Re-indent to margin.
-		p.spaces(p.margin)
-		for _, com := range before {
-			p.prints(strings.TrimSpace(com.Token))
-			p.newline()
-		}
-	}
+	p.precedingComments(v)
 
 	// Do we introduce parentheses?
 	// The result depends on the kind of expression.
@@ -641,6 +614,13 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.expr(v.Ident, precLow)
 		p.prints(": ")
 		p.expr(v.Type, precLow)
+
+	case *TypeAppExpr:
+		p.expr(v.Type, precSuffix)
+		p.seq("[]", &v.ArgsStart, &v.Args, &v.End, modeTypeApp, v.ForceCompact, v.ForceMultiLine)
+
+	case *EllipsisExpr:
+		p.prints("...")
 
 	case *BranchStmt:
 		p.prints(v.Token)
@@ -882,12 +862,23 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *DefStmt:
 		p.prints("def ")
 		p.prints(v.Name)
-		p.seq("()", &v.StartPos, &v.Params, nil, modeDef, v.ForceCompact, v.ForceMultiLine)
+		p.optionalTypeParams(v.TypeParams)
+
+		// Line anchor for the opening '(' of the params list
+		paramsAnchor := v.StartPos
+		if v.TypeParams != nil {
+			_, paramsAnchor = v.TypeParams.Span()
+		}
+
+		// Support printing partially-defined, code-created DefStmt-s.
+		paramsEnd, _ := v.ParamsEnd.(*End)
+		p.seq("()", &paramsAnchor, &v.Params, paramsEnd, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.prints(" -> ")
 			p.expr(v.Type, precLow)
 		}
 		p.printc(':')
+		p.queueEndOfLineComments(v.ColonPos)
 		p.nestedStatements(v.Body)
 
 	case *ForStmt:
@@ -954,6 +945,21 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *IfClause:
 		p.prints("if ")
 		p.expr(v.Cond, precLow)
+
+	case *TypeAliasStmt:
+		p.prints("type ")
+		p.expr(v.Name, precLow)
+		p.optionalTypeParams(v.TypeParams)
+		p.prints(" =")
+		if v.LineBreak {
+			p.margin += listIndentation
+			p.breakline()
+			p.expr(v.Type, precLow)
+			p.margin -= listIndentation
+		} else {
+			p.prints(" ")
+			p.expr(v.Type, precLow)
+		}
 	}
 
 	// Add closing parenthesis if needed.
@@ -962,9 +968,45 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		p.printc(')')
 	}
 
-	// Queue end-of-line comments for printing when we
-	// reach the end of the line.
-	p.comment = append(p.comment, v.Comment().Suffix...)
+	p.queueEndOfLineComments(v)
+}
+
+// Emit line-comments preceding a given expression.
+func (p *printer) precedingComments(v Expr) {
+	// If we are in the middle of an expression but not inside ( ) [ ] { }
+	// then we cannot just break the line: we'd have to end it with a \.
+	// However, even then we can't emit line comments since that would
+	// end the expression. This is only a concern if we have rewritten
+	// the parse tree. If comments were okay before this expression in
+	// the original input they're still okay now, in the absence of rewrites.
+	//
+	// TODO(bazel-team): Check whether it is valid to emit comments right now,
+	// and if not, insert them earlier in the output instead, at the most
+	// recent \n not following a \ line.
+	p.newlineIfNeeded()
+
+	if before := v.Comment().Before; len(before) > 0 {
+		// Want to print a line comment.
+		// Line comments must be at the current margin.
+		p.trim()
+		if p.indent() > 0 {
+			// There's other text on the line. Start a new line.
+			p.printc('\n')
+		}
+		// Re-indent to margin.
+		p.spaces(p.margin)
+		for _, com := range before {
+			p.prints(strings.TrimSpace(com.Token))
+			p.newline()
+		}
+	}
+}
+
+// Queue end-of-line comments for printing when we reach the end of the line.
+func (p *printer) queueEndOfLineComments(v Expr) {
+	if v != nil {
+		p.comment = append(p.comment, v.Comment().Suffix...)
+	}
 }
 
 // A seqMode describes a formatting mode for a sequence of values,
@@ -974,14 +1016,16 @@ type seqMode int
 const (
 	_ seqMode = iota
 
-	modeCall  // f(x)
-	modeList  // [x]
-	modeTuple // (x,)
-	modeParen // (x)
-	modeDict  // {x:y}
-	modeSeq   // x, y
-	modeDef   // def f(x, y)
-	modeLoad  // load(a, b, c)
+	modeCall       // f(x)
+	modeList       // [x]
+	modeTuple      // (x,)
+	modeParen      // (x)
+	modeDict       // {x:y}
+	modeSeq        // x, y
+	modeDef        // def f(x, y)
+	modeLoad       // load(a, b, c)
+	modeTypeApp    // dict[str, int]
+	modeTypeParams // [T, U]
 )
 
 // useCompactMode reports whether a sequence should be formatted in a compact mode
@@ -1001,15 +1045,15 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	if mode == modeSeq {
 		return true
 	}
-	// Use compact mode for empty call expressions if ForceMultiLine is not set
-	if mode == modeCall && len(*list) == 0 && !forceMultiLine {
+	// Use compact mode for empty call expressions or type applications if ForceMultiLine is not set
+	if (mode == modeCall || mode == modeTypeApp) && len(*list) == 0 && !forceMultiLine {
 		return true
 	}
 
 	// In the Default and .bzl printing modes try to keep the original printing style.
 	// Non-top-level statements and lists of arguments of a function definition
 	// should also keep the original style regardless of the mode.
-	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef) && mode != modeLoad {
+	if (p.level != 0 || p.formattingMode() == TypeDefault || mode == modeDef || mode == modeTypeParams) && mode != modeLoad {
 		// If every element (including the brackets) ends on the same line where the next element starts,
 		// use the compact mode, otherwise use multiline mode.
 		// If an node's line number is 0, it means it doesn't appear in the original file,
@@ -1029,7 +1073,8 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 		}
 		if end != nil {
 			isNewSeq = isNewSeq && end.Pos.Line == 0
-			if isDifferentLines(previousEnd, &end.Pos) {
+			// In modeDef, we try to keep the closing parenthesis on the same line.
+			if mode != modeDef && isDifferentLines(previousEnd, &end.Pos) {
 				return false
 			}
 		}
@@ -1118,16 +1163,33 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		}
 	}
 	// Final comments.
+	printedFinalComments := false
 	if end != nil {
 		for _, com := range end.Before {
 			p.newline()
 			p.prints(strings.TrimSpace(com.Token))
+			printedFinalComments = true
 		}
 	}
 	p.margin -= indentation
 	// in modeDef print the closing bracket on the same line
-	if mode != modeDef {
+	if mode != modeDef || printedFinalComments {
 		p.newline()
+	}
+}
+
+// optionalTypeParams formats a ListExpr of a type alias's or generic function's type params,
+// or does nothing if given a nil.
+func (p *printer) optionalTypeParams(typeParams Expr) {
+	switch list := typeParams.(type) {
+	case nil:
+		return
+	case *ListExpr:
+		p.precedingComments(typeParams)
+		p.seq("[]", &list.Start, &list.List, &list.End, modeTypeParams, false, list.ForceMultiLine)
+		p.queueEndOfLineComments(typeParams)
+	default:
+		panic(fmt.Errorf("printer: expected ListExpr for type params, got %T", typeParams))
 	}
 }
 
@@ -1136,6 +1198,9 @@ func needsTrailingComma(mode seqMode, v Expr) bool {
 	case modeDef:
 		return false
 	case modeParen:
+		return false
+	case modeTypeApp:
+		// Syntax error!
 		return false
 	case modeCall:
 		// *args and **kwargs in fn calls

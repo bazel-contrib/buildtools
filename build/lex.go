@@ -297,17 +297,47 @@ func (in *input) parse() (f *File, err error) {
 	// Assign comments to nearby syntax.
 	in.assignComments()
 
+	if err := checkTypeAlias(in.file); err != nil {
+		return nil, err
+	}
+
 	return in.file, nil
+}
+
+// checkTypeAlias checks that type alias statements occur only at top-level.
+func checkTypeAlias(file *File) error {
+	var typeAliasErr error
+	WalkStatements(file, func(x Expr, stk []Expr) error {
+		if typeAliasErr != nil {
+			return &StopTraversalError{}
+		}
+		if typeAliasStmt, ok := x.(*TypeAliasStmt); ok && len(stk) > 1 {
+			typeAliasErr = ParseError{
+				Message:  "syntax error: type alias not at top level",
+				Filename: file.Path,
+				Pos:      typeAliasStmt.TypePos,
+			}
+			return &StopTraversalError{}
+		}
+		return nil
+	})
+	return typeAliasErr
 }
 
 // Error is called to report an error.
 // When called by the generated code s is always "syntax error".
 // Error does not return: it panics.
 func (in *input) Error(s string) {
+	in.ErrorAt(in.pos, s)
+}
+
+// ErrorAt is called to report an error at a specific position.
+// ErrorAt does not return: it panics.
+func (in *input) ErrorAt(pos Position, s string) {
 	if s == "syntax error" && in.lastToken != "" {
 		s += " near " + in.lastToken
 	}
-	in.parseError = ParseError{Message: s, Filename: in.filename, Pos: in.pos}
+	in.parseError = ParseError{Message: s, Filename: in.filename, Pos: pos}
 	panic(in.parseError)
 }
 
@@ -533,7 +563,16 @@ func (in *input) Lex(val *yySymType) int {
 		in.readRune()
 		return c
 
-	case '.', ':', ';', ',': // single-char tokens
+	case '.':
+		in.readRune()
+		if bytes.HasPrefix(in.remaining, []byte("..")) {
+			in.readRune()
+			in.readRune()
+			return _ELLIPSIS
+		}
+		return '.'
+
+	case ':', ';', ',': // single-char tokens
 		in.readRune()
 		return c
 
@@ -774,7 +813,16 @@ func (in *input) order(v Expr) {
 	case *Ident:
 		// nothing
 	case *TypedIdent:
+		in.order(v.Ident)
 		in.order(v.Type)
+	case *TypeAppExpr:
+		in.order(v.Type)
+		for _, x := range v.Args {
+			in.order(x)
+		}
+		in.order(&v.End)
+	case *EllipsisExpr:
+		// nothing
 	case *BranchStmt:
 		// nothing
 	case *DotExpr:
@@ -850,9 +898,17 @@ func (in *input) order(v Expr) {
 			in.order(v.Result)
 		}
 	case *DefStmt:
+		if v.TypeParams != nil {
+			in.order(v.TypeParams)
+		}
 		for _, x := range v.Params {
 			in.order(x)
 		}
+		in.order(v.ParamsEnd)
+		if v.Type != nil {
+			in.order(v.Type)
+		}
+		in.order(v.ColonPos)
 		for _, x := range v.Body {
 			in.order(x)
 		}
@@ -873,6 +929,12 @@ func (in *input) order(v Expr) {
 		for _, s := range v.False {
 			in.order(s)
 		}
+	case *TypeAliasStmt:
+		in.order(v.Name)
+		if v.TypeParams != nil {
+			in.order(v.TypeParams)
+		}
+		in.order(v.Type)
 	}
 	if len(in.suffixComments) > 0 && v != nil {
 		in.post = append(in.post, v)

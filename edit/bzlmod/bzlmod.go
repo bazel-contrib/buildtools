@@ -245,7 +245,8 @@ func parseUseExtension(stmt build.Expr) (proxy string, bzlFile string, name stri
 	if !ok {
 		return
 	}
-	if _, ok = assign.LHS.(*build.Ident); !ok {
+	lhsIdent, ok := assign.LHSIdent()
+	if !ok {
 		return
 	}
 	if _, ok = assign.RHS.(*build.CallExpr); !ok {
@@ -277,7 +278,7 @@ func parseUseExtension(stmt build.Expr) (proxy string, bzlFile string, name stri
 			isolate = isolate || parseBooleanKeywordArg(arg, "isolate")
 		}
 	}
-	return assign.LHS.(*build.Ident).Name, bzlFileExpr.Value, nameExpr.Value, dev, isolate
+	return lhsIdent.Name, bzlFileExpr.Value, nameExpr.Value, dev, isolate
 }
 
 // parseBooleanKeywordArg parses a keyword argument of type bool that is assumed to default to

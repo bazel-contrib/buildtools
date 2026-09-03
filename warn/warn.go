@@ -374,7 +374,18 @@ func FileWarnings(f *build.File, enabledWarnings []string, formatted *[]byte, mo
 			os.Exit(1)
 		}
 	}
-	sort.Slice(findings, func(i, j int) bool { return findings[i].Start.Line < findings[j].Start.Line })
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Start.Line != findings[j].Start.Line {
+			return findings[i].Start.Line < findings[j].Start.Line
+		}
+		if findings[i].Start.LineRune != findings[j].Start.LineRune {
+			return findings[i].Start.LineRune < findings[j].Start.LineRune
+		}
+		if findings[i].Category != findings[j].Category {
+			return findings[i].Category < findings[j].Category
+		}
+		return findings[i].Message < findings[j].Message
+	})
 	return findings
 }
 
