@@ -1241,7 +1241,7 @@ yydefault:
 				},
 				Name:           yyDollar[2].tok,
 				TypeParams:     yyDollar[3].expr,
-				ParamsEnd:      End{Pos: yyDollar[6].pos},
+				ParamsEnd:      &End{Pos: yyDollar[6].pos},
 				ForceCompact:   forceCompact(yyDollar[4].pos, yyDollar[5].exprs, yyDollar[6].pos),
 				ForceMultiLine: forceMultiLine(yyDollar[4].pos, yyDollar[5].exprs, yyDollar[6].pos),
 			}
@@ -1258,7 +1258,7 @@ yydefault:
 //line build/parse.y:399
 		{
 			yyDollar[1].def_header.Function.Body = yyDollar[3].exprs
-			yyDollar[1].def_header.ColonPos = End{Pos: yyDollar[2].pos}
+			yyDollar[1].def_header.ColonPos = &End{Pos: yyDollar[2].pos}
 			yyVAL.expr = yyDollar[1].def_header
 			yyVAL.lastStmt = yyDollar[3].lastStmt
 		}

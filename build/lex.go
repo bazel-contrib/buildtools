@@ -904,11 +904,11 @@ func (in *input) order(v Expr) {
 		for _, x := range v.Params {
 			in.order(x)
 		}
-		in.order(&v.ParamsEnd)
+		in.order(v.ParamsEnd)
 		if v.Type != nil {
 			in.order(v.Type)
 		}
-		in.order(&v.ColonPos)
+		in.order(v.ColonPos)
 		for _, x := range v.Body {
 			in.order(x)
 		}

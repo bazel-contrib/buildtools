@@ -365,6 +365,9 @@ cc_library(
 
 # buildifier: disable=skylark-comment
 # some comment mentioning skylark
+
+def foo(x, y): # buildifier: disable=unused-variable
+    pass
 `
 
 	f, err := build.ParseBzl("file.bzl", []byte(contents))
@@ -411,6 +414,11 @@ cc_library(
 			start:    16,
 			end:      17,
 			category: "skylark-comment",
+		},
+		{
+			start:    19,
+			end:      19,
+			category: "unused-variable",
 		},
 	}
 

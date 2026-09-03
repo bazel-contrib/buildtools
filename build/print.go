@@ -870,13 +870,15 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			_, paramsAnchor = v.TypeParams.Span()
 		}
 
-		p.seq("()", &paramsAnchor, &v.Params, &v.ParamsEnd, modeDef, v.ForceCompact, v.ForceMultiLine)
+		// Support printing partially-defined, code-created DefStmt-s.
+		paramsEnd, _ := v.ParamsEnd.(*End)
+		p.seq("()", &paramsAnchor, &v.Params, paramsEnd, modeDef, v.ForceCompact, v.ForceMultiLine)
 		if v.Type != nil {
 			p.prints(" -> ")
 			p.expr(v.Type, precLow)
 		}
 		p.printc(':')
-		p.queueEndOfLineComments(&v.ColonPos)
+		p.queueEndOfLineComments(v.ColonPos)
 		p.nestedStatements(v.Body)
 
 	case *ForStmt:
@@ -1002,7 +1004,9 @@ func (p *printer) precedingComments(v Expr) {
 
 // Queue end-of-line comments for printing when we reach the end of the line.
 func (p *printer) queueEndOfLineComments(v Expr) {
-	p.comment = append(p.comment, v.Comment().Suffix...)
+	if v != nil {
+		p.comment = append(p.comment, v.Comment().Suffix...)
+	}
 }
 
 // A seqMode describes a formatting mode for a sequence of values,

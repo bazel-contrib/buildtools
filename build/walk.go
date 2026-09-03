@@ -217,9 +217,11 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		for i := range v.Params {
 			f(&v.Params[i])
 		}
+		f(&v.ParamsEnd) // for comments
 		if v.Type != nil {
 			f(&v.Type)
 		}
+		f(&v.ColonPos) // for comments
 		for i := range v.Body {
 			f(&v.Body[i])
 		}

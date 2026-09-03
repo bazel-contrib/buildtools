@@ -842,8 +842,8 @@ type DefStmt struct {
 	Function
 	Name           string
 	TypeParams     Expr // optional type parameters [T, U]. If non-nil, must be a non-empty ListExpr of Ident elements.
-	ParamsEnd      End  // Position of the ")" that closes the params list
-	ColonPos       End  // Position of the ":"
+	ParamsEnd      Expr // an End representing the ")" that closes the params list
+	ColonPos       Expr // an End representing the ":"
 	ForceCompact   bool // force compact (non-multiline) form when printing the arguments
 	ForceMultiLine bool // force multiline form when printing the arguments
 	Type           Expr // type annotation
@@ -862,7 +862,12 @@ func (x *DefStmt) Copy() Expr {
 
 // HeaderSpan returns the span of the function header `def f(...):`
 func (x *DefStmt) HeaderSpan() (start, end Position) {
-	return x.Function.StartPos, x.ColonPos.Pos
+	start = x.Function.StartPos
+	// Attempt to support printing a partially-defined DefStmt
+	if x.ColonPos != nil {
+		_, end = x.ColonPos.Span()
+	}
+	return
 }
 
 // A ReturnStmt represents a return statement: return f(x).
