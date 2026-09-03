@@ -1073,7 +1073,8 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 		}
 		if end != nil {
 			isNewSeq = isNewSeq && end.Pos.Line == 0
-			if isDifferentLines(previousEnd, &end.Pos) {
+			// In modeDef, we try to keep the closing parenthesis on the same line.
+			if mode != modeDef && isDifferentLines(previousEnd, &end.Pos) {
 				return false
 			}
 		}
