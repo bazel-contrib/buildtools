@@ -96,6 +96,13 @@ var parseTests = []struct {
 	in  string
 	out *File
 }{
+	// Reified types containing ellipsis are valid value arguments too.
+	{
+		in: `cast(value, struct[{"name": str}, ...])`,
+	},
+	{
+		in: `isinstance(struct[{"name": str}, ...], value)`,
+	},
 	{
 		in: `go_binary(name = "x"
 )
@@ -389,6 +396,20 @@ func TestParseError(t *testing.T) {
 			name: "ident followed by ident syntax error",
 			in:   "foo bar\n",
 			want: "test:1:8: syntax error near bar",
+		},
+
+		// wrong order of args to cast; expecting cast(type, value)
+		{
+			name: "wrong order of arguments to cast",
+			in:   `cast(foo(bar), type)`,
+			want: "test:1:10: syntax error near (",
+		},
+
+		// wrong order of args to isinstance; expecting isinstance(value, type)
+		{
+			name: "wrong order of arguments to isinstance",
+			in:   `isinstance(type, foo(bar))`,
+			want: "test:1:22: syntax error near (",
 		},
 	}
 

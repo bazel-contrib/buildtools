@@ -67,3 +67,7 @@ parenthesized: ((int) | (str | list[(bool)]))
 
 # ellipsis can be used in reified types
 provider_field(Callable[..., bool], default = lambda x: False)
+
+FOO = cast(struct[{"name": str}, ...], some(value) or another)
+
+BAR = isinstance(some(value) or another, struct[{"name": str}, ...])

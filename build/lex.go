@@ -751,19 +751,21 @@ func isIdent(c int) bool {
 // keywordToken records the special tokens for
 // strings that should not be treated as ordinary identifiers.
 var keywordToken = map[string]int{
-	"and":    _AND,
-	"for":    _FOR,
-	"if":     _IF,
-	"else":   _ELSE,
-	"elif":   _ELIF,
-	"in":     _IN,
-	"is":     _IS,
-	"lambda": _LAMBDA,
-	"load":   _LOAD,
-	"not":    _NOT,
-	"or":     _OR,
-	"def":    _DEF,
-	"return": _RETURN,
+	"and":        _AND,
+	"cast":       _CAST,
+	"for":        _FOR,
+	"if":         _IF,
+	"else":       _ELSE,
+	"elif":       _ELIF,
+	"in":         _IN,
+	"is":         _IS,
+	"isinstance": _ISINSTANCE,
+	"lambda":     _LAMBDA,
+	"load":       _LOAD,
+	"not":        _NOT,
+	"or":         _OR,
+	"def":        _DEF,
+	"return":     _RETURN,
 }
 
 // Comment assignment.
