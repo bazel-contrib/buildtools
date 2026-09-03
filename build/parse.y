@@ -92,6 +92,7 @@ package build
 
 %token	<pos>	_AUGM    // augmented assignment
 %token	<pos>	_AND     // keyword and
+%token	<pos>	_CAST    // keyword cast
 %token	<pos>	_COMMENT // top-level # comment
 %token	<pos>	_EOF     // end of file
 %token	<pos>	_EQ      // operator ==
@@ -104,6 +105,7 @@ package build
 %token	<pos>	_ELIF    // keyword elif
 %token	<pos>	_IN      // keyword in
 %token	<pos>	_IS      // keyword is
+%token	<pos>	_ISINSTANCE // keyword isinstance
 %token	<pos>	_LAMBDA  // keyword lambda
 %token	<pos>	_LOAD    // keyword load
 %token	<pos>	_LE      // operator <=
@@ -610,6 +612,32 @@ primary_expr:
 			load.To = append(load.To, &arg.to)
 		}
 		$$ = load
+	}
+|	_CAST '(' type_expr commas argument commas_opt ')'
+	{
+		args := []Expr{$3, $5}
+		$$ = &CallExpr{
+			CallExprKind: CallExprCast,
+			X: &Ident{NamePos: $1, Name: $<tok>1},
+			ListStart: $2,
+			List: args,
+			End: End{Pos: $7},
+			ForceCompact: forceCompact($2, args, $7),
+			ForceMultiLine: forceMultiLine($2, args, $7),
+		}
+	}
+|	_ISINSTANCE '(' argument commas type_expr commas_opt ')'
+	{
+		args := []Expr{$3, $5}
+		$$ = &CallExpr{
+			CallExprKind: CallExprIsInstance,
+			X: &Ident{NamePos: $1, Name: $<tok>1},
+			ListStart: $2,
+			List: args,
+			End: End{Pos: $7},
+			ForceCompact: forceCompact($2, args, $7),
+			ForceMultiLine: forceMultiLine($2, args, $7),
+		}
 	}
 |	primary_expr '(' arguments_opt ')'
 	{

@@ -52,3 +52,7 @@ y: U,  # comment about y
 ) -> T: # comment after type
     # comment in body
     return x
+
+FOO = cast(struct[{"name": str}, ...], some(value) or another)
+
+BAR = isinstance(some(value) or another, struct[{"name": str}, ...])

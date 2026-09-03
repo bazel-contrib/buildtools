@@ -342,6 +342,16 @@ func (x *End) Copy() Expr {
 	return &n
 }
 
+// CallExprKind describes special kinds of call expression nodes.
+type CallExprKind int
+
+// List of CallExprKind values.
+const (
+	CallExprOrdinary   CallExprKind = iota // ordinary call expression
+	CallExprCast                           // cast(t, val), where the first arg (t) is a type expression
+	CallExprIsInstance                     // isinstance(val, t), where the second arg (t) is a type expression
+)
+
 // A CallExpr represents a function call expression: X(List).
 type CallExpr struct {
 	Comments
@@ -351,6 +361,7 @@ type CallExpr struct {
 	End                 // position of )
 	ForceCompact   bool // force compact (non-multiline) form when printing
 	ForceMultiLine bool // force multiline form when printing
+	CallExprKind
 }
 
 // Span returns the start and end positions of the node

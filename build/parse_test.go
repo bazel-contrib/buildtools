@@ -378,6 +378,30 @@ func TestParseError(t *testing.T) {
 			in:   "foo bar\n",
 			want: "test:1:8: syntax error near bar",
 		},
+
+		// wrong order of args to cast; expecting cast(type, value)
+		{
+			name: "wrong order of arguments to cast",
+			in:   `cast(value, struct[{"name": str}, ...])`,
+			want: "test:1:38: syntax error near ...",
+		},
+		{
+			name: "wrong order of arguments to cast",
+			in:   `cast(foo(bar), type)`,
+			want: "test:1:10: syntax error near (",
+		},
+
+		// wrong order of args to isinstance; expecting isinstance(value, type)
+		{
+			name: "wrong order of arguments to isinstance",
+			in:   `isinstance(struct[{"name": str}, ...], value)`,
+			want: "test:1:37: syntax error near ...",
+		},
+		{
+			name: "wrong order of arguments to isinstance",
+			in:   `isinstance(type, foo(bar))`,
+			want: "test:1:22: syntax error near (",
+		},
 	}
 
 	for _, tt := range tests {
