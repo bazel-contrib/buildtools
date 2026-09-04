@@ -10,6 +10,7 @@ Warning categories supported by buildifier's linter:
   * [`attr-non-empty`](#attr-non-empty)
   * [`attr-output-default`](#attr-output-default)
   * [`attr-package-metadata`](#attr-package-metadata)
+  * [`attr-policy`](#attr-policy)
   * [`attr-single-file`](#attr-single-file)
   * [`build-args-kwargs`](#build-args-kwargs)
   * [`bzl-visibility`](#bzl-visibility)
@@ -240,6 +241,58 @@ for these attributes instead.
   * [Suppress the warning](#suppress): `# buildifier: disable=attr-package-metadata`
 
 Using `package_metadata` as an attribute name may cause unexpected behavior. Its use may be prohibited in future Bazel releases.
+
+--------------------------------------------------------------------------------
+
+## <a name="attr-policy"></a>Attribute value violates a configured policy rule
+
+  * Category name: `attr-policy`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=attr-policy`
+
+Enforces declarative attribute constraints configured in `.buildifier.json` under
+`attrPolicy`. Each rule names an attribute and a constraint family (scalar,
+list, dict, numeric bounds, or presence). List rules support `allowListItems` for
+closed-world lexicons; entries ending in `*` match by prefix. Targets matching an
+`allowlist` pattern are exempt.
+
+When no `attrPolicy` block is configured, the warning applies these built-in rules:
+
+* `shard_count` must be ≤ 50 on `*_test` rules (matching Bazel's default constraint)
+* `licenses` must not be set on any rule (deprecated; see [bazel#188](https://github.com/bazelbuild/bazel/issues/188))
+* `output_licenses` must not be set on `genrule`, `cc_binary`, `cc_toolchain`, `java_binary`, or `java_plugin` (deprecated; see [bazel#7444](https://github.com/bazelbuild/bazel/issues/7444))
+
+Example:
+
+```json
+{
+  "attrPolicy": {
+    "rules": [
+      {
+        "name": "no-eternal-timeout",
+        "ruleKinds": ["*_test"],
+        "attr": "timeout",
+        "forbidValues": ["eternal"],
+        "allowlist": ["//slow/..."]
+      },
+      {
+        "name": "max-shard-count",
+        "ruleKinds": ["*_test"],
+        "attr": "shard_count",
+        "maxValue": 50
+      },
+      {
+        "name": "allowed-tags",
+        "attr": "tags",
+        "allowListItems": ["manual", "assistant-ds*", "exclusive"]
+      }
+    ]
+  }
+}
+```
+
+A JSON Schema for `.buildifier.json` (including `attrPolicy`) lives at
+`buildifier/config/buildifier.schema.json`.
 
 --------------------------------------------------------------------------------
 

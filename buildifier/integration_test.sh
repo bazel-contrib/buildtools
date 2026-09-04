@@ -284,6 +284,7 @@ cat > golden/.buildifier.example.json <<EOF
     "attr-licenses",
     "attr-non-empty",
     "attr-output-default",
+    "attr-policy",
     "attr-single-file",
     "build-args-kwargs",
     "bzl-visibility",
@@ -376,7 +377,25 @@ cat > golden/.buildifier.example.json <<EOF
     "unreachable",
     "unsorted-dict-items",
     "unused-variable"
-  ]
+  ],
+  "attrPolicy": {
+    "rules": [
+      {
+        "name": "no-eternal-timeout",
+        "ruleKinds": [
+          "*_test"
+        ],
+        "attr": "timeout",
+        "forbidValues": [
+          "eternal"
+        ],
+        "allowlist": [
+          "//slow/..."
+        ],
+        "message": "'eternal' timeout requires approval; add the target to the attrPolicy allowlist."
+      }
+    ]
+  }
 }
 EOF
 

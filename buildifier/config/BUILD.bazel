@@ -1,14 +1,18 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
+exports_files(["buildifier.schema.json"])
+
 go_library(
     name = "config",
     srcs = [
+        "attrpolicy.go",
         "config.go",
         "validation.go",
     ],
     importpath = "github.com/bazelbuild/buildtools/buildifier/config",
     visibility = ["//buildifier:__pkg__"],
     deps = [
+        "//labels",
         "//tables",
         "//warn",
         "//wspace",
@@ -17,7 +21,10 @@ go_library(
 
 go_test(
     name = "config_test",
-    srcs = ["config_test.go"],
+    srcs = [
+        "attrpolicy_test.go",
+        "config_test.go",
+    ],
     embed = [":config"],
 )
 
