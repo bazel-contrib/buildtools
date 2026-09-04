@@ -359,7 +359,7 @@ func main() {
 	}
 	queryCmd = append(queryCmd, blazeFlags...)
 	queryCmd = append(
-		queryCmd, fmt.Sprintf("kind('(kt|java|android)_*', %s)", strings.Join(targetPatterns, " + ")))
+		queryCmd, fmt.Sprintf("kind('^(kt|java|android)_*', %s)", strings.Join(targetPatterns, " + ")))
 
 	log.Printf("running: %s %s", *buildTool, strings.Join(queryCmd, " "))
 	queryOut, err := cmdWithStderr(*buildTool, queryCmd...).Output()
