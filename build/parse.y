@@ -141,6 +141,8 @@ package build
 %type	<expr>		type_alias_stmt
 %type	<expr>		type_params_opt
 %type	<exprs>		type_params_idents
+%type	<exprs>		type_exprs_opt
+%type	<exprs>		type_exprs
 %type	<expr>		type_expr
 %type	<expr>		type_atom
 %type	<expr>		type_application
@@ -1138,6 +1140,25 @@ for_clauses_with_if_clauses_opt:
 		$$ = append($1, $2...)
 	}
 
+type_exprs_opt:
+	{
+		$$ = nil
+	}
+| type_exprs commas_opt
+	{
+		$$ = $1
+	}
+
+type_exprs:
+	type_expr
+	{
+		$$ = []Expr{$1}
+	}
+|	type_exprs commas type_expr
+	{
+		$$ = append($1, $3)
+	}
+
 type_expr:
 	type_atom
 	{
@@ -1151,6 +1172,27 @@ type_expr:
 type_atom:
 	type_name
 |	type_application
+| '(' type_exprs_opt ')'
+	{
+		if len($2) == 1 && $<comma>2.Line == 0 {
+			// Just a parenthesized type expression, not a tuple;
+			// useless in type syntax, but permitted.
+			$$ = &ParenExpr{
+				Start: $1,
+				X: $2[0],
+				End: End{Pos: $3},
+				ForceMultiLine: forceMultiLine($1, $2, $3),
+			}
+		} else {
+			$$ = &TupleExpr{
+				Start: $1,
+				List: $2,
+				End: End{Pos: $3},
+				ForceCompact: forceCompact($1, $2, $3),
+				ForceMultiLine: forceMultiLine($1, $2, $3),
+			}
+		}
+	}
 
 type_name:
 	ident
@@ -1211,13 +1253,6 @@ type_arg:
 	type_expr
 |	type_list
 |	type_dict
-|	'(' ')'
-	{
-		$$ = &TupleExpr{
-			Start: $1,
-			End: End{Pos: $2},
-		}
-	}
 |	_ELLIPSIS
 	{
 		$$ = &EllipsisExpr{
