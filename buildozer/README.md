@@ -9,7 +9,7 @@ standard commands.
 1. Build a binary and put it into your $GOPATH/bin:
 
 ```bash
-go install github.com/bazelbuild/buildtools/buildozer@latest
+go install github.com/bazel-contrib/buildtools/v10/buildozer@latest
 ```
 
 ## Usage

@@ -1,4 +1,4 @@
-module github.com/bazelbuild/buildtools
+module github.com/bazel-contrib/buildtools/v10
 
 go 1.20
 

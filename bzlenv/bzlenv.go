@@ -18,7 +18,7 @@ limitations under the License.
 package bzlenv
 
 import (
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 // ValueKind describes how a binding was declared.

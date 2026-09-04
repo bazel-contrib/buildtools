@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "convertast",
     srcs = ["convert_ast.go"],
-    importpath = "github.com/bazelbuild/buildtools/convertast",
+    importpath = "github.com/bazel-contrib/buildtools/v10/convertast",
     visibility = ["//visibility:public"],
     deps = [
         "//build",

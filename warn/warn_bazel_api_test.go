@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 func TestAttrDataConfigurationWarning(t *testing.T) {

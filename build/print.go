@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 const (

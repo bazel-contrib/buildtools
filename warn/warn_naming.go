@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/bzlenv"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
 )
 
 var ambiguousNames = map[string]bool{

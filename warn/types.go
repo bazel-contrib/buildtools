@@ -19,8 +19,8 @@ package warn
 import (
 	"regexp"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/bzlenv"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
 )
 
 // Type describes an expression type in Starlark.

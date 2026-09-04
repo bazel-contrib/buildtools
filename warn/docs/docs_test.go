@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/testutils"
-	"github.com/bazelbuild/buildtools/warn"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 )
 
 func TestAllWarningsAreDocumented(t *testing.T) {
