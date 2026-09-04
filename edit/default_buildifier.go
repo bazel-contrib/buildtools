@@ -35,8 +35,8 @@ func (b *defaultBuildifier) Buildify(opts *Options, f *build.File) ([]byte, erro
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	cmd.Env = append(
-        	os.Environ(),
-	        // Custom environment variables
+		os.Environ(),
+		// Custom environment variables
 	)
 	err := cmd.Run()
 	if stderr.Len() > 0 {
