@@ -1,6 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 load(":build_defs.bzl", "documentation")
 
 documentation(
@@ -22,8 +20,8 @@ go_library(
     importpath = "github.com/bazelbuild/buildtools/warn/docs",
     visibility = ["//visibility:private"],
     deps = [
-        ":proto_go_proto",
         "//warn",
+        "//warn/docs/proto",
         "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
@@ -42,17 +40,4 @@ go_test(
         "//testutils",
         "//warn",
     ],
-)
-
-proto_library(
-    name = "docs_proto",
-    srcs = ["docs.proto"],
-    visibility = ["//visibility:public"],
-)
-
-go_proto_library(
-    name = "proto_go_proto",
-    importpath = "github.com/bazelbuild/buildtools/warn/docs/proto",
-    proto = ":docs_proto",
-    visibility = ["//visibility:public"],
 )
