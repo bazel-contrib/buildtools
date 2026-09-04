@@ -115,28 +115,6 @@ warnings: {
 }
 
 warnings: {
-  name: "canonical-repository"
-  header: "String contains `@@` which indicates a canonical repository name reference that should be avoided"
-  description:
-    "Using canonical repository names (with `@@` prefix) makes BUILD files fragile\n"
-    "to repository mapping changes and external dependency updates. Canonical names\n"
-    "are internal implementation details that can change between Bazel versions\n"
-    "or when external dependencies are updated.\n\n"
-    "Instead of using canonical names like:\n\n"
-    "```python\n"
-    "load(\"@@rules_go//go:def.bzl\", \"go_library\")\n"
-    "deps = [\"@@protobuf~5.27.0//src:message\"]\n"
-    "```\n\n"
-    "Use apparent names with single `@`:\n\n"
-    "```python\n"
-    "load(\"@rules_go//go:def.bzl\", \"go_library\")\n"
-    "deps = [\"@protobuf//src:message\"]\n"
-    "```\n\n"
-    "This makes your BUILD files more maintainable and resilient to changes."
-  autofix: false
-}
-
-warnings: {
   name: "confusing-name"
   header: "Never use `l`, `I`, or `O` as names"
   description: "The names `l`, `I`, or `O` can be easily confused with `I`, `l`, or `0` correspondingly."
@@ -322,32 +300,6 @@ warnings: {
     "users reading a BUILD file (if they look for the rule “foo”, they may read see\n"
     "only one of the macros). It will also confuse tools that edit BUILD files.\n\n"
     "To fix the issue just change the name attribute of one rule/macro."
-}
-
-warnings: {
-  name: "external-path"
-  header: "String contains `/external/` which may indicate a dependency on external repositories that could be fragile"
-  description:
-    "Using `/external/` paths may indicate a hard-coded dependency on external\n"
-    "repository locations, which can be fragile and break when external dependencies\n"
-    "are updated or reorganized.\n\n"
-    "Paths containing `/external/` (without a leading `//`) may indicate:\n"
-    "- Direct file system paths to external repositories\n"
-    "- Dependencies that bypass Bazel's dependency management\n"
-    "- Code that relies on Bazel's internal directory structure\n\n"
-    "Examples that trigger this warning:\n\n"
-    "```python\n"
-    "srcs = [\"/external/some_repo/file.h\"]\n"
-    "data = [\"path/external/repo/data.txt\"]\n"
-    "```\n\n"
-    "Instead, use proper Bazel labels:\n\n"
-    "```python\n"
-    "srcs = [\"@some_repo//file.h\"]\n"
-    "data = [\"@repo//path:data.txt\"]\n"
-    "```\n\n"
-    "Note: This warning does not apply to main repository paths like `//external/...`\n"
-    "which are legitimate Bazel labels."
-  autofix: false
 }
 
 warnings: {

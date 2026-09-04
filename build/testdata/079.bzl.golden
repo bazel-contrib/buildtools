@@ -56,6 +56,15 @@ def well_commented[
     # comment in body
     return x
 
+# buck2 tuple type syntax
+def parenthized_tuple_type(arg: (str) | ()) -> (str, int) | (str, str):
+    if arg:
+        return (arg[0], len(arg[0]))
+    return "", ""
+
+# parentheses are allowed (but useless other than for readability)
+parenthesized: ((int) | (str | list[(bool)]))
+
 FOO = cast(struct[{"name": str}, ...], some(value) or another)
 
 BAR = isinstance(some(value) or another, struct[{"name": str}, ...])

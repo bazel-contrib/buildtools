@@ -358,6 +358,18 @@ func TestParseError(t *testing.T) {
 			want: "test:1:19: syntax error near ]",
 		},
 
+		{
+			name: "no unparenthesized tuples in type syntax",
+			in:   "x: str, int",
+			want: "test:1:8: syntax error near ,",
+		},
+
+		{
+			name: "no unparenthesized tuple type syntax",
+			in:   "x: str,",
+			want: "test:1:8: syntax error near ,",
+		},
+
 		// type alias errors
 		{
 			name: "type alias not at top level",

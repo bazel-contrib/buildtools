@@ -287,7 +287,6 @@ cat > golden/.buildifier.example.json <<EOF
     "attr-single-file",
     "build-args-kwargs",
     "bzl-visibility",
-    "canonical-repository",
     "confusing-name",
     "constant-glob",
     "ctx-actions",
@@ -299,7 +298,6 @@ cat > golden/.buildifier.example.json <<EOF
     "dict-concatenation",
     "dict-method-named-arg",
     "duplicated-name",
-    "external-path",
     "filetype",
     "function-docstring",
     "function-docstring-args",
@@ -455,11 +453,11 @@ test_dir/to_fix_tmp.bzl: applied fixes, 2 warnings left
 fixed test_dir/to_fix_tmp.bzl
 EOF
 
-error_bzl="test_dir/to_fix_tmp.bzl:1: bzl-visibility: Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//to_fix_tmp.bzl\". (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#bzl-visibility)"
-error_docstring="test_dir/to_fix_tmp.bzl:1: module-docstring: The file has no module docstring."$'\n'"A module docstring is a string literal (not a comment) which should be the first statement of a file (it may follow comment lines). (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#module-docstring)"
-error_integer="test_dir/to_fix_tmp.bzl:4: integer-division: The \"/\" operator for integer division is deprecated in favor of \"//\". (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#integer-division)"
-error_dict="test_dir/to_fix_tmp.bzl:5: unsorted-dict-items: Dictionary items are out of their lexicographical order. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#unsorted-dict-items)"
-error_cfg="test_dir/to_fix_tmp.bzl:6: attr-cfg: cfg = \"data\" for attr definitions has no effect and should be removed. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#attr-cfg)"
+error_bzl="test_dir/to_fix_tmp.bzl:1: bzl-visibility: Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//to_fix_tmp.bzl\". (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#bzl-visibility)"
+error_docstring="test_dir/to_fix_tmp.bzl:1: module-docstring: The file has no module docstring."$'\n'"A module docstring is a string literal (not a comment) which should be the first statement of a file (it may follow comment lines). (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#module-docstring)"
+error_integer="test_dir/to_fix_tmp.bzl:4: integer-division: The \"/\" operator for integer division is deprecated in favor of \"//\". (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division)"
+error_dict="test_dir/to_fix_tmp.bzl:5: unsorted-dict-items: Dictionary items are out of their lexicographical order. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#unsorted-dict-items)"
+error_cfg="test_dir/to_fix_tmp.bzl:6: attr-cfg: cfg = \"data\" for attr definitions has no effect and should be removed. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#attr-cfg)"
 
 test_lint () {
   ret=0
@@ -556,7 +554,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": false,
                     "message": "Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//json/to_fix.bzl\".",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#bzl-visibility"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#bzl-visibility"
                 },
                 {
                     "start": {
@@ -571,7 +569,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": true,
                     "message": "The \"/\" operator for integer division is deprecated in favor of \"//\".",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#integer-division"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division"
                 },
                 {
                     "start": {
@@ -586,7 +584,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": true,
                     "message": "cfg = \"data\" for attr definitions has no effect and should be removed.",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#attr-cfg"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#attr-cfg"
                 }
             ]
         },
@@ -709,7 +707,7 @@ load(":nonexistent.bzl", "foo2", "bar2")
 EOF
 
 cat > report_golden <<EOF
-BUILD:1: deprecated-function: The function "bar" defined in "//lib.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-function)
+BUILD:1: deprecated-function: The function "bar" defined in "//lib.bzl" is deprecated. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#deprecated-function)
 EOF
 
 $buildifier --lint=warn --warnings=deprecated-function BUILD 2> report || ret=$?
@@ -739,8 +737,8 @@ cat > buildifier.tables <<EOF
 EOF
 
 cat > report_golden <<EOF
-BUILD:1: allowed-symbol-load-locations: Symbol "s1" must be loaded from :z.bzl. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
-BUILD:2: allowed-symbol-load-locations: Symbol "s3" must be loaded from one of the allowed locations: :x.bzl, :y.bzl. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
+BUILD:1: allowed-symbol-load-locations: Symbol "s1" must be loaded from :z.bzl. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
+BUILD:2: allowed-symbol-load-locations: Symbol "s3" must be loaded from one of the allowed locations: :x.bzl, :y.bzl. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
 EOF
 
 $buildifier --lint=warn --warnings=allowed-symbol-load-locations -tables=buildifier.tables BUILD 2> report || true
