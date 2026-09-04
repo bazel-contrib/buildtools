@@ -64,3 +64,7 @@ def parenthized_tuple_type(arg: (str) | ()) -> (str, int) | (str, str):
 
 # parentheses are allowed (but useless other than for readability)
 parenthesized: ((int) | (str | list[(bool)]))
+
+FOO = cast(struct[{"name": str}, ...], some(value) or another)
+
+BAR = isinstance(some(value) or another, struct[{"name": str}, ...])

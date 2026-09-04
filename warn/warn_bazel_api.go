@@ -136,7 +136,18 @@ func globalVariableUsageCheck(f *build.File, global string, isType bool, alterna
 				skipNodes[node.Type] = true
 			}
 			defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
-
+		case *build.CallExpr:
+			switch node.CallExprKind {
+			case build.CallExprCast:
+				if !isType && len(node.List) > 0 {
+					skipNodes[node.List[0]] = true
+				}
+			case build.CallExprIsInstance:
+				if !isType && len(node.List) > 1 {
+					skipNodes[node.List[1]] = true
+				}
+			}
+			defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
 		default:
 			defer bzlenv.WalkOnceWithEnvironment(node, env, walk)
 		}

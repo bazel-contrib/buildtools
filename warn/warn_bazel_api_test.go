@@ -207,6 +207,10 @@ def h(x: PACKAGE_NAME) -> PACKAGE_NAME:
     return PACKAGE_NAME
 
 type MyType = PACKAGE_NAME
+
+cast(PACKAGE_NAME, PACKAGE_NAME)
+
+isinstance(PACKAGE_NAME, PACKAGE_NAME)
 `, `
 foo(a = native.package_name())
 
@@ -220,11 +224,17 @@ def h(x: PACKAGE_NAME) -> PACKAGE_NAME:
     return native.package_name()
 
 type MyType = PACKAGE_NAME
+
+cast(PACKAGE_NAME, native.package_name())
+
+isinstance(native.package_name(), PACKAGE_NAME)
 `,
 		[]string{
 			`:1: Global variable "PACKAGE_NAME" is deprecated in favor of "native.package_name()". Please rename it.`,
 			`:7: Global variable "PACKAGE_NAME" is deprecated in favor of "native.package_name()". Please rename it.`,
 			`:10: Global variable "PACKAGE_NAME" is deprecated in favor of "native.package_name()". Please rename it.`,
+			`:14: Global variable "PACKAGE_NAME" is deprecated in favor of "native.package_name()". Please rename it.`,
+			`:16: Global variable "PACKAGE_NAME" is deprecated in favor of "native.package_name()". Please rename it.`,
 		},
 		scopeBzl)
 
