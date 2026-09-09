@@ -62,7 +62,7 @@ func isRecognizedMode(validModes []string, mode string) bool {
 }
 
 // ValidateModes validates flags --mode, --lint, and -d
-func ValidateModes(mode, lint *string, dflag *bool, additionalModes ...string) error {
+func ValidateModes(mode, lint *string, dflag *bool, format *string) error {
 	if *dflag {
 		if *mode != "" {
 			return fmt.Errorf("cannot specify both -d and -mode flags")
@@ -72,7 +72,6 @@ func ValidateModes(mode, lint *string, dflag *bool, additionalModes ...string) e
 
 	// Check mode.
 	validModes := []string{"check", "diff", "fix", "print_if_changed"}
-	validModes = append(validModes, additionalModes...)
 
 	if *mode == "" {
 		*mode = "fix"
@@ -93,8 +92,13 @@ func ValidateModes(mode, lint *string, dflag *bool, additionalModes ...string) e
 			return fmt.Errorf("--lint=fix is only compatible with --mode=fix")
 		}
 
+	case "suggest":
+		if *format != "json" {
+			return fmt.Errorf("--lint=suggest is only compatible with --format=json")
+		}
+
 	default:
-		return fmt.Errorf("unrecognized lint mode %s; valid modes are warn and fix", *lint)
+return fmt.Errorf("unrecognized lint mode %s; valid modes are warn, suggest, and fix", *lint)
 	}
 
 	return nil

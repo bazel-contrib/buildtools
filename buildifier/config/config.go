@@ -103,7 +103,7 @@ type Config struct {
 	Mode string `json:"mode,omitempty"`
 	// DiffMode is an alias for
 	DiffMode bool `json:"diffMode,omitempty"`
-	// Lint determines the lint mode: off, warn, or fix (default off)
+	// Lint determines the lint mode: off, warn, suggest, or fix (default off)
 	Lint string `json:"lint,omitempty"`
 	// Warnings is a comma-separated list of warning identifiers used in the lint mode or "all"
 	Warnings string `json:"warnings,omitempty"`
@@ -207,7 +207,7 @@ func (c *Config) Validate(args []string) error {
 		return err
 	}
 
-	if err := ValidateModes(&c.Mode, &c.Lint, &c.DiffMode); err != nil {
+	if err := ValidateModes(&c.Mode, &c.Lint, &c.DiffMode, &c.Format); err != nil {
 		return err
 	}
 

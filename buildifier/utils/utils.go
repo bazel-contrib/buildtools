@@ -133,6 +133,8 @@ func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*w
 	switch lint {
 	case "warn":
 		return warn.FileWarnings(f, *warningsList, nil, warn.ModeWarn, fileReader)
+	case "suggest":
+		return warn.FileWarnings(f, *warningsList, nil, warn.ModeSuggest, fileReader)
 	case "fix":
 		warn.FixWarnings(f, *warningsList, verbose, fileReader)
 	}
