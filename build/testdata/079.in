@@ -61,3 +61,6 @@ def parenthized_tuple_type(arg: (str,) | ()) -> (str, int) | (str, str,):
 
 # parentheses are allowed (but useless other than for readability)
 parenthesized: ((int) | (str | list[(bool)]))
+
+# ellipsis can be used in reified types
+provider_field(Callable[..., bool], default = lambda x: False)

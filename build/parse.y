@@ -168,6 +168,7 @@ package build
 %type	<exprs>		for_clauses_with_if_clauses_opt
 %type	<expr>		ident
 %type	<expr>		number
+%type	<expr>		ellipsis
 %type	<exprs>		stmts
 %type	<exprs>		stmt          // a simple_stmt or a for/if/def block
 %type	<expr>		block_stmt    // a single for/if/def statement
@@ -586,6 +587,7 @@ semi_opt:
 primary_expr:
 	ident
 |	number
+|	ellipsis
 |	string
 	{
 		$$ = $1
@@ -1106,6 +1108,14 @@ number:
 		$$ = &LiteralExpr{Start: $1, Token: $<tok>1}
 	}
 
+ellipsis:
+	_ELLIPSIS
+	{
+		$$ = &EllipsisExpr{
+			Pos: $1,
+		}
+	}
+
 for_clause:
 	_FOR loop_vars _IN test
 	{
@@ -1253,12 +1263,7 @@ type_arg:
 	type_expr
 |	type_list
 |	type_dict
-|	_ELLIPSIS
-	{
-		$$ = &EllipsisExpr{
-			Pos: $1,
-		}
-	}
+|	ellipsis
 
 type_dict:
 	'{' type_keyvalues_opt '}'
