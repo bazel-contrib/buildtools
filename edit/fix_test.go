@@ -111,6 +111,78 @@ x()
 x()
 `,
 		},
+		{
+			name: "remove redundant visibility for native rule",
+			input: `cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `cc_library(name = "native_lib")
+`,
+		},
+		{
+			name: "preserve private visibility for dotted macro",
+			input: `load("//foo:bar.bzl", "rules")
+
+rules.my_library(
+    name = "macro_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `load("//foo:bar.bzl", "rules")
+
+rules.my_library(
+    name = "macro_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+		},
+		{
+			name: "preserve private visibility for loaded macro",
+			input: `load("//foo:bar.bzl", "my_macro")
+
+my_macro(
+    name = "macro_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `load("//foo:bar.bzl", "my_macro")
+
+my_macro(
+    name = "macro_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+		},
+		{
+			name: "package default visibility removes for native rule but preserves for loaded macro",
+			input: `load("//foo:bar.bzl", "my_macro")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:public"],
+)
+
+my_macro(
+    name = "macro_lib",
+    visibility = ["//visibility:public"],
+)
+`,
+			want: `load("//foo:bar.bzl", "my_macro")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(name = "native_lib")
+
+my_macro(
+    name = "macro_lib",
+    visibility = ["//visibility:public"],
+)
+`,
+		},
 	}
 
 	for _, tc := range tests {
