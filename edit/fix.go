@@ -102,6 +102,13 @@ func shortenLabels(_ *build.File, r *build.Rule, pkg string) bool {
 
 // removeVisibility removes useless visibility attributes.
 func removeVisibility(f *build.File, r *build.Rule, pkg string) bool {
+	// Do not remove visibility from macros or loaded rules, as they may have custom
+	// default visibility logic (e.g. falling back to a non-private default if visibility
+	// is omitted).
+	if isMacroOrLoadedRule(f, r) {
+		return false
+	}
+
 	// If no default_visibility is given, it is implicitly private.
 	defaultVisibility := []string{"//visibility:private"}
 	if pkgDecl := ExistingPackageDeclaration(f); pkgDecl != nil {
@@ -124,6 +131,28 @@ func removeVisibility(f *build.File, r *build.Rule, pkg string) bool {
 	r.DelAttr("visibility")
 	return true
 }
+
+// isMacroOrLoadedRule reports whether the rule is a macro or was loaded from a .bzl file.
+func isMacroOrLoadedRule(f *build.File, r *build.Rule) bool {
+	if f == nil || r == nil {
+		return false
+	}
+	kind := r.Kind()
+	if strings.Contains(kind, ".") {
+		return true
+	}
+	for _, stmt := range f.Stmt {
+		if load, ok := stmt.(*build.LoadStmt); ok {
+			for _, to := range load.To {
+				if to.Name == kind {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 
 // removeTestOnly removes the useless testonly attributes.
 func removeTestOnly(f *build.File, r *build.Rule, pkg string) bool {
