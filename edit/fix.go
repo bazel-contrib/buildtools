@@ -20,6 +20,7 @@ package edit
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -100,59 +101,37 @@ func shortenLabels(_ *build.File, r *build.Rule, pkg string) bool {
 	return fixed
 }
 
-// removeVisibility removes useless visibility attributes.
+// removeVisibility removes useless visibility attributes (repeating default_visibility).
 func removeVisibility(f *build.File, r *build.Rule, pkg string) bool {
-	// Do not remove visibility from macros or loaded rules, as they may have custom
-	// default visibility logic (e.g. falling back to a non-private default if visibility
-	// is omitted).
-	if isMacroOrLoadedRule(f, r) {
+	pkgDecl := ExistingPackageDeclaration(f)
+	if pkgDecl == nil || pkgDecl.Attr("default_visibility") == nil {
+		// If default visibility is not explicit we do not replace other attrs.
 		return false
 	}
 
-	// If no default_visibility is given, it is implicitly private.
-	defaultVisibility := []string{"//visibility:private"}
-	if pkgDecl := ExistingPackageDeclaration(f); pkgDecl != nil {
-		if pkgDecl.Attr("default_visibility") != nil {
-			defaultVisibility = pkgDecl.AttrStrings("default_visibility")
+	defaultVis := pkgDecl.Attr("default_visibility")
+	vis := r.Attr("visibility")
+
+	// Check equality if both are string lists.
+	if dvs := build.Strings(defaultVis); dvs != nil {
+		if vs := build.Strings(vis); vs != nil {
+			if slices.Equal(slices.Sorted(slices.Values(dvs)), slices.Sorted(slices.Values(vs))) {
+				r.DelAttr("visibility")
+				return true
+			}
 		}
 	}
-
-	visibility := r.AttrStrings("visibility")
-	if len(visibility) == 0 || len(visibility) != len(defaultVisibility) {
-		return false
-	}
-	sort.Strings(defaultVisibility)
-	sort.Strings(visibility)
-	for i, vis := range visibility {
-		if vis != defaultVisibility[i] {
-			return false
-		}
-	}
-	r.DelAttr("visibility")
-	return true
-}
-
-// isMacroOrLoadedRule reports whether the rule is a macro or was loaded from a .bzl file.
-func isMacroOrLoadedRule(f *build.File, r *build.Rule) bool {
-	if f == nil || r == nil {
-		return false
-	}
-	kind := r.Kind()
-	if strings.Contains(kind, ".") {
-		return true
-	}
-	for _, stmt := range f.Stmt {
-		if load, ok := stmt.(*build.LoadStmt); ok {
-			for _, to := range load.To {
-				if to.Name == kind {
-					return true
-				}
+	// Check Name equality if both are idents.
+	if ai, aok := defaultVis.(*build.Ident); aok {
+		if bi, bok := vis.(*build.Ident); bok {
+			if ai.Name == bi.Name {
+				r.DelAttr("visibility")
+				return true
 			}
 		}
 	}
 	return false
 }
-
 
 // removeTestOnly removes the useless testonly attributes.
 func removeTestOnly(f *build.File, r *build.Rule, pkg string) bool {

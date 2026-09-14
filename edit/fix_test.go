@@ -112,74 +112,79 @@ x()
 `,
 		},
 		{
-			name: "remove redundant visibility for native rule",
+			name: "preserve visibility when default_visibility is not set",
 			input: `cc_library(
     name = "native_lib",
     visibility = ["//visibility:private"],
 )
 `,
-			want: `cc_library(name = "native_lib")
-`,
-		},
-		{
-			name: "preserve private visibility for dotted macro",
-			input: `load("//foo:bar.bzl", "rules")
-
-rules.my_library(
-    name = "macro_lib",
-    visibility = ["//visibility:private"],
-)
-`,
-			want: `load("//foo:bar.bzl", "rules")
-
-rules.my_library(
-    name = "macro_lib",
+			want: `cc_library(
+    name = "native_lib",
     visibility = ["//visibility:private"],
 )
 `,
 		},
 		{
-			name: "preserve private visibility for loaded macro",
-			input: `load("//foo:bar.bzl", "my_macro")
-
-my_macro(
-    name = "macro_lib",
-    visibility = ["//visibility:private"],
-)
-`,
-			want: `load("//foo:bar.bzl", "my_macro")
-
-my_macro(
-    name = "macro_lib",
-    visibility = ["//visibility:private"],
-)
-`,
-		},
-		{
-			name: "package default visibility removes for native rule but preserves for loaded macro",
-			input: `load("//foo:bar.bzl", "my_macro")
-
-package(default_visibility = ["//visibility:public"])
+			name: "remove redundant visibility with different slice order",
+			input: `package(default_visibility = [
+    "//foo",
+    "//bar",
+])
 
 cc_library(
     name = "native_lib",
-    visibility = ["//visibility:public"],
-)
-
-my_macro(
-    name = "macro_lib",
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//bar",
+        "//foo",
+    ],
 )
 `,
-			want: `load("//foo:bar.bzl", "my_macro")
+			want: `package(default_visibility = [
+    "//bar",
+    "//foo",
+])
 
-package(default_visibility = ["//visibility:public"])
+cc_library(name = "native_lib")
+`,
+		},
+		{
+			name: "remove redundant visibility matching ident",
+			input: `package(default_visibility = PUBLIC)
+
+cc_library(
+    name = "native_lib",
+    visibility = PUBLIC,
+)
+
+cc_library(
+    name = "other_lib",
+    visibility = PRIVATE,
+)
+`,
+			want: `package(default_visibility = PUBLIC)
 
 cc_library(name = "native_lib")
 
-my_macro(
-    name = "macro_lib",
-    visibility = ["//visibility:public"],
+cc_library(
+    name = "other_lib",
+    visibility = PRIVATE,
+)
+`,
+		},
+		{
+			name: "preserve non-matching visibility",
+			input: `package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
 )
 `,
 		},
