@@ -34,6 +34,7 @@ test_suite(
         "//tables:tables_test",
         "//warn:warn_test",
         "//warn/docs:docs_test",
+        "//warn/docs/proto:docs.gen.pb.go_checkshtest",
         "//wspace:wspace_test",
     ],
 )

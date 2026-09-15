@@ -3,9 +3,6 @@ buildifier:
   version: latest
   warnings: "default"
 platforms:
-  ubuntu2004:
-    test_targets:
-    - "//..."
   ubuntu2204:
     test_targets:
     - "//..."
