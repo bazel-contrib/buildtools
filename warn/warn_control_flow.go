@@ -473,13 +473,16 @@ func unusedVariableCheck(f *build.File, root build.Expr) (map[string]bool, []*Li
 				}
 			}
 			// Collect its (normal) parameters as defined in the current scope.
-			for _, param := range expr.Params {
+			finalParameterMarkedUnused := expr.ColonPos != nil && edit.ContainsComments(expr.ColonPos, "@unused")
+			for i, param := range expr.Params {
 				// Function parameters are defined in the current scope.
 				if ident, _ := build.GetParamIdent(param); ident != nil {
 					definedSymbols[ident.Name] = ident
-					if ident.Name == "name" || strings.HasPrefix(ident.Name, "_") || edit.ContainsComments(param, "@unused") {
+					if ident.Name == "name" || strings.HasPrefix(ident.Name, "_") || edit.ContainsComments(param, "@unused") ||
+						i == len(expr.Params)-1 && finalParameterMarkedUnused {
 						// Don't warn about function arguments if they start with "_"
-						// or explicitly marked with @unused.
+						// or explicitly marked with @unused. An @unused comment at the
+						// end of the function header applies to its final argument.
 						// Also don't warn about unused "name" arguments, it could be a
 						// macro where such argument is encouraged (by `unnamed-macro`)
 						// even if not used.
