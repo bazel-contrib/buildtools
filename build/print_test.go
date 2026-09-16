@@ -531,43 +531,41 @@ func (eq *eqchecker) checkValue(v, w reflect.Value) error {
 func TestPrintDefParameterComments(t *testing.T) {
 	for _, param := range []string{"x", "x = None", "x: int", "x: int = 0", "*args", "**kwargs"} {
 		for _, returnType := range []string{"", " -> int"} {
-			headerComment := ""
-			if returnType != "" {
-				headerComment = "  # header"
-			}
-			for _, beforeParam := range []string{"", "\n    "} {
-				input := "def f(" + beforeParam + param + ",  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
-				want := "def f(\n        " + param + "  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
-				t.Run(input, func(t *testing.T) {
-					f, err := ParseBzl("test.bzl", []byte(input))
-					if err != nil {
-						t.Fatal(err)
-					}
-					got := Format(f)
-					if string(got) != want {
-						testutils.Tdiff(t, []byte(want), got)
-					}
+			for _, headerComment := range []string{"", "  # header"} {
+				for _, beforeParam := range []string{"", "\n    "} {
+					input := "def f(" + beforeParam + param + ",  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
+					want := "def f(\n        " + param + "  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
+					t.Run(input, func(t *testing.T) {
+						f, err := ParseBzl("test.bzl", []byte(input))
+						if err != nil {
+							t.Fatal(err)
+						}
+						got := Format(f)
+						if string(got) != want {
+							testutils.Tdiff(t, []byte(want), got)
+						}
 
-					// Formatting must not turn a parameter comment into a header comment.
-					reparsed, err := ParseBzl("test.bzl", got)
-					if err != nil {
-						t.Fatal(err)
-					}
-					def := reparsed.Stmt[0].(*DefStmt)
-					if comments := def.Params[0].Comment().Suffix; len(comments) != 1 || comments[0].Token != "# @unused" {
-						t.Errorf("parameter suffix comments = %v, want # @unused", comments)
-					}
-					comments := def.ColonPos.Comment().Suffix
-					if headerComment == "" && len(comments) != 0 {
-						t.Errorf("unexpected header suffix comments: %v", comments)
-					} else if headerComment != "" && (len(comments) != 1 || comments[0].Token != "# header") {
-						t.Errorf("header suffix comments = %v, want # header", comments)
-					}
-					if reformatted := Format(reparsed); !bytes.Equal(got, reformatted) {
-						t.Error("formatting is not idempotent")
-						testutils.Tdiff(t, got, reformatted)
-					}
-				})
+						// Formatting must not turn a parameter comment into a header comment.
+						reparsed, err := ParseBzl("test.bzl", got)
+						if err != nil {
+							t.Fatal(err)
+						}
+						def := reparsed.Stmt[0].(*DefStmt)
+						if comments := def.Params[0].Comment().Suffix; len(comments) != 1 || comments[0].Token != "# @unused" {
+							t.Errorf("parameter suffix comments = %v, want # @unused", comments)
+						}
+						comments := def.ColonPos.Comment().Suffix
+						if headerComment == "" && len(comments) != 0 {
+							t.Errorf("unexpected header suffix comments: %v", comments)
+						} else if headerComment != "" && (len(comments) != 1 || comments[0].Token != "# header") {
+							t.Errorf("header suffix comments = %v, want # header", comments)
+						}
+						if reformatted := Format(reparsed); !bytes.Equal(got, reformatted) {
+							t.Error("formatting is not idempotent")
+							testutils.Tdiff(t, got, reformatted)
+						}
+					})
+				}
 			}
 		}
 	}

@@ -27,8 +27,7 @@ def function(
             a,
             s,
             d  # this is d
-    ):
-        # this is function definition
+    ):  # this is function definition
         ccc
 
         # Misalingned comments
