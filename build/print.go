@@ -137,22 +137,29 @@ func (p *printer) indent() int {
 // in brackets of some kind, use breakline instead.
 func (p *printer) newline() {
 	p.needsNewLine = false
-	if len(p.comment) > 0 {
-		p.prints("  ")
-		for i, com := range p.comment {
-			if i > 0 {
-				p.trim()
-				p.printc('\n')
-				p.spaces(p.margin)
-			}
-			p.prints(strings.TrimSpace(com.Token))
-		}
-		p.comment = p.comment[:0]
-	}
-
+	p.flushComments()
 	p.trim()
 	p.printc('\n')
 	p.spaces(p.margin)
+}
+
+// flushComments prints the queued end-of-line comments: the first one at the
+// end of the current line, any further ones on their own lines at the current
+// margin.
+func (p *printer) flushComments() {
+	if len(p.comment) == 0 {
+		return
+	}
+	p.prints("  ")
+	for i, com := range p.comment {
+		if i > 0 {
+			p.trim()
+			p.printc('\n')
+			p.spaces(p.margin)
+		}
+		p.prints(strings.TrimSpace(com.Token))
+	}
+	p.comment = p.comment[:0]
 }
 
 // softNewline postpones a call to newline to the next call of p.newlineIfNeeded()
@@ -1171,10 +1178,14 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 			printedFinalComments = true
 		}
 	}
-	p.margin -= indentation
 	// In modeDef, keep the closing bracket on the same line unless doing so
 	// would move a parameter's comment outside the parameter list.
-	if mode != modeDef || printedFinalComments || len(p.comment) > 0 {
+	closeOnNewLine := mode != modeDef || printedFinalComments || len(p.comment) > 0
+	// Flush the last element's end-of-line comments before dedenting so that
+	// any further comments line up with the element, not the closing bracket.
+	p.flushComments()
+	p.margin -= indentation
+	if closeOnNewLine {
 		p.newline()
 	}
 }

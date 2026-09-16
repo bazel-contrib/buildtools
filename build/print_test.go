@@ -571,6 +571,42 @@ func TestPrintDefParameterComments(t *testing.T) {
 	}
 }
 
+// TestPrintMultipleEndOfLineComments checks that when the last parameter
+// carries more than one end-of-line comment, the additional comments are
+// aligned with the parameter rather than with the closing parenthesis, so that
+// formatting is idempotent.
+func TestPrintMultipleEndOfLineComments(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "def f(x: # type\n int # param\n):\n    pass\n",
+			want:  "def f(\n        x: int  # type\n        # param\n):\n    pass\n",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			f, err := ParseBzl("test.bzl", []byte(tc.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := Format(f)
+			if string(got) != tc.want {
+				testutils.Tdiff(t, []byte(tc.want), got)
+			}
+			reparsed, err := ParseBzl("test.bzl", got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if reformatted := Format(reparsed); !bytes.Equal(got, reformatted) {
+				t.Error("formatting is not idempotent")
+				testutils.Tdiff(t, got, reformatted)
+			}
+		})
+	}
+}
+
 func TestPrintTypeExprForceMultiLine(t *testing.T) {
 	tests := []struct {
 		name  string
