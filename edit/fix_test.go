@@ -111,6 +111,83 @@ x()
 x()
 `,
 		},
+		{
+			name: "preserve visibility when default_visibility is not set",
+			input: `cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+		},
+		{
+			name: "remove redundant visibility with different slice order",
+			input: `package(default_visibility = [
+    "//foo",
+    "//bar",
+])
+
+cc_library(
+    name = "native_lib",
+    visibility = [
+        "//bar",
+        "//foo",
+    ],
+)
+`,
+			want: `package(default_visibility = [
+    "//bar",
+    "//foo",
+])
+
+cc_library(name = "native_lib")
+`,
+		},
+		{
+			name: "remove redundant visibility matching ident",
+			input: `package(default_visibility = PUBLIC)
+
+cc_library(
+    name = "native_lib",
+    visibility = PUBLIC,
+)
+
+cc_library(
+    name = "other_lib",
+    visibility = PRIVATE,
+)
+`,
+			want: `package(default_visibility = PUBLIC)
+
+cc_library(name = "native_lib")
+
+cc_library(
+    name = "other_lib",
+    visibility = PRIVATE,
+)
+`,
+		},
+		{
+			name: "preserve non-matching visibility",
+			input: `package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+			want: `package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "native_lib",
+    visibility = ["//visibility:private"],
+)
+`,
+		},
 	}
 
 	for _, tc := range tests {

@@ -20,6 +20,7 @@ package edit
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -100,29 +101,36 @@ func shortenLabels(_ *build.File, r *build.Rule, pkg string) bool {
 	return fixed
 }
 
-// removeVisibility removes useless visibility attributes.
+// removeVisibility removes useless visibility attributes (repeating default_visibility).
 func removeVisibility(f *build.File, r *build.Rule, pkg string) bool {
-	// If no default_visibility is given, it is implicitly private.
-	defaultVisibility := []string{"//visibility:private"}
-	if pkgDecl := ExistingPackageDeclaration(f); pkgDecl != nil {
-		if pkgDecl.Attr("default_visibility") != nil {
-			defaultVisibility = pkgDecl.AttrStrings("default_visibility")
-		}
-	}
-
-	visibility := r.AttrStrings("visibility")
-	if len(visibility) == 0 || len(visibility) != len(defaultVisibility) {
+	pkgDecl := ExistingPackageDeclaration(f)
+	if pkgDecl == nil || pkgDecl.Attr("default_visibility") == nil {
+		// If default visibility is not explicit we do not replace other attrs.
 		return false
 	}
-	sort.Strings(defaultVisibility)
-	sort.Strings(visibility)
-	for i, vis := range visibility {
-		if vis != defaultVisibility[i] {
-			return false
+
+	defaultVis := pkgDecl.Attr("default_visibility")
+	vis := r.Attr("visibility")
+
+	// Check equality if both are string lists.
+	if dvs := build.Strings(defaultVis); dvs != nil {
+		if vs := build.Strings(vis); vs != nil {
+			if slices.Equal(slices.Sorted(slices.Values(dvs)), slices.Sorted(slices.Values(vs))) {
+				r.DelAttr("visibility")
+				return true
+			}
 		}
 	}
-	r.DelAttr("visibility")
-	return true
+	// Check Name equality if both are idents.
+	if ai, aok := defaultVis.(*build.Ident); aok {
+		if bi, bok := vis.(*build.Ident); bok {
+			if ai.Name == bi.Name {
+				r.DelAttr("visibility")
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // removeTestOnly removes the useless testonly attributes.
