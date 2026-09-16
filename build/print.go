@@ -1033,7 +1033,7 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	// If there are line comments, use multiline
 	// so we can print the comments before the closing bracket.
 	for _, x := range *list {
-		if len(x.Comment().Before) > 0 || (len(x.Comment().Suffix) > 0 && mode != modeDef) {
+		if len(x.Comment().Before) > 0 || len(x.Comment().Suffix) > 0 {
 			return false
 		}
 	}
@@ -1172,8 +1172,9 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		}
 	}
 	p.margin -= indentation
-	// in modeDef print the closing bracket on the same line
-	if mode != modeDef || printedFinalComments {
+	// In modeDef, keep the closing bracket on the same line unless doing so
+	// would move a parameter's comment outside the parameter list.
+	if mode != modeDef || printedFinalComments || len(p.comment) > 0 {
 		p.newline()
 	}
 }

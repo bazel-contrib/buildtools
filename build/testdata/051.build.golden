@@ -29,7 +29,8 @@ def function(
     def g(
             a,
             s,
-            d):  # this is d
+            d  # this is d
+    ):
         # this is function definition
         ccc
 
