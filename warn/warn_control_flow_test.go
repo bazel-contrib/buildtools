@@ -16,7 +16,11 @@ limitations under the License.
 
 package warn
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/bazel-contrib/buildtools/v10/build"
+)
 
 func TestMissingReturnValueWarning(t *testing.T) {
 	// empty return
@@ -690,6 +694,26 @@ bar()
 
 	checkFindings(t, "unused-variable", `
 def foo(
+    x,
+):  # @unused
+  pass
+
+def bar(
+    x,
+    y,
+) -> int:  # @unused
+  pass
+
+foo()
+bar()
+`,
+		[]string{
+			":7: Variable \"x\" is unused.",
+		},
+		scopeEverywhere)
+
+	checkFindings(t, "unused-variable", `
+def foo(
     name,
     x):
   pass
@@ -945,6 +969,99 @@ foo()
 `,
 		[]string{},
 		scopeEverywhere)
+}
+
+func TestUnusedVariableFunctionParameterCommentForms(t *testing.T) {
+	tests := []struct {
+		name               string
+		input              string
+		want               string
+		commentOnParameter bool
+	}{
+		{
+			name: "preferred parameter comment",
+			input: `def f(
+    x,
+    y,  # @unused
+):
+    pass
+
+f()
+`,
+			want: `def f(
+        x,
+        y  # @unused
+):
+    pass
+
+f()
+`,
+			commentOnParameter: true,
+		},
+		{
+			name: "legacy header comment",
+			input: `def f(
+    x,
+    y,
+):  # @unused
+    pass
+
+f()
+`,
+			want: `def f(
+        x,
+        y):  # @unused
+    pass
+
+f()
+`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			file, err := build.ParseBzl("test.bzl", []byte(tc.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			formatted := build.Format(file)
+			if string(formatted) != tc.want {
+				t.Fatalf("formatted output:\n%s\nwant:\n%s", formatted, tc.want)
+			}
+
+			// The preferred and legacy forms intentionally have the same lint
+			// semantics but remain distinguishable in the AST. This lets users
+			// adopt the parameter-attached form without buildifier changing it
+			// back to the legacy header-attached form.
+			reparsed, err := build.ParseBzl("test.bzl", formatted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			def := reparsed.Stmt[0].(*build.DefStmt)
+			parameterComments := def.Params[1].Comment().Suffix
+			headerComments := def.ColonPos.Comment().Suffix
+			if tc.commentOnParameter {
+				if len(parameterComments) != 1 || parameterComments[0].Token != "# @unused" {
+					t.Errorf("parameter suffix comments = %v, want # @unused", parameterComments)
+				}
+				if len(headerComments) != 0 {
+					t.Errorf("unexpected header suffix comments: %v", headerComments)
+				}
+			} else {
+				if len(parameterComments) != 0 {
+					t.Errorf("unexpected parameter suffix comments: %v", parameterComments)
+				}
+				if len(headerComments) != 1 || headerComments[0].Token != "# @unused" {
+					t.Errorf("header suffix comments = %v, want # @unused", headerComments)
+				}
+			}
+
+			// In both forms, @unused applies only to the final parameter y.
+			checkFindings(t, "unused-variable", string(formatted), []string{
+				`:2: Variable "x" is unused.`,
+			}, scopeEverywhere)
+		})
+	}
 }
 
 func TestRedefinedVariable(t *testing.T) {

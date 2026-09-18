@@ -1495,7 +1495,8 @@ x = [1, 2]
 The line can often be safely removed.
 
 If you want to keep the variable, you can disable the warning by adding a
-comment `# @unused`.
+comment `# @unused`. For a function parameter, place the comment on the
+parameter itself.
 
 ```python
 x = [1, 2] # @unused
@@ -1503,8 +1504,17 @@ x = [1, 2] # @unused
 # @unused
 def f(
         x,
-        y,  # @unused
+        y  # @unused
 ):
+    pass
+```
+
+For backward compatibility, an `# @unused` comment at the end of a function
+header applies to its final parameter. New code should prefer attaching the
+comment directly to the parameter as shown above.
+
+```python
+def f(x, y):  # @unused applies to y
     pass
 ```
 
