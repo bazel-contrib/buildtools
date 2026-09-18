@@ -528,7 +528,10 @@ func (eq *eqchecker) checkValue(v, w reflect.Value) error {
 	return nil
 }
 
-func TestPrintDefParameterComments(t *testing.T) {
+// TestPrintDefParameterAndHeaderComments checks that comments on the final
+// parameter and comments on the function header remain distinct after
+// formatting and reparsing.
+func TestPrintDefParameterAndHeaderComments(t *testing.T) {
 	for _, param := range []string{"x", "x = None", "x: int", "x: int = 0", "*args", "**kwargs"} {
 		for _, returnType := range []string{"", " -> int"} {
 			for _, headerComment := range []string{"", "  # header"} {
