@@ -84,6 +84,52 @@ warnings: {
 }
 
 warnings: {
+  name: "attr-policy"
+  header: "Attribute value violates a configured policy rule"
+  description:
+          "Enforces declarative attribute constraints configured in `.buildifier.json` under\n"
+          "`attrPolicy`. Each rule names an attribute and a constraint family (scalar,\n"
+          "list, dict, numeric bounds, or presence). List rules support `allowListItems` for\n"
+          "closed-world lexicons; entries ending in `*` match by prefix. Targets matching an\n"
+          "`allowlist` pattern are exempt.\n\n"
+          "When no `attrPolicy` block is configured, the warning applies these built-in rules:\n\n"
+          "* `shard_count` must be ≤ 50 on `*_test` rules (matching Bazel's default constraint)\n"
+          "* `licenses` must not be set on any rule (deprecated; see [bazel#188](https://github.com/bazelbuild/bazel/issues/188))\n"
+          "* `output_licenses` must not be set on `genrule`, `cc_binary`, `cc_toolchain`, "
+          "`java_binary`, or `java_plugin` (deprecated; see [bazel#7444](https://github.com/bazelbuild/bazel/issues/7444))\n\n"
+          "Example:\n\n"
+          "```json\n"
+          "{\n"
+          "  \"attrPolicy\": {\n"
+          "    \"rules\": [\n"
+          "      {\n"
+          "        \"name\": \"no-eternal-timeout\",\n"
+          "        \"ruleKinds\": [\"*_test\"],\n"
+          "        \"attr\": \"timeout\",\n"
+          "        \"forbidValues\": [\"eternal\"],\n"
+          "        \"allowlist\": [\"//slow/...\"]\n"
+          "      },\n"
+          "      {\n"
+          "        \"name\": \"max-shard-count\",\n"
+          "        \"ruleKinds\": [\"*_test\"],\n"
+          "        \"attr\": \"shard_count\",\n"
+          "        \"maxValue\": 50\n"
+          "      },\n"
+          "      {\n"
+          "        \"name\": \"allowed-tags\",\n"
+          "        \"attr\": \"tags\",\n"
+          "        \"allowListItems\": [\"manual\", \"assistant-ds*\", \"exclusive\"]\n"
+          "      }\n"
+          "    ]\n"
+          "  }\n"
+          "}\n"
+          "```\n\n"
+          "A JSON Schema for `.buildifier.json` (including `attrPolicy`) lives at\n"
+          "`buildifier/config/buildifier.schema.json`."
+  autofix: false
+}
+
+warnings: {
   name: "attr-single-file"
   header: "`single_file` is deprecated"
   description:
