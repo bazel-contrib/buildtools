@@ -1,0 +1,28 @@
+module(
+    name = "buildozer",
+    version = "0.0.0",
+    bazel_compatibility = [">=6.2.0"],
+)
+
+bazel_dep(name = "bazel_features", version = "1.11.0")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+
+buildozer_binary = use_extension("//:buildozer_binary.bzl", "buildozer_binary")
+# These values keep the source module directly testable. The release packaging
+# script replaces them with the release version and artifact checksums.
+buildozer_binary.buildozer(
+    sha256 = {
+        "darwin-amd64": "ed5e9acbd551aaa0d153c97999925f99e2310904f73bf01170f58813bf94a915",
+        "darwin-arm64": "b5c89fd313d537157c03608addcd1ed72d6ba3ae0af6ab55e3a4c132386b4d22",
+        "linux-amd64": "1dcd81b6e6d6fe2124f6196cd8d4288a1c12dda50fad7f1a01131c25498dac33",
+        "linux-arm64": "a93fb409201b42e58074e192a0bc7e73787fb7d914bd8ad986f0f10b4f4ee3af",
+        "linux-riscv64": "7f07cb1b9075b2a3c0760e931ae503a05b5bb07a1ef20de4a60bcb5ab8742a80",
+        "linux-s390x": "6b270a59f563d6225050370e42e74f3a13c50e93f57e7a43831cf56ebb4e6602",
+        "windows-amd64": "999efbec1657c5f802512731e4e02413790cf36afc9911299e7f54dccbf0be2c",
+        "windows-arm64": "c57e4f4e16a4bab2fecde2575ee1da41d134545cd6205a91ea76ae0f647b1321",
+    },
+    version = "10.0.1",
+)
+use_repo(buildozer_binary, "buildozer_binary")
+
+bazel_dep(name = "platforms", version = "0.0.7", dev_dependency = True)

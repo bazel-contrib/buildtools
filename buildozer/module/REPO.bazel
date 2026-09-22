@@ -1,0 +1,1 @@
+ignore_directories(["tests/bcr"])

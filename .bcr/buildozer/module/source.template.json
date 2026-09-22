@@ -1,0 +1,5 @@
+{
+  "integrity": "",
+  "strip_prefix": "buildozer-{VERSION}",
+  "url": "https://github.com/{OWNER}/{REPO}/releases/download/{TAG}/buildozer-{TAG}.tar.gz"
+}
