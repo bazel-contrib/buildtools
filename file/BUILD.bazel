@@ -1,18 +1,21 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "file",
     srcs = ["file.go"],
     importpath = "github.com/bazel-contrib/buildtools/v10/file",
     visibility = ["//visibility:public"],
-    deps = [
-        "//wspace",
-        "@com_github_google_safeopen//:safeopen",
-    ],
+    deps = ["//wspace"],
 )
 
 alias(
     name = "go_default_library",
     actual = ":file",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "file_test",
+    srcs = ["file_test.go"],
+    embed = [":file"],
 )

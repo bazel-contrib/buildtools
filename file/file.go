@@ -25,7 +25,6 @@ import (
 	"runtime"
 
 	"github.com/bazel-contrib/buildtools/v10/wspace"
-	"github.com/google/safeopen"
 )
 
 // ReadFile can be updated from the caller to change the API
@@ -74,7 +73,7 @@ func writeFileMode(name string, data []byte, mode os.FileMode) error {
 		if err != nil {
 			return err
 		}
-		return safeopen.WriteFileBeneath(wsRoot, relPath, data, mode)
+		return writeFileBeneath(wsRoot, relPath, data, mode)
 	}
 	dir, file := filepath.Split(name)
 	absDir, err := filepath.Abs(dir)
@@ -82,7 +81,26 @@ func writeFileMode(name string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	// If we are not in a workspace, we only allow writes to the directory where the file is located.
-	return safeopen.WriteFileBeneath(absDir, file, data, mode)
+	return writeFileBeneath(absDir, file, data, mode)
+}
+
+func writeFileBeneath(dir, name string, data []byte, mode os.FileMode) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // openReadFile is like os.Open.
