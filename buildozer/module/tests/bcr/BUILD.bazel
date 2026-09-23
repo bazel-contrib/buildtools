@@ -1,0 +1,14 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "run_buildozer",
+    srcs = ["run_buildozer.sh"],
+    env = {
+        "MSYS2_ARG_CONV_EXCL": "*",
+    },
+)
+
+alias(
+    name = "buildozer_alias",
+    actual = "@buildozer",
+)

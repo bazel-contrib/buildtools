@@ -1,0 +1,56 @@
+name: buildozer module
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, Bazel ${{ matrix.bazel }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        bazel: [7.*, 8.*, 9.*, last_green]
+    defaults:
+      run:
+        working-directory: buildozer/module
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2  # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86  # 0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      - name: Test module
+        env:
+          USE_BAZEL_VERSION: ${{ matrix.bazel }}
+        run: bazel test //...
+
+      - name: Test module as a dependency
+        env:
+          USE_BAZEL_VERSION: ${{ matrix.bazel }}
+        working-directory: buildozer/module/tests/bcr
+        run: |
+          bazel run //:buildozer_alias
+          bazel run //:run_buildozer
+          bazel test //...
