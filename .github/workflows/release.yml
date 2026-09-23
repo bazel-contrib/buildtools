@@ -41,10 +41,7 @@ jobs:
     with:
       tag_name: ${{ inputs.tag_name || github.ref_name }}
       registry_fork: fmeum/bazel-central-registry
-      # The fine-grained token used for the registry fork cannot open pull
-      # requests against public repositories. The workflow prints a URL for
-      # opening the pull request manually instead.
-      open_pull_request: false
+      open_pull_request: true
     secrets:
       publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}
 
