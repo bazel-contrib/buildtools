@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        bazel: [6.*, 7.*, 8.*, 9.*, last_green]
+        bazel: [7.*, 8.*, 9.*, last_green]
     defaults:
       run:
         working-directory: buildozer/module

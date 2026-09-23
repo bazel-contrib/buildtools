@@ -6,7 +6,7 @@ a tool for manipulating Bazel BUILD files.
 
 ## Requirements
 
-* Bazel 6.2.0 or later
+* Bazel 7.0.0 or later
 
 ## Usage
 
