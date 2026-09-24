@@ -9,7 +9,15 @@ rem Unquote the arguments
 set stripped_args=%stripped_args:'=%
 
 rem Get the absolute path to the buildifier executable
-for /f "tokens=2" %%i in ('findstr /r "\<buildifier\.exe\>" MANIFEST') do (set buildifier_abs_path=%%i)
+if exist MANIFEST (
+    set manifest_file=MANIFEST
+) else if exist "%RUNFILES_MANIFEST_FILE%" (
+    set "manifest_file=%RUNFILES_MANIFEST_FILE:/=\%"
+) else (
+    >&2 echo Error: manifest file not found
+    exit /b 1
+)
+for /f "tokens=2" %%i in ('findstr /r "\<buildifier\.exe\>" "%manifest_file%"') do (set buildifier_abs_path=%%i)
 
 powershell ^
 $Files = Get-ChildItem -LiteralPath '%BUILD_WORKSPACE_DIRECTORY:/=\%' -Recurse -File -ErrorAction SilentlyContinue ^|^
