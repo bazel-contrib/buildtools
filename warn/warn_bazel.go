@@ -261,7 +261,7 @@ func printWarning(f *build.File) []*LinterFinding {
 }
 
 func makeLocationVariableWarning(f *build.File) []*LinterFinding {
-	if f.Type != build.TypeBuild {
+	if f.Type != build.TypeBuild && f.Type != build.TypeBzl {
 		return nil
 	}
 

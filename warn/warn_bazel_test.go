@@ -243,5 +243,5 @@ load("location", "symbol")
 			`:12: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 			`:19: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 		},
-		scopeBuild)
+		scopeBuild | scopeBzl)
 }
