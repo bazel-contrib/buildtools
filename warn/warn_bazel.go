@@ -27,7 +27,10 @@ import (
 )
 
 // locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.
-var locationMakeVariableRe = regexp.MustCompile(`\$\(locations?(?:\s[^)]*)?\)`)
+// Note that this is applied to individual string tokens in the parsed file, so we cannot
+// require a match for a closing parenthesis if we are to detect constructions like this:
+//     args = ["$(location " + src + ")", "$(location " + gen + ")"],
+var locationMakeVariableRe = regexp.MustCompile(`\$\(locations?(?:\s[^)]*)?`)
 
 func constantGlobPatternWarning(patterns *build.ListExpr) []*LinterFinding {
 	findings := []*LinterFinding{}
