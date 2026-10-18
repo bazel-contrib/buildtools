@@ -20,12 +20,105 @@ package warn
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
 	"github.com/bazel-contrib/buildtools/v10/bzlenv"
 	"github.com/bazel-contrib/buildtools/v10/edit"
 )
+
+// fstringIdentRE matches identifier names inside f-string fields.
+var fstringIdentRE = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_]*`)
+
+// fstringKeywords are reserved words to exclude when scanning f-string fields.
+var fstringKeywords = map[string]bool{
+	"and":      true,
+	"as":       true,
+	"break":    true,
+	"continue": true,
+	"def":      true,
+	"elif":     true,
+	"else":     true,
+	"False":    true,
+	"for":      true,
+	"if":       true,
+	"in":       true,
+	"is":       true,
+	"lambda":   true,
+	"None":     true,
+	"not":      true,
+	"or":       true,
+	"pass":     true,
+	"return":   true,
+	"True":     true,
+}
+
+// extractIdentsFromFString returns identifier names referenced inside the
+// {...} fields of an f-string value.
+//
+// Fields are not parsed; a regex pass extracts identifier-shaped tokens.
+// Intentionally permissive: false positives only suppress unused-variable
+// warnings (safe); false negatives would resurrect the regression where
+// f-string references look unused.
+func extractIdentsFromFString(value string) []string {
+	var idents []string
+	i := 0
+	for i < len(value) {
+		off := strings.IndexByte(value[i:], '{')
+		if off < 0 {
+			return idents
+		}
+		j := i + off
+		// "{{" escapes a literal '{'.
+		if j+1 < len(value) && value[j+1] == '{' {
+			i = j + 2
+			continue
+		}
+		// Find the matching '}', tracking nested {...} (allowed in format
+		// specs) and skipping braces inside string literals.
+		depth := 1
+		k := j + 1
+		var quote byte
+		for k < len(value) && depth > 0 {
+			c := value[k]
+			if quote != 0 {
+				if c == quote {
+					quote = 0
+				} else if c == '\\' && k+1 < len(value) {
+					k++ // skip escaped char
+				}
+			} else {
+				switch c {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				case '"', '\'':
+					quote = c
+				}
+			}
+			k++
+		}
+		if depth != 0 {
+			// Unbalanced braces; stop extraction.
+			return idents
+		}
+		expr := value[j+1 : k-1]
+		for _, idx := range fstringIdentRE.FindAllStringIndex(expr, -1) {
+			// Skip attribute names: `bar` in `{foo.bar}` is not a variable.
+			if idx[0] > 0 && expr[idx[0]-1] == '.' {
+				continue
+			}
+			m := expr[idx[0]:idx[1]]
+			if !fstringKeywords[m] {
+				idents = append(idents, m)
+			}
+		}
+		i = k
+	}
+	return idents
+}
 
 // findReturnsWithoutValue searches for return statements without a value, calls `callback` on
 // them and returns whether the current list of statements terminates (either by a return or fail()
@@ -394,6 +487,25 @@ func extractIdentsFromStmt(stmt build.Expr) (defined, used map[*build.Ident]bool
 			// we don't need to check for allLValuesUnderscored.
 			hasUnusedComment := edit.ContainsComments(expr, "@unused")
 			defined[ident] = hasUnusedComment
+
+		case *build.StringExpr:
+			// Mark identifiers referenced inside f-string fields as used.
+			if expr.Prefix != "f" {
+				break
+			}
+		nextName:
+			for _, name := range extractIdentsFromFString(expr.Value) {
+				// Respect comprehension/lambda scopes, like the *Ident case.
+				for _, node := range stack {
+					if scope, ok := scopes[node]; ok {
+						if _, ok := scope[name]; ok {
+							continue nextName
+						}
+					}
+				}
+				// Consumers of `used` only read .Name; synthetic *Ident is fine.
+				used[&build.Ident{NamePos: expr.Start, Name: name}] = true
+			}
 
 		default:
 			// Do nothing, just traverse further

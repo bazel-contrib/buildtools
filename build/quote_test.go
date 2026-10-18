@@ -130,6 +130,29 @@ func TestUnquote(t *testing.T) {
 	}
 }
 
+var fstringUnquoteTests = []struct {
+	q      string // quoted source (with f prefix)
+	s      string // expected unquoted value
+	triple bool
+}{
+	{`f""`, ``, false},
+	{`f'single'`, `single`, false},
+	{`f"\n{x}\t"`, "\n{x}\t", false},
+	{`f"got \"{value}\""`, `got "{value}"`, false},
+	{`f"""line1
+{x}
+line3"""`, "line1\n{x}\nline3", true},
+}
+
+func TestUnquoteFString(t *testing.T) {
+	for _, tt := range fstringUnquoteTests {
+		s, triple, err := Unquote(tt.q)
+		if err != nil || s != tt.s || triple != tt.triple {
+			t.Errorf("Unquote(%s) = %#q, %v, %v; want %#q, %v, nil", tt.q, s, triple, err, tt.s, tt.triple)
+		}
+	}
+}
+
 func TestUnquoteErrors(t *testing.T) {
 	for _, tt := range unquoteErrorTests {
 		s, triple, err := Unquote(tt.q)

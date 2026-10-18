@@ -763,6 +763,114 @@ sample_macro_with_used_foo()
 		[]string{},
 		scopeEverywhere)
 
+	// `prefix` and `suffix` are used only inside an f-string.
+	checkFindings(t, "unused-variable", `
+def _make_lib(prefix, suffix):
+  full_name = f"{prefix}_{suffix}_lib"
+  native.cc_library(name = full_name)
+
+_make_lib("foo", "core")
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Comprehension iterator used only inside an f-string is still considered used.
+	checkFindings(t, "unused-variable", `
+def _deps_for(targets):
+  return [f"//external/{t}:lib" for t in targets]
+
+_deps_for(["a", "b"])
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// NEGATIVE: without the `f` prefix, {target} is literal text.
+	checkFindings(t, "unused-variable", `
+def _missing_prefix():
+  target = "//foo:bar"
+  return "depends on {target}"
+
+_missing_prefix()
+`,
+		[]string{`:2: Variable "target" is unused.`},
+		scopeEverywhere)
+
+	// NEGATIVE: doubled braces {{...}} are literal text.
+	checkFindings(t, "unused-variable", `
+def _help_text():
+  field = "..."
+  return f"see {{field}} in docs"
+
+_help_text()
+`,
+		[]string{`:2: Variable "field" is unused.`},
+		scopeEverywhere)
+
+	// NEGATIVE: comprehension iterator shadows outer `t`.
+	checkFindings(t, "unused-variable", `
+def _f():
+  t = "outer"
+  return [f"//x/{t}:y" for t in items]
+
+_f()
+`,
+		[]string{`:2: Variable "t" is unused.`},
+		scopeEverywhere)
+
+	// NEGATIVE: lambda parameter shadows outer `x`.
+	checkFindings(t, "unused-variable", `
+def _g():
+  x = "outer"
+  return lambda x: f"{x}"
+
+_g()
+`,
+		[]string{`:2: Variable "x" is unused.`},
+		scopeEverywhere)
+
+	// ACCEPTED FALSE-POSITIVE: the regex scanner can't tell a free variable
+	// from a single-letter format-spec character (`d` in `:>5d`), so `d` is
+	// conservatively treated as used.
+	checkFindings(t, "unused-variable", `
+def _format(count, d):
+  return f"{count:>5d}"
+
+_format(1, 2)
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Non-ASCII identifiers are recognized inside f-string fields.
+	checkFindings(t, "unused-variable", `
+def _greet(café):
+  return f"hello {café}"
+
+_greet("x")
+`,
+		[]string{},
+		scopeEverywhere)
+
+	// Attribute names after a dot are not variable references: `path` is the
+	// unused parameter, not the `ctx.label.path` attribute.
+	checkFindings(t, "unused-variable", `
+def _f(ctx, path):
+  return f"{ctx.label.path}"
+
+_f(None, "x")
+`,
+		[]string{`:1: Variable "path" is unused.`},
+		scopeEverywhere)
+
+	// Braces inside string literals don't terminate the field early.
+	checkFindings(t, "unused-variable", `
+def _f(prefix, suffix):
+  return f"{prefix + '}' + suffix}"
+
+_f("a", "b")
+`,
+		[]string{},
+		scopeEverywhere)
+
 	// Unused variables declared by var statements
 	checkFindings(t, "unused-variable", `
 _x: int

@@ -306,6 +306,11 @@ type StringExpr struct {
 	TripleQuote bool   // triple quote output
 	End         Position
 
+	// Prefix is the string-literal prefix ("r" or "f") populated by the lexer.
+	// Consumers can rely on this field uniformly; the printer additionally
+	// consults Token for round-trip preservation.
+	Prefix string
+
 	// To allow specific formatting of string literals,
 	// at least within our requirements, record the
 	// preferred form of Value. This field is a hint:
