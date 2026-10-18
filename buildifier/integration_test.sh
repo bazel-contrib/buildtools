@@ -361,6 +361,7 @@ cat > golden/.buildifier.example.json <<EOF
     "overly-nested-depset",
     "package-name",
     "package-on-top",
+    "path-mapping",
     "positional-args",
     "print",
     "provider-params",
