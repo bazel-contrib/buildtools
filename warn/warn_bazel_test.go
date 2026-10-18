@@ -275,3 +275,115 @@ def generate_targets(name, src1, src2):
 		},
 		scopeBuild | scopeBzl)
 }
+
+func TestNonConstantProgressMessage(t *testing.T) {
+	checkFindings(t, "non-constant-progress-message", `
+load(":foo.bzl", "LOADED_MSG")
+
+PROGRESS_MSG = "Building %{input}"
+COMPOSED_MSG = PROGRESS_MSG + " into %{output}"
+NONE_MSG = None
+DYNAMIC_GLOBAL = "Building %s" % "foo"
+
+def _impl(ctx, param_msg):
+    local_msg = "Building %{input}"
+    actions = ctx.actions
+
+    # Valid constant progress_message values
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = "Building %{input}",
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cmd",
+        progress_message = ("Building " + "%{input}"),
+    )
+    ctx.actions.symlink(
+        output = out,
+        target_file = target,
+        progress_message = PROGRESS_MSG,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = COMPOSED_MSG + "!",
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = None,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = NONE_MSG,
+    )
+
+    # Non-constant progress_message values (should warn)
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = "Building %s" % ctx.label,
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cmd",
+        progress_message = "Building {}".format(ctx.label),
+    )
+    ctx.actions.symlink(
+        output = out,
+        target_file = target,
+        progress_message = "Linking " + ctx.label.name,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = param_msg,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = local_msg,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = LOADED_MSG,
+    )
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = DYNAMIC_GLOBAL,
+    )
+    actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = get_message(),
+    )
+
+    # Unrelated calls (should not warn)
+    other.run(progress_message = "Building %s" % ctx.label)
+    ctx.actions.other(progress_message = "Building %s" % ctx.label)
+
+def _shadowed(ctx, PROGRESS_MSG):
+    ctx.actions.run(
+        outputs = [out],
+        executable = exe,
+        progress_message = PROGRESS_MSG,
+    )
+`,
+		[]string{
+			`:48: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:53: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:58: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:63: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:68: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:73: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:78: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:83: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+			`:94: "progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`,
+		},
+		scopeBzl)
+}
