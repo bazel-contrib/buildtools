@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bazelbuild/buildtools/blob/main/buildifier/config/buildifier.schema.json",
+  "title": "Buildifier configuration",
+  "description": "Schema for .buildifier.json. Use with editor JSON Schema support or agent tooling for safer config edits.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["auto", "build", "bzl", "workspace", "default", "module"],
+      "description": "Input file type. auto selects based on filename."
+    },
+    "format": {
+      "type": "string",
+      "enum": ["text", "json"],
+      "description": "Diagnostics format when mode is check."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["check", "diff", "fix", "print_if_changed"],
+      "description": "Formatting mode."
+    },
+    "diffMode": {
+      "type": "boolean",
+      "description": "Alias for mode=diff."
+    },
+    "lint": {
+      "type": "string",
+      "enum": ["off", "warn", "fix"],
+      "description": "Lint mode."
+    },
+    "warnings": {
+      "type": "string",
+      "description": "Comma-separated warning identifiers, or all/default, optionally with +/- modifiers."
+    },
+    "warningsList": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List form of warnings."
+    },
+    "recursive": {
+      "type": "boolean",
+      "description": "Find Starlark files recursively."
+    },
+    "verbose": {
+      "type": "boolean"
+    },
+    "diffCommand": {
+      "type": "string"
+    },
+    "multiDiff": {
+      "type": "boolean"
+    },
+    "tables": {
+      "type": "string",
+      "description": "Path to JSON tables file replacing built-in tables."
+    },
+    "addTables": {
+      "type": "string",
+      "description": "Path to JSON tables file merged with built-in tables."
+    },
+    "path": {
+      "type": "string",
+      "description": "Workspace-relative path assumed for a single formatted BUILD file."
+    },
+    "buildifier_disable": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "allowsort": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "attrPolicy": {
+      "type": "object",
+      "description": "Config-driven attribute policy rules enforced by the attr-policy lint warning.",
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/attrPolicyRule" }
+        }
+      },
+      "required": ["rules"]
+    }
+  },
+  "$defs": {
+    "attrPolicyRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable rule identifier shown in findings. Must be unique."
+        },
+        "ruleKinds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Globs matched against rule kind, e.g. *_test. Empty/absent matches all kinds."
+        },
+        "attr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Attribute name to inspect."
+        },
+        "forbidValues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Scalar attribute must not equal any listed value (string or boolean literal)."
+        },
+        "requireValues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "If the attribute is present, its value must be one of these."
+        },
+        "forbidListItems": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List attribute must not contain any listed item."
+        },
+        "requireListItems": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List attribute must contain all listed items."
+        },
+        "allowListItems": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Every list item must match an allowed value. Entries ending in * are prefix patterns; all others are exact matches."
+        },
+        "forbidDictEntries": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Dict attribute must not contain these key/value pairs."
+        },
+        "requireDictEntries": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Dict attribute must contain all listed key/value pairs."
+        },
+        "forbidDictKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Dict attribute must not contain any listed key."
+        },
+        "minValue": {
+          "type": "integer",
+          "description": "Numeric attribute must be greater than or equal to this value."
+        },
+        "maxValue": {
+          "type": "integer",
+          "description": "Numeric attribute must be less than or equal to this value."
+        },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Attribute must be present."
+        },
+        "forbidPresence": {
+          "type": "boolean",
+          "default": false,
+          "description": "Attribute must not be present."
+        },
+        "allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^//"
+          },
+          "description": "Target patterns exempt from this rule, e.g. //pkg:name, //pkg:all, //pkg/..., //..."
+        },
+        "suppressible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether # buildifier: disable=attr-policy silences this rule."
+        },
+        "message": {
+          "type": "string",
+          "description": "Custom finding message. Rule name is prefixed automatically."
+        }
+      },
+      "required": ["name", "attr"],
+      "oneOf": [
+        {
+          "description": "Scalar constraint family",
+          "anyOf": [
+            { "required": ["forbidValues"] },
+            { "required": ["requireValues"] }
+          ],
+          "not": {
+            "anyOf": [
+              { "required": ["forbidListItems"] },
+              { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
+              { "required": ["forbidDictEntries"] },
+              { "required": ["requireDictEntries"] },
+              { "required": ["forbidDictKeys"] },
+              { "required": ["minValue"] },
+              { "required": ["maxValue"] },
+              { "required": ["forbidPresence"] }
+            ]
+          }
+        },
+        {
+          "description": "List constraint family",
+          "anyOf": [
+            { "required": ["forbidListItems"] },
+            { "required": ["requireListItems"] },
+            { "required": ["allowListItems"] }
+          ],
+          "not": {
+            "anyOf": [
+              { "required": ["forbidValues"] },
+              { "required": ["requireValues"] },
+              { "required": ["forbidDictEntries"] },
+              { "required": ["requireDictEntries"] },
+              { "required": ["forbidDictKeys"] },
+              { "required": ["minValue"] },
+              { "required": ["maxValue"] },
+              { "required": ["forbidPresence"] }
+            ]
+          }
+        },
+        {
+          "description": "Dict constraint family",
+          "anyOf": [
+            { "required": ["forbidDictEntries"] },
+            { "required": ["requireDictEntries"] },
+            { "required": ["forbidDictKeys"] }
+          ],
+          "not": {
+            "anyOf": [
+              { "required": ["forbidValues"] },
+              { "required": ["requireValues"] },
+              { "required": ["forbidListItems"] },
+              { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
+              { "required": ["minValue"] },
+              { "required": ["maxValue"] },
+              { "required": ["forbidPresence"] }
+            ]
+          }
+        },
+        {
+          "description": "Numeric constraint family",
+          "anyOf": [
+            { "required": ["minValue"] },
+            { "required": ["maxValue"] }
+          ],
+          "not": {
+            "anyOf": [
+              { "required": ["forbidValues"] },
+              { "required": ["requireValues"] },
+              { "required": ["forbidListItems"] },
+              { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
+              { "required": ["forbidDictEntries"] },
+              { "required": ["requireDictEntries"] },
+              { "required": ["forbidDictKeys"] },
+              { "required": ["forbidPresence"] }
+            ]
+          }
+        },
+        {
+          "description": "Presence-only rule",
+          "required": ["required"],
+          "properties": {
+            "required": { "const": true }
+          },
+          "not": {
+            "anyOf": [
+              { "required": ["forbidValues"] },
+              { "required": ["requireValues"] },
+              { "required": ["forbidListItems"] },
+              { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
+              { "required": ["forbidDictEntries"] },
+              { "required": ["requireDictEntries"] },
+              { "required": ["forbidDictKeys"] },
+              { "required": ["minValue"] },
+              { "required": ["maxValue"] },
+              { "required": ["forbidPresence"] }
+            ]
+          }
+        },
+        {
+          "description": "Forbid-presence rule",
+          "required": ["forbidPresence"],
+          "properties": {
+            "forbidPresence": { "const": true }
+          },
+          "not": {
+            "anyOf": [
+              { "required": ["forbidValues"] },
+              { "required": ["requireValues"] },
+              { "required": ["forbidListItems"] },
+              { "required": ["requireListItems"] },
+              { "required": ["allowListItems"] },
+              { "required": ["forbidDictEntries"] },
+              { "required": ["requireDictEntries"] },
+              { "required": ["forbidDictKeys"] },
+              { "required": ["minValue"] },
+              { "required": ["maxValue"] },
+              { "required": ["required"] }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
