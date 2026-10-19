@@ -951,6 +951,280 @@ func TestCmdSetSelect(t *testing.T) {
 	}
 }
 
+func TestCmdAddSelect_listValues(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		args      []string
+		buildFile string
+		expected  string
+	}{
+		{
+			name: "list_attr_absent",
+			args: []string{"deps", ":added_select_key", "//some_package:lib"},
+			buildFile: `foo(
+    name = "foo",
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_plain_list",
+			args: []string{"deps", ":added_select_key", "//some_package:lib"},
+			buildFile: `foo(
+    name = "foo",
+    deps = ["//base:lib"],
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_pure_select_new_key",
+			args: []string{"deps", ":second_select_key", "//my_path:lib"},
+			buildFile: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+        ":second_select_key": ["//my_path:lib"],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_pure_select_existing_key",
+			args: []string{"deps", ":added_select_key", "//some_package:lib2"},
+			buildFile: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": [
+            "//some_package:lib",
+            "//some_package:lib2",
+        ],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_list_plus_select_new_key",
+			args: []string{"deps", ":second_select_key", "//my_path:lib"},
+			buildFile: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+        ":second_select_key": ["//my_path:lib"],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_list_plus_select_existing_key",
+			args: []string{"deps", ":added_select_key", "//some_package:lib2"},
+			buildFile: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": [
+            "//some_package:lib",
+            "//some_package:lib2",
+        ],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_duplicate_value_is_noop",
+			args: []string{"deps", ":added_select_key", "//some_package:lib"},
+			buildFile: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_multiple_values",
+			args: []string{"deps", ":added_select_key", "//some_package:lib1", "//some_package:lib2"},
+			buildFile: `foo(
+    name = "foo",
+    deps = ["//base:lib"],
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = ["//base:lib"] + select({
+        ":added_select_key": [
+            "//some_package:lib1",
+            "//some_package:lib2",
+        ],
+        "//conditions:default": [],
+    }),
+)`,
+		},
+		{
+			name: "list_attr_new_key_no_default_added_when_default_exists",
+			args: []string{"deps", ":second_select_key", "//my_path:lib"},
+			buildFile: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": ["//fallback:lib"],
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deps = select({
+        ":added_select_key": ["//some_package:lib"],
+        "//conditions:default": ["//fallback:lib"],
+        ":second_select_key": ["//my_path:lib"],
+    }),
+)`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bld, err := build.Parse("BUILD", []byte(tc.buildFile))
+			if err != nil {
+				t.Error(err)
+			}
+			rl := bld.Rules("foo")[0]
+			env := CmdEnvironment{
+				File: bld,
+				Rule: rl,
+				Args: tc.args,
+			}
+			bld, err = cmdAddSelect(NewOpts(), env)
+			if err != nil {
+				t.Fatalf("cmdAddSelect returned err: %s", err)
+			}
+			got := strings.TrimSpace(string(build.Format(bld)))
+			if got != tc.expected {
+				t.Errorf("cmdAddSelect %v:\ngot:\n%s\nexpected:\n%s", tc.args, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestCmdAddSelect_scalarValues(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		args      []string
+		buildFile string
+		expected  string
+	}{
+		{
+			name: "scalar_attr_absent",
+			args: []string{"deprecation", ":added_select_key", "deprecated on some_package"},
+			buildFile: `foo(
+    name = "foo",
+)`,
+			expected: `foo(
+    name = "foo",
+    deprecation = select({":added_select_key": "deprecated on some_package"}),
+)`,
+		},
+		{
+			name: "scalar_attr_pure_select_new_key",
+			args: []string{"deprecation", ":second_select_key", "deprecated on my_path"},
+			buildFile: `foo(
+    name = "foo",
+    deprecation = select({
+        ":added_select_key": "deprecated on some_package",
+        "//conditions:default": "not deprecated",
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deprecation = select({
+        ":added_select_key": "deprecated on some_package",
+        "//conditions:default": "not deprecated",
+        ":second_select_key": "deprecated on my_path",
+    }),
+)`,
+		},
+		{
+			name: "scalar_attr_pure_select_existing_key_overwrites",
+			args: []string{"deprecation", ":added_select_key", "updated message"},
+			buildFile: `foo(
+    name = "foo",
+    deprecation = select({
+        ":added_select_key": "old message",
+        "//conditions:default": "not deprecated",
+    }),
+)`,
+			expected: `foo(
+    name = "foo",
+    deprecation = select({
+        ":added_select_key": "updated message",
+        "//conditions:default": "not deprecated",
+    }),
+)`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bld, err := build.Parse("BUILD", []byte(tc.buildFile))
+			if err != nil {
+				t.Error(err)
+			}
+			rl := bld.Rules("foo")[0]
+			env := CmdEnvironment{
+				File: bld,
+				Rule: rl,
+				Args: tc.args,
+			}
+			bld, err = cmdAddSelect(NewOpts(), env)
+			if err != nil {
+				t.Fatalf("cmdAddSelect returned err: %s", err)
+			}
+			got := strings.TrimSpace(string(build.Format(bld)))
+			if got != tc.expected {
+				t.Errorf("cmdAddSelect %v:\ngot:\n%s\nexpected:\n%s", tc.args, got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestExecuteCommandsOnInlineFile(t *testing.T) {
 	tests := []struct {
 		name        string
