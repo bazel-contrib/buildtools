@@ -537,7 +537,7 @@ func TestPrintDefParameterAndHeaderComments(t *testing.T) {
 			for _, headerComment := range []string{"", "  # header"} {
 				for _, beforeParam := range []string{"", "\n    "} {
 					input := "def f(" + beforeParam + param + ",  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
-					want := "def f(\n        " + param + "  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
+					want := "def f(\n        " + param + ",  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
 					t.Run(input, func(t *testing.T) {
 						f, err := ParseBzl("test.bzl", []byte(input))
 						if err != nil {
@@ -574,6 +574,39 @@ func TestPrintDefParameterAndHeaderComments(t *testing.T) {
 	}
 }
 
+func TestPrintDefWithGeneratedParameter(t *testing.T) {
+	f, err := ParseBzl("test.bzl", []byte("def f(\n        x,\n):\n    pass\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := f.Stmt[0].(*DefStmt)
+	def.Params = append(def.Params, &Ident{Name: "y"})
+	want := []byte("def f(\n        x,\n        y,\n):\n    pass\n")
+	if got := Format(f); !bytes.Equal(got, want) {
+		testutils.Tdiff(t, want, got)
+	}
+}
+
+func TestPrintEmptyDef(t *testing.T) {
+	const body = "\n    pass\n"
+	for _, tc := range []struct{ input, want string }{
+		{"def f(\n):", "def f():"},
+		{"def f[T](\n):", "def f[T]():  # type parameters"},
+	} {
+		f, err := ParseBzl("test.bzl", []byte(tc.input+body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if params := f.Stmt[0].(*DefStmt).TypeParams; params != nil {
+			params.Comment().Suffix = []Comment{{Token: "# type parameters"}}
+		}
+		want := []byte(tc.want + body)
+		if got := Format(f); !bytes.Equal(got, want) {
+			testutils.Tdiff(t, want, got)
+		}
+	}
+}
+
 // TestPrintMultipleEndOfLineComments checks that when the last parameter
 // carries more than one end-of-line comment, the additional comments are
 // aligned with the parameter rather than with the closing parenthesis, so that
@@ -585,7 +618,7 @@ func TestPrintMultipleEndOfLineComments(t *testing.T) {
 	}{
 		{
 			input: "def f(x: # type\n int # param\n):\n    pass\n",
-			want:  "def f(\n        x: int  # type\n        # param\n):\n    pass\n",
+			want:  "def f(\n        x: int,  # type\n        # param\n):\n    pass\n",
 		},
 	}
 	for _, tc := range tests {
