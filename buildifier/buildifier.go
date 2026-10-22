@@ -148,14 +148,10 @@ func main() {
 	build.AllowSort = c.AllowSort
 	file.DisableSymlinkSafety = c.DisableSymlinkSafety
 
-	differ, deprecationWarning := differ.Find()
+	differ := differ.Find()
 	if c.DiffCommand != "" {
 		differ.Cmd = c.DiffCommand
 		differ.MultiDiff = c.MultiDiff
-	} else {
-		if deprecationWarning && c.Mode == "diff" {
-			fmt.Fprintf(os.Stderr, "buildifier: selecting diff program with the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables is deprecated, use flags -diff_command and -multi_diff instead\n")
-		}
 	}
 
 	b := buildifier{c, differ}
