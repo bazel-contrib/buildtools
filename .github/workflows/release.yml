@@ -1,72 +1,59 @@
-# Cuts a GitHub release with prebuilt binaries whenever a v* tag is pushed.
-#
-# Build provenance attestations are generated for all binaries. Users can verify
-# a downloaded binary with:
-#   gh attestation verify buildifier-linux-amd64 --repo bazel-contrib/buildtools
+# Builds and publishes all release artifacts whenever a v* tag is pushed.
 name: Release
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Git tag to release
+        required: true
+        type: string
 
 # Never let two runs race on the release for the same tag.
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ inputs.tag_name || github.ref_name }}
+
+permissions: {}
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
     permissions:
-      # Create the release and upload its assets.
-      contents: write
-      # Generate build provenance attestations, see
-      # https://github.com/actions/attest#usage
-      id-token: write
       attestations: write
-      artifact-metadata: write
+      contents: write
+      id-token: write
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@1d798ff015ed0696433e01e2c3ccbb2abefadad7  # v7.7.0
+    with:
+      draft: true
+      prerelease: false
+      release_files: dist/*
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
+
+  publish-to-bcr:
+    needs: release
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@ca23149e55cd4db07a6bcce69c02dea314c5a357  # v1.5.0
+    with:
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
+      registry_fork: fmeum/bazel-central-registry
+      open_pull_request: true
+    secrets:
+      publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}
+
+  publish-release:
+    needs: publish-to-bcr
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
-      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag_name || github.ref_name }}
     steps:
-      - name: Check out ${{ env.TAG }}
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # status.py stamps the binaries with the output of `git describe --tags`.
-          fetch-depth: 0
-
-      - name: Build release binaries
-        run: release/build_binaries.sh dist
-
-      - name: Attest build provenance
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-path: dist/*
-
-      - name: Create or update the release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          if release="$(gh release view "${TAG}" --json isDraft,isImmutable 2> /dev/null)"; then
-            is_draft="$(jq -r .isDraft <<< "${release}")"
-            if [[ "${is_draft}" == false && "$(jq -r .isImmutable <<< "${release}")" == true ]]; then
-              echo "::error::The release for ${TAG} has already been published as immutable," \
-                "so its assets can no longer be changed. Cut a new release with a new tag instead."
-              exit 1
-            fi
-            echo "Attaching binaries to the existing release for ${TAG}"
-          else
-            echo "Creating a draft release for ${TAG}"
-            gh release create "${TAG}" --draft --verify-tag --generate-notes \
-              --title "Release ${TAG#v} ($(date +%Y-%m-%d))"
-            is_draft=true
-          fi
-
-          gh release upload "${TAG}" --clobber dist/*
-
-          if [[ "${is_draft}" == true ]]; then
-            echo "Publishing the release for ${TAG}"
-            gh release edit "${TAG}" --draft=false
-          fi
+      - name: Publish release
+        run: gh release edit "${TAG}" --draft=false

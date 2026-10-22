@@ -1,0 +1,20 @@
+module(
+    name = "buildozer",
+    version = "0.0.0",
+)
+
+buildozer_binary = use_extension("//:buildozer_binary.bzl", "buildozer_binary")
+buildozer_binary.buildozer(
+    sha256 = {
+        "darwin-amd64": "old",
+        "darwin-arm64": "old",
+        "linux-amd64": "old",
+        "linux-arm64": "old",
+        "linux-riscv64": "old",
+        "linux-s390x": "old",
+        "windows-amd64": "old",
+        "windows-arm64": "old",
+    },
+    version = "10.0.1",
+)
+use_repo(buildozer_binary, "buildozer_binary")
