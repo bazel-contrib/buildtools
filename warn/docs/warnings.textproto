@@ -777,6 +777,33 @@ warnings: {
 }
 
 warnings: {
+  name: "non-constant-progress-message"
+  header: "`progress_message` should be a constant string"
+  description:
+    "The `progress_message` argument of `ctx.actions.run`, `ctx.actions.run_shell`,\n"
+    "and `ctx.actions.symlink` should be a constant string rather than a dynamically\n"
+    "formatted string. Computing unique strings for each action wastes memory during\n"
+    "the analysis phase.\n\n"
+    "Instead of dynamic string formatting:\n\n"
+    "```python\n"
+    "ctx.actions.run(\n"
+    "    outputs = [output],\n"
+    "    executable = executable,\n"
+    "    progress_message = \"Building %s\" % output.short_path,\n"
+    ")\n"
+    "```\n\n"
+    "Use `%{label}`, `%{input}`, or `%{output}` substitution placeholders:\n\n"
+    "```python\n"
+    "ctx.actions.run(\n"
+    "    outputs = [output],\n"
+    "    executable = executable,\n"
+    "    progress_message = \"Building %{output}\",\n"
+    ")\n"
+    "```"
+  autofix: false
+}
+
+warnings: {
   name: "out-of-order-load"
   header: "Load statements should be ordered by their labels"
   description:

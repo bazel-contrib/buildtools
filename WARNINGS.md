@@ -84,6 +84,7 @@ Warning categories supported by buildifier's linter:
   * [`native-sh-library`](#native-sh-library)
   * [`native-sh-test`](#native-sh-test)
   * [`no-effect`](#no-effect)
+  * [`non-constant-progress-message`](#non-constant-progress-message)
   * [`out-of-order-load`](#out-of-order-load)
   * [`output-group`](#output-group)
   * [`overly-nested-depset`](#overly-nested-depset)
@@ -1085,6 +1086,39 @@ The sh_test build rules should be loaded from Starlark.
   * [Suppress the warning](#suppress): `# buildifier: disable=no-effect`
 
 The statement has no effect. Consider removing it or storing its result in a variable.
+
+--------------------------------------------------------------------------------
+
+## <a name="non-constant-progress-message"></a>`progress_message` should be a constant string
+
+  * Category name: `non-constant-progress-message`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=non-constant-progress-message`
+
+The `progress_message` argument of `ctx.actions.run`, `ctx.actions.run_shell`,
+and `ctx.actions.symlink` should be a constant string rather than a dynamically
+formatted string. Computing unique strings for each action wastes memory during
+the analysis phase.
+
+Instead of dynamic string formatting:
+
+```python
+ctx.actions.run(
+    outputs = [output],
+    executable = executable,
+    progress_message = "Building %s" % output.short_path,
+)
+```
+
+Use `%{label}`, `%{input}`, or `%{output}` substitution placeholders:
+
+```python
+ctx.actions.run(
+    outputs = [output],
+    executable = executable,
+    progress_message = "Building %{output}",
+)
+```
 
 --------------------------------------------------------------------------------
 
