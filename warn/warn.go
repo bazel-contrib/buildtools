@@ -154,6 +154,7 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"overly-nested-depset":          overlyNestedDepsetWarning,
 	"package-name":                  packageNameWarning,
 	"package-on-top":                packageOnTopWarning,
+	"path-mapping":                  pathMappingWarning,
 	"print":                         printWarning,
 	"provider-params":               providerParamsWarning,
 	"redefined-variable":            redefinedVariableWarning,
@@ -224,6 +225,7 @@ var MultiFileWarningMap = map[string]func(f *build.File, fileReader *FileReader)
 // nonDefaultWarnings contains warnings that are enabled by default because they're not applicable
 // for all files and cause too much diff noise when applied.
 var nonDefaultWarnings = map[string]bool{
+	"path-mapping":        true, // only relevant for rules that opt into path mapping
 	"unsorted-dict-items": true, // dict items should be sorted
 }
 

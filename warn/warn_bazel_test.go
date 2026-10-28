@@ -275,3 +275,238 @@ def generate_targets(name, src1, src2):
 		},
 		scopeBuild | scopeBzl)
 }
+
+func TestPathMapping(t *testing.T) {
+	checkFindingsAndFix(t, "path-mapping", `
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
+def _dirname(file):
+    return file.dirname
+
+def _add_srcs(args, srcs):
+    args.add_all([src.path for src in srcs])
+
+def _impl(ctx):
+    args = ctx.actions.args()
+    actions = ctx.actions
+    out_dir = ctx.actions.declare_directory("out")
+
+    # Compatible with path mapping
+    args.add(src)
+    args.add("--out", out)
+    args.add_all(dirs, expand_directories = False)
+    args.add_all([src], map_each = _dirname)
+    args.add_all(srcs, format_each = "--src=%s")
+    args.add(src.short_path)
+    args.add(src.basename)
+    args.add(paths.dirname(src.short_path))
+    ctx.actions.run(
+        outputs = [out],
+        executable = ctx.executable._tool,
+        arguments = [args],
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cp $1 $2",
+        arguments = [args],
+    )
+
+    # Incompatible with path mapping, fixed automatically
+    args.add(src.path)
+    args.add("--out", out.path)
+    args.add(src.path, format = "--src=%s")
+    args.add("--src=%s" % src.path)
+    args.add("--src=" + src.path)
+    args.add(src.path + ".d")
+    args.add("-I" + src.path + "/include")
+    args.add("--src={}".format(src.path))
+    args.add(out_dir.path)
+    args.add("--out", out_dir.path)
+    args.add_all([src.path, out.path])
+    args.add_all([src.path for src in srcs])
+    args.add_all([src.path for src in srcs], format_each = "-I%s")
+    args.add_all(["-I" + inc.path for inc in incs])
+    args.add_joined([src.path for src in srcs], join_with = ",")
+    args.add_all([src.path, out_dir.path])
+    ctx.actions.run(
+        outputs = [out],
+        executable = tool.path,
+        arguments = [args],
+    )
+
+    # Incompatible with path mapping, not fixed automatically
+    args.add(src.dirname)
+    args.add("--bin=%s" % ctx.bin_dir.path)
+    args.add("--gen={}".format(ctx.genfiles_dir.path))
+    args.add("--root=" + src.root.path)
+    args.add(paths.join(ctx.bin_dir.path, "include"))
+    args.add(src.path if src else out.path)
+    args.add("--src=%s" % src.path, format = "%s")
+    args.add("%s=%s" % (name, src.path))
+    args.add(out_dir.path, format = "--out=%s")
+    args.add_all([src.path for src in srcs if src])
+    args.add_all([src.path for src in srcs], map_each = _dirname)
+    args.add_all(["-I" + inc.path for inc in incs], format_each = "%s")
+    ctx.actions.run(
+        outputs = [out],
+        executable = tool.path,
+        arguments = [src.path, "--out", out.path],
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cp %s %s" % (src.path, out.path),
+    )
+    actions.run_shell(
+        outputs = [out],
+        command = "cp $1 " + out.dirname,
+        arguments = [src.path],
+    )
+
+    # Unrelated
+    other.add(src.path)
+    ctx.actions.other(arguments = [src.path])
+    ctx.actions.run(
+        outputs = [out],
+        executable = ctx.executable._tool,
+        arguments = [args],
+        progress_message = "Building %s" % out.path,
+    )
+`, `
+load("@bazel_skylib//lib:paths.bzl", "paths")
+
+def _dirname(file):
+    return file.dirname
+
+def _add_srcs(args, srcs):
+    args.add_all(srcs)
+
+def _impl(ctx):
+    args = ctx.actions.args()
+    actions = ctx.actions
+    out_dir = ctx.actions.declare_directory("out")
+
+    # Compatible with path mapping
+    args.add(src)
+    args.add("--out", out)
+    args.add_all(dirs, expand_directories = False)
+    args.add_all([src], map_each = _dirname)
+    args.add_all(srcs, format_each = "--src=%s")
+    args.add(src.short_path)
+    args.add(src.basename)
+    args.add(paths.dirname(src.short_path))
+    ctx.actions.run(
+        outputs = [out],
+        executable = ctx.executable._tool,
+        arguments = [args],
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cp $1 $2",
+        arguments = [args],
+    )
+
+    # Incompatible with path mapping, fixed automatically
+    args.add(src)
+    args.add("--out", out)
+    args.add(src, format = "--src=%s")
+    args.add(src, format = "--src=%s")
+    args.add(src, format = "--src=%s")
+    args.add(src, format = "%s.d")
+    args.add(src, format = "-I%s/include")
+    args.add(src, format = "--src=%s")
+    args.add_all([out_dir], expand_directories = False)
+    args.add_all(["--out", out_dir], expand_directories = False)
+    args.add_all([src, out])
+    args.add_all(srcs)
+    args.add_all(srcs, format_each = "-I%s")
+    args.add_all(incs, format_each = "-I%s")
+    args.add_joined(srcs, join_with = ",")
+    args.add_all([src, out_dir], expand_directories = False)
+    ctx.actions.run(
+        outputs = [out],
+        executable = tool,
+        arguments = [args],
+    )
+
+    # Incompatible with path mapping, not fixed automatically
+    args.add(src.dirname)
+    args.add("--bin=%s" % ctx.bin_dir.path)
+    args.add("--gen={}".format(ctx.genfiles_dir.path))
+    args.add("--root=" + src.root.path)
+    args.add(paths.join(ctx.bin_dir.path, "include"))
+    args.add(src.path if src else out.path)
+    args.add("--src=%s" % src.path, format = "%s")
+    args.add("%s=%s" % (name, src.path))
+    args.add(out_dir.path, format = "--out=%s")
+    args.add_all([src.path for src in srcs if src])
+    args.add_all([src.path for src in srcs], map_each = _dirname)
+    args.add_all(["-I" + inc.path for inc in incs], format_each = "%s")
+    ctx.actions.run(
+        outputs = [out],
+        executable = tool,
+        arguments = [src.path, "--out", out.path],
+    )
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "cp %s %s" % (src.path, out.path),
+    )
+    actions.run_shell(
+        outputs = [out],
+        command = "cp $1 " + out.dirname,
+        arguments = [src.path],
+    )
+
+    # Unrelated
+    other.add(src.path)
+    ctx.actions.other(arguments = [src.path])
+    ctx.actions.run(
+        outputs = [out],
+        executable = ctx.executable._tool,
+        arguments = [args],
+        progress_message = "Building %s" % out.path,
+    )
+`,
+		[]string{
+			`:7: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:35: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:36: "out.path" is not rewritten by path mapping. Pass "out" to "args.add()" instead, or use "args.add_all([out], expand_directories = False)" if it is a directory.`,
+			`:37: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:38: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:39: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:40: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:41: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:42: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:43: "out_dir.path" is not rewritten by path mapping. Pass "out_dir" to "args.add()" instead, or use "args.add_all([out_dir], expand_directories = False)" if it is a directory.`,
+			`:44: "out_dir.path" is not rewritten by path mapping. Pass "out_dir" to "args.add()" instead, or use "args.add_all([out_dir], expand_directories = False)" if it is a directory.`,
+			`:45: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:45: "out.path" is not rewritten by path mapping. Pass "out" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:46: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:47: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:48: "inc.path" is not rewritten by path mapping. Pass "inc" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:49: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_joined()" instead (with "expand_directories = False" if it is a directory).`,
+			`:50: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:50: "out_dir.path" is not rewritten by path mapping. Pass "out_dir" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:53: "tool.path" is not rewritten by path mapping. Pass "tool" as "executable" instead.`,
+			`:58: "src.dirname" is not rewritten by path mapping. Add "src" to "ctx.actions.args()" with a "map_each" callback that returns "file.dirname" instead.`,
+			`:59: "ctx.bin_dir.path" is not rewritten by path mapping. Compute it from an output "File" in a "map_each" callback via "file.root.path" instead.`,
+			`:60: "ctx.genfiles_dir.path" is not rewritten by path mapping. Compute it from an output "File" in a "map_each" callback via "file.root.path" instead.`,
+			`:61: "src.root.path" is not rewritten by path mapping. Add "src" to "ctx.actions.args()" with a "map_each" callback that returns "file.root.path" instead.`,
+			`:62: "ctx.bin_dir.path" is not rewritten by path mapping. Compute it from an output "File" in a "map_each" callback via "file.root.path" instead.`,
+			`:63: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:63: "out.path" is not rewritten by path mapping. Pass "out" to "args.add()" instead, or use "args.add_all([out], expand_directories = False)" if it is a directory.`,
+			`:64: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:65: "src.path" is not rewritten by path mapping. Pass "src" to "args.add()" instead, or use "args.add_all([src], expand_directories = False)" if it is a directory.`,
+			`:66: "out_dir.path" is not rewritten by path mapping. Pass "out_dir" to "args.add()" instead, or use "args.add_all([out_dir], expand_directories = False)" if it is a directory.`,
+			`:67: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:68: "src.path" is not rewritten by path mapping. Pass "src" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:69: "inc.path" is not rewritten by path mapping. Pass "inc" to "args.add_all()" instead (with "expand_directories = False" if it is a directory).`,
+			`:72: "tool.path" is not rewritten by path mapping. Pass "tool" as "executable" instead.`,
+			`:73: "src.path" is not rewritten by path mapping. Add "src" to "ctx.actions.args()" and pass the "Args" object in "arguments" instead.`,
+			`:73: "out.path" is not rewritten by path mapping. Add "out" to "ctx.actions.args()" and pass the "Args" object in "arguments" instead.`,
+			`:77: "src.path" is not rewritten by path mapping. Add "src" to "ctx.actions.args()", pass the "Args" object in "arguments" and refer to it as "$1", "$2", ... in "command" instead.`,
+			`:77: "out.path" is not rewritten by path mapping. Add "out" to "ctx.actions.args()", pass the "Args" object in "arguments" and refer to it as "$1", "$2", ... in "command" instead.`,
+			`:81: "out.dirname" is not rewritten by path mapping. Add "out" to "ctx.actions.args()" with a "map_each" callback that returns "file.dirname" instead.`,
+			`:82: "src.path" is not rewritten by path mapping. Add "src" to "ctx.actions.args()" and pass the "Args" object in "arguments" instead.`,
+		},
+		scopeBzl)
+}
