@@ -95,6 +95,22 @@ type).
 
 See also the [full list](../WARNINGS.md) or the supported warnings.
 
+## Configuration (`.buildifier.json`)
+
+Buildifier reads optional settings from `.buildifier.json` in the workspace (or
+from the path in `BUILDIFIER_CONFIG` / `--config`). The file supports lint
+options, custom tables, and config-driven policy rules under `attrPolicy` (see
+the [`attr-policy`](../WARNINGS.md#attr-policy) warning).
+
+A [JSON Schema](config/buildifier.schema.json) is available for editor
+validation and agent tooling. Reference it from your config file:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/bazelbuild/buildtools/main/buildifier/config/buildifier.schema.json"
+}
+```
+
 ## Setup and usage via Bazel
 
 You can also invoke buildifier via the Bazel rule.
