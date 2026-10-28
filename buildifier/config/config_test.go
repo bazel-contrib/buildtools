@@ -160,6 +160,7 @@ func ExampleFlagSet() {
 	// d: alias for -mode=diff ("false")
 	// diff_command: command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command) ("")
 	// disable_symlink_safety: per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior ("false")
+	// exclude: path pattern to exclude when finding starlark files recursively ("")
 	// format: diagnostics format: text, json or sarif (default text) ("")
 	// help: print usage information ("false")
 	// lint: lint mode: off, warn, or fix (default off) ("")
@@ -186,6 +187,8 @@ func ExampleFlagSet_parse() {
 		"-d",
 		"--diff_command=diff",
 		"--disable_symlink_safety=true",
+		"--exclude=vendor/*",
+		"--exclude=third_party/*",
 		"--format=json",
 		"--help",
 		"--lint=fix",
@@ -215,6 +218,10 @@ func ExampleFlagSet_parse() {
 	//   "lint": "fix",
 	//   "warnings": "+print,-no-effect",
 	//   "recursive": true,
+	//   "exclude": [
+	//     "vendor/*",
+	//     "third_party/*"
+	//   ],
 	//   "verbose": true,
 	//   "diffCommand": "diff",
 	//   "multiDiff": true,
