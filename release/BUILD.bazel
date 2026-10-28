@@ -1,0 +1,20 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+exports_files(["build_buildozer_module.sh"])
+
+sh_test(
+    name = "build_buildozer_module_test",
+    srcs = ["build_buildozer_module_test.sh"],
+    data = [
+        ":build_buildozer_module.sh",
+        "//:LICENSE",
+        "//buildozer",
+        "//release/testdata/module:MODULE.bazel",
+        "//release/testdata/module:module_files",
+    ],
+    env = {
+        "BUILDOZER": "$(rootpath //buildozer:buildozer)",
+        "MODULE_FILE": "$(rootpath //release/testdata/module:MODULE.bazel)",
+        "PACKAGER": "$(rootpath :build_buildozer_module.sh)",
+    },
+)
