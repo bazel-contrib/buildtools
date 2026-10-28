@@ -162,7 +162,6 @@ func TestProxies(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			for _, extBzlFile := range tc.extBzlFiles {
 				t.Run("label_"+extBzlFile, func(t *testing.T) {
-
 					f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
 					if err != nil {
 						t.Fatal(err)
@@ -381,12 +380,35 @@ pull = use_extension("@rules_oci//oci:pull.bzl", "go_deps")
 	}
 }
 
+type repoUsageCase struct {
+	content         string
+	repos           []string
+	expectedContent string
+}
+
+func runRepoUsageCases(t *testing.T, fn func([]*build.CallExpr, ...string), cases []repoUsageCase) {
+	t.Helper()
+	for i, tc := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var useRepos []*build.CallExpr
+			for _, stmt := range f.Stmt {
+				useRepos = append(useRepos, stmt.(*build.CallExpr))
+			}
+			fn(useRepos, tc.repos...)
+			actualContent := string(build.Format(f))
+			if !reflect.DeepEqual(actualContent, tc.expectedContent) {
+				t.Errorf("want:\n%q\ngot:\n%q\n", tc.expectedContent, actualContent)
+			}
+		})
+	}
+}
+
 func TestAddRepoUsages(t *testing.T) {
-	for i, tc := range []struct {
-		content         string
-		repos           []string
-		expectedContent string
-	}{
+	runRepoUsageCases(t, AddRepoUsages, []repoUsageCase{
 		{
 			``,
 			[]string{},
@@ -449,23 +471,274 @@ use_repo(
 use_repo(prox, "repo3", "repo4")
 `,
 		},
-	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
-			if err != nil {
-				t.Fatal(err)
-			}
-			var useRepos []*build.CallExpr
-			for _, stmt := range f.Stmt {
-				useRepos = append(useRepos, stmt.(*build.CallExpr))
-			}
-			AddRepoUsages(useRepos, tc.repos...)
-			actualContent := string(build.Format(f))
-			if !reflect.DeepEqual(actualContent, tc.expectedContent) {
-				t.Errorf("want:\n%q\ngot:\n%q\n", tc.expectedContent, actualContent)
-			}
-		})
-	}
+		// Mapped repo names with valid identifiers.
+		{
+			`use_repo(prox)`,
+			[]string{"foo", "bar=baz"},
+			`use_repo(prox, "foo", bar = "baz")
+`,
+		},
+		{
+			`use_repo(prox)`,
+			[]string{"my_repo=actual_repo"},
+			`use_repo(prox, my_repo = "actual_repo")
+`,
+		},
+		// Buildozer does not validate local names: names that are not valid Starlark identifiers
+		// (dots, hyphens, reserved keywords, ...) are emitted verbatim as keyword arguments.
+		{
+			`use_repo(prox)`,
+			[]string{"foo.2=foo"},
+			`use_repo(prox, foo.2 = "foo")
+`,
+		},
+		{
+			`use_repo(prox)`,
+			[]string{"for=my_repo"},
+			`use_repo(prox, for = "my_repo")
+`,
+		},
+		// Mixed positional and keyword arguments.
+		{
+			`use_repo(prox)`,
+			[]string{"simple", "valid_key=value", "invalid.key=value2"},
+			`use_repo(prox, "simple", invalid.key = "value2", valid_key = "value")
+`,
+		},
+		// Duplicates (by repository value) are not added again.
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"repo1", "repo2"},
+			`use_repo(prox, "repo1", "repo2")
+`,
+		},
+		// Empty and malformed specs ("", "=foo", "foo=") are ignored.
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"", "repo2"},
+			`use_repo(prox, "repo1", "repo2")
+`,
+		},
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"=bar", "foo="},
+			`use_repo(prox, "repo1")
+`,
+		},
+		// An existing key is left untouched (use_repo_add never overwrites).
+		{
+			`use_repo(proxy, foo = "bar")`,
+			[]string{"foo=baz"},
+			`use_repo(proxy, foo = "bar")
+`,
+		},
+		// An existing value (under any local name) is left untouched too.
+		{
+			`use_repo(proxy, foo = "bar")`,
+			[]string{"qux=bar"},
+			`use_repo(proxy, foo = "bar")
+`,
+		},
+		{
+			`use_repo(proxy, foo = "bar", "other")`,
+			[]string{"foo=baz"},
+			`use_repo(proxy, "other", foo = "bar")
+`,
+		},
+		{
+			`use_repo(proxy, foo = "bar", "other")`,
+			[]string{"qux=bar", "new"},
+			`use_repo(proxy, "new", "other", foo = "bar")
+`,
+		},
+		{
+			`use_repo(prox, my_repo = "actual")`,
+			[]string{"my_other=actual", "new=other"},
+			`use_repo(prox, my_repo = "actual", new = "other")
+`,
+		},
+		// Adding a positional name whose value is already imported under a mapping is a no-op.
+		{
+			`use_repo(image, my_ubuntu = "img_12345")`,
+			[]string{"img_12345"},
+			`use_repo(image, my_ubuntu = "img_12345")
+`,
+		},
+		{
+			`use_repo(ext, custom_name = "repo_value")`,
+			[]string{"repo_value", "other_repo"},
+			`use_repo(ext, "other_repo", custom_name = "repo_value")
+`,
+		},
+		{
+			`use_repo(ext, my_mapping = "actual_repo", "existing")`,
+			[]string{"actual_repo", "new_repo"},
+			`use_repo(ext, "existing", "new_repo", my_mapping = "actual_repo")
+`,
+		},
+		// foo=foo is simplified to the positional form.
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo"},
+			`use_repo(proxy, "foo")
+`,
+		},
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo", "bar=baz"},
+			`use_repo(proxy, "foo", bar = "baz")
+`,
+		},
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo", "bar=bar", "baz=qux"},
+			`use_repo(proxy, "bar", "foo", baz = "qux")
+`,
+		},
+		{
+			`use_repo(proxy, "existing")`,
+			[]string{"foo=foo"},
+			`use_repo(proxy, "existing", "foo")
+`,
+		},
+		// Bazel placeholders ({name}, {version}) in repository values are preserved.
+		// See https://github.com/bazelbuild/bazel/pull/27890 for the Bazel feature.
+		{
+			`use_repo(ext)`,
+			[]string{"custom={name}_suffix"},
+			`use_repo(ext, custom = "{name}_suffix")
+`,
+		},
+		{
+			`use_repo(ext)`,
+			[]string{"my_repo={name}-v{version}"},
+			`use_repo(ext, my_repo = "{name}-v{version}")
+`,
+		},
+		{
+			`use_repo(ext)`,
+			[]string{"local_name={version}_tag"},
+			`use_repo(ext, local_name = "{version}_tag")
+`,
+		},
+		// A placeholder mapping that is already present is not duplicated.
+		{
+			`use_repo(ext, custom = "{name}-v{version}")`,
+			[]string{"custom={name}-v{version}"},
+			`use_repo(ext, custom = "{name}-v{version}")
+`,
+		},
+		// Mixed scenarios with placeholders and regular repos.
+		{
+			`use_repo(ext)`,
+			[]string{"regular_repo", "alias={version}_tag"},
+			`use_repo(ext, "regular_repo", alias = "{version}_tag")
+`,
+		},
+		{
+			`use_repo(ext, "existing")`,
+			[]string{"custom={name}-{version}", "other"},
+			`use_repo(ext, "existing", "other", custom = "{name}-{version}")
+`,
+		},
+		// use_repo_add does not overwrite an existing placeholder mapping.
+		{
+			`use_repo(ext, my_name = "{name}_old")`,
+			[]string{"my_name={name}_new"},
+			`use_repo(ext, my_name = "{name}_old")
+`,
+		},
+	})
+}
+
+func TestSetRepoUsages(t *testing.T) {
+	runRepoUsageCases(t, SetRepoUsages, []repoUsageCase{
+		// With no conflicts, use_repo_set behaves like use_repo_add.
+		{
+			`use_repo(prox)`,
+			[]string{"foo", "bar=baz"},
+			`use_repo(prox, "foo", bar = "baz")
+`,
+		},
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"repo2", "repo1"},
+			`use_repo(prox, "repo1", "repo2")
+`,
+		},
+		// An existing key is overwritten (unlike use_repo_add).
+		{
+			`use_repo(proxy, foo = "bar")`,
+			[]string{"foo=baz"},
+			`use_repo(proxy, foo = "baz")
+`,
+		},
+		// An existing value is re-mapped to the new local name (rename).
+		{
+			`use_repo(proxy, foo = "bar")`,
+			[]string{"qux=bar"},
+			`use_repo(proxy, qux = "bar")
+`,
+		},
+		{
+			`use_repo(proxy, foo = "bar", "other")`,
+			[]string{"foo=baz"},
+			`use_repo(proxy, "other", foo = "baz")
+`,
+		},
+		{
+			`use_repo(proxy, foo = "bar", "other")`,
+			[]string{"qux=bar", "new"},
+			`use_repo(proxy, "new", "other", qux = "bar")
+`,
+		},
+		{
+			`use_repo(prox, my_repo = "actual")`,
+			[]string{"my_other=actual", "new=other"},
+			`use_repo(prox, my_other = "actual", new = "other")
+`,
+		},
+		// A positional import can be renamed to a mapping and vice versa.
+		{
+			`use_repo(ext, "baz")`,
+			[]string{"bar=baz"},
+			`use_repo(ext, bar = "baz")
+`,
+		},
+		{
+			`use_repo(ext, bar = "baz")`,
+			[]string{"baz"},
+			`use_repo(ext, "baz")
+`,
+		},
+		// Existing placeholder mappings can be replaced.
+		{
+			`use_repo(ext, my_name = "{name}_old")`,
+			[]string{"my_name={name}_new"},
+			`use_repo(ext, my_name = "{name}_new")
+`,
+		},
+		{
+			`use_repo(ext, old_key = "{name}-v{version}")`,
+			[]string{"new_key={name}-v{version}"},
+			`use_repo(ext, new_key = "{name}-v{version}")
+`,
+		},
+		// An identical mapping results in no change.
+		{
+			`use_repo(ext, custom = "{name}-v{version}")`,
+			[]string{"custom={name}-v{version}"},
+			`use_repo(ext, custom = "{name}-v{version}")
+`,
+		},
+		// Empty and malformed specs are ignored.
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"", "=bar", "foo="},
+			`use_repo(prox, "repo1")
+`,
+		},
+	})
 }
 
 func TestRemoveRepoUsages(t *testing.T) {
