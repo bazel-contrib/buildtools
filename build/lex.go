@@ -626,7 +626,7 @@ func (in *input) Lex(val *yySymType) int {
 		}
 		return c
 
-	case 'r': // possible beginning of raw quoted string
+	case 'r', 'f': // possible raw- or f-string prefix
 		if len(in.remaining) < 2 || in.remaining[1] != '"' && in.remaining[1] != '\'' {
 			break
 		}
@@ -689,6 +689,10 @@ func (in *input) Lex(val *yySymType) int {
 		}
 		val.str = s
 		val.triple = triple
+		val.prefix = ""
+		if len(val.tok) > 0 && (val.tok[0] == 'f' || val.tok[0] == 'r') {
+			val.prefix = string(val.tok[0])
+		}
 		return _STRING
 	}
 
