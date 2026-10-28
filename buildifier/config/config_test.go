@@ -30,7 +30,8 @@ func ExampleNew() {
 	fmt.Print(c.String())
 	// Output:
 	// {
-	//   "type": "auto"
+	//   "type": "auto",
+	//   "respectBazelignore": true
 	// }
 }
 
@@ -142,7 +143,8 @@ func ExampleExample() {
 	//     "unreachable",
 	//     "unsorted-dict-items",
 	//     "unused-variable"
-	//   ]
+	//   ],
+	//   "respectBazelignore": true
 	// }
 }
 
@@ -160,6 +162,7 @@ func ExampleFlagSet() {
 	// d: alias for -mode=diff ("false")
 	// diff_command: command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command) ("")
 	// disable_symlink_safety: per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior ("false")
+	// exclude: glob() pattern, relative to the workspace root, to exclude when finding starlark files recursively ("")
 	// format: diagnostics format: text, json or sarif (default text) ("")
 	// help: print usage information ("false")
 	// lint: lint mode: off, warn, or fix (default off) ("")
@@ -167,6 +170,7 @@ func ExampleFlagSet() {
 	// multi_diff: the command specified by the -diff_command flag can diff multiple files in the style of tkdiff (default false) ("false")
 	// path: assume BUILD file has this path relative to the workspace directory ("")
 	// r: find starlark files recursively ("false")
+	// respect_bazelignore: also exclude the paths ignored by .bazelignore and the ignore_directories() of REPO.bazel when finding starlark files recursively ("true")
 	// tables: path to JSON file with custom table definitions which will replace the built-in tables ("")
 	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
 	// v: print verbose information to standard error ("false")
@@ -186,6 +190,8 @@ func ExampleFlagSet_parse() {
 		"-d",
 		"--diff_command=diff",
 		"--disable_symlink_safety=true",
+		"--exclude=vendor/*",
+		"--exclude=third_party/*",
 		"--format=json",
 		"--help",
 		"--lint=fix",
@@ -215,6 +221,11 @@ func ExampleFlagSet_parse() {
 	//   "lint": "fix",
 	//   "warnings": "+print,-no-effect",
 	//   "recursive": true,
+	//   "exclude": [
+	//     "vendor/*",
+	//     "third_party/*"
+	//   ],
+	//   "respectBazelignore": true,
 	//   "verbose": true,
 	//   "diffCommand": "diff",
 	//   "multiDiff": true,

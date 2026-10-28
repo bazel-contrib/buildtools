@@ -47,8 +47,9 @@ func skip(info os.FileInfo) bool {
 }
 
 // ExpandDirectories takes a list of file/directory names and returns a list with file names
-// by traversing each directory recursively and searching for relevant Starlark files.
-func ExpandDirectories(args *[]string) ([]string, error) {
+// by traversing each directory recursively and searching for relevant Starlark files. Paths
+// that the optional excluder excludes are skipped, without reading excluded directories.
+func ExpandDirectories(args *[]string, excluder *Excluder) ([]string, error) {
 	files := []string{}
 	for _, arg := range *args {
 		info, err := os.Stat(arg)
@@ -59,7 +60,15 @@ func ExpandDirectories(args *[]string) ([]string, error) {
 			files = append(files, arg)
 			continue
 		}
-		err = filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(arg, func(filename string, info os.FileInfo, err error) error {
+			// Check exclusions first, so that excluded paths never fail the run,
+			// e.g. when they are unreadable.
+			if excluder.Excluded(filename) {
+				if err == nil && info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 			if err != nil {
 				return err
 			}
@@ -70,12 +79,12 @@ func ExpandDirectories(args *[]string) ([]string, error) {
 				// Don't traverse into directory symlinks such as bazel-foo.bzl
 				// for a project called foo.bzl.
 				if info.Mode()&os.ModeSymlink != 0 {
-					stat, err := os.Stat(path)
+					stat, err := os.Stat(filename)
 					if err != nil || stat.IsDir() {
 						return nil
 					}
 				}
-				files = append(files, path)
+				files = append(files, filename)
 			}
 			return nil
 		})
