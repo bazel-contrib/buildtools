@@ -25,10 +25,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/warn"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 	"github.com/golang/protobuf/proto"
 
-	docspb "github.com/bazelbuild/buildtools/warn/docs/proto"
+	docspb "github.com/bazel-contrib/buildtools/v10/warn/docs/proto"
 )
 
 func readWarningsFromFile(path string) (*docspb.Warnings, error) {

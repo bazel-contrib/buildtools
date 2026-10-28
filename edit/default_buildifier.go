@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
 type defaultBuildifier struct{}
@@ -35,8 +35,8 @@ func (b *defaultBuildifier) Buildify(opts *Options, f *build.File) ([]byte, erro
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	cmd.Env = append(
-        	os.Environ(),
-	        // Custom environment variables
+		os.Environ(),
+		// Custom environment variables
 	)
 	err := cmd.Run()
 	if stderr.Len() > 0 {

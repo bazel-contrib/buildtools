@@ -21,10 +21,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -1325,6 +1326,224 @@ func TestSplitOnNonEscaped(t *testing.T) {
 			got := splitOnNonEscaped(tc.input, tc.sep, tc.lim)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Fatalf("splitOnNonEscaped returned diff -want +got %v", diff)
+			}
+		})
+	}
+}
+
+func TestBuildozerDisableSymlinkSafety(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Symlink safety checks are only supported on Linux")
+	}
+	wsDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(wsDir, "WORKSPACE"), nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	outsideBuildFile := filepath.Join(outsideDir, "BUILD")
+	initialContent := `cc_library(
+    name = "lib",
+)
+`
+	if err := os.WriteFile(outsideBuildFile, []byte(initialContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	symlinkBuildFile := filepath.Join(wsDir, "BUILD")
+	if err := os.Symlink(outsideBuildFile, symlinkBuildFile); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. With DisableSymlinkSafety = false, Buildozer editing the file should fail (return 1 or error)
+	opts := NewOpts()
+	opts.RootDir = wsDir
+	opts.DisableSymlinkSafety = false
+	exitCode := Buildozer(opts, []string{"add deps //foo:bar", "//:lib"})
+	if exitCode == 0 {
+		t.Errorf("Buildozer with DisableSymlinkSafety=false succeeded on symlink pointing outside workspace, want error (non-zero exit code)")
+	}
+
+	// 2. With DisableSymlinkSafety = true, Buildozer should succeed and edit outsideBuildFile
+	opts = NewOpts()
+	opts.RootDir = wsDir
+	opts.DisableSymlinkSafety = true
+	exitCode = Buildozer(opts, []string{"add deps //foo:bar", "//:lib"})
+	if exitCode != 0 {
+		t.Fatalf("Buildozer with DisableSymlinkSafety=true failed with exit code %d", exitCode)
+	}
+
+	content, err := os.ReadFile(outsideBuildFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "//foo:bar") {
+		t.Errorf("outside BUILD file did not contain added dependency, content:\n%s", string(content))
+	}
+}
+
+func TestBuildozerWithTypeAliases(t *testing.T) {
+	buildFile := `type Numeric = int | float
+type OptionalDict[T, U] = dict[T, U] | None
+_: Any # Enable type checking
+
+foo(
+    name = "foo",
+    deps = ["//a"],
+)
+`
+	bld, err := build.Parse("test.bzl", []byte(buildFile))
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	rl := bld.Rules("foo")[0]
+	env := CmdEnvironment{
+		File: bld,
+		Rule: rl,
+		Args: []string{"deps", "//b"},
+	}
+	bld, _ = cmdAdd(NewOpts(), env)
+	got := string(build.Format(bld))
+	expected := `type Numeric = int | float
+type OptionalDict[T, U] = dict[T, U] | None
+_: Any  # Enable type checking
+
+foo(
+    name = "foo",
+    deps = ["//a", "//b"],
+)
+`
+	if got != expected {
+		t.Errorf("got %q, want %q", got, expected)
+	}
+}
+
+func TestAllListsStrings(t *testing.T) {
+	tests := []struct {
+		name      string
+		buildFile string
+		want      []string
+	}{
+		{
+			name:      "single_list",
+			buildFile: `foo(name = "foo", deps = [":a", ":b"])`,
+			want:      []string{":a", ":b"},
+		},
+		{
+			name:      "empty_list",
+			buildFile: `foo(name = "foo", deps = [])`,
+			want:      []string{},
+		},
+		{
+			name:      "empty_list_plus_select",
+			buildFile: `foo(name = "foo", deps = [] + select({"//cond": [":a"]}))`,
+			want:      []string{},
+		},
+		{
+			name:      "concatenated_lists",
+			buildFile: `foo(name = "foo", deps = [":a"] + [":b", ":c"])`,
+			want:      []string{":a", ":b", ":c"},
+		},
+		{
+			name:      "list_plus_select",
+			buildFile: `foo(name = "foo", deps = [":a", ":b"] + select({"//cond": [":c"]}))`,
+			want:      []string{":a", ":b"},
+		},
+		{
+			name:      "var_plus_list_plus_select_plus_list",
+			buildFile: `foo(name = "foo", deps = VAR + [":a"] + select({"//cond": [":c"]}) + [":b"])`,
+			want:      []string{":a", ":b"},
+		},
+		{
+			name:      "var_only",
+			buildFile: `foo(name = "foo", deps = VAR)`,
+			want:      nil,
+		},
+		{
+			name:      "select_only",
+			buildFile: `foo(name = "foo", deps = select({"//cond": [":c"]}))`,
+			want:      nil,
+		},
+		{
+			name:      "missing_attr",
+			buildFile: `foo(name = "foo")`,
+			want:      nil,
+		},
+		{
+			name:      "non_string_element_in_list",
+			buildFile: `foo(name = "foo", deps = [":a" % 1] + [":b"])`,
+			want:      nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bld, err := build.Parse("BUILD", []byte(tc.buildFile))
+			if err != nil {
+				t.Fatalf("build.Parse(\"BUILD\", %q) failed: %v", tc.buildFile, err)
+			}
+			rl := bld.Rules("foo")[0]
+			got := AllListsStrings(rl.Attr("deps"))
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("AllListsStrings(%q) returned unexpected diff (-want +got):\n%s", tc.buildFile, diff)
+			}
+		})
+	}
+}
+
+func TestCmdPrintAllLists(t *testing.T) {
+	wsDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(wsDir, "WORKSPACE"), nil, 0644); err != nil {
+		t.Fatalf("os.WriteFile() failed: %v", err)
+	}
+	buildFile := `foo(
+    name = "foo",
+    deps = VAR + [":a", ":b"] + select({"//cond": [":c"]}) + [":d"],
+    visibility = VIS_VAR + ["//foo:__pkg__"],
+    tags = ONLY_VAR,
+    copts = select({"//cond": ["-DFOO"]}),
+)
+`
+	if err := os.WriteFile(filepath.Join(wsDir, "BUILD"), []byte(buildFile), 0644); err != nil {
+		t.Fatalf("os.WriteFile() failed: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantOut string
+		wantErr string
+	}{
+		{
+			name:    "print_all_lists_command",
+			args:    []string{"print_all_lists name deps visibility tags copts", "//:foo"},
+			wantOut: "foo [:a :b :d] [//foo:__pkg__] ONLY_VAR select({\"//cond\": [\"-DFOO\"]})\n",
+		},
+		{
+			name:    "missing_attr",
+			args:    []string{"print_all_lists missing", "//:foo"},
+			wantOut: "(missing)\n",
+			wantErr: "rule \"//:foo\" has no attribute \"missing\"\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut strings.Builder
+			opts := NewOpts()
+			opts.RootDir = wsDir
+			opts.OutWriter = &out
+			opts.ErrWriter = &errOut
+
+			if exitCode := Buildozer(opts, tc.args); exitCode != 0 {
+				t.Fatalf("Buildozer(opts, %q) = %d, want 0", tc.args, exitCode)
+			}
+			if got := out.String(); got != tc.wantOut {
+				t.Errorf("Buildozer(opts, %q) stdout = %q, want %q", tc.args, got, tc.wantOut)
+			}
+			if got := errOut.String(); got != tc.wantErr {
+				t.Errorf("Buildozer(opts, %q) stderr = %q, want %q", tc.args, got, tc.wantErr)
 			}
 		})
 	}

@@ -7,7 +7,7 @@ const {getNativeBinary} = require('./buildozer');
 
 /**
  * run buildozer with a list of commands
- * @see https://github.com/bazelbuild/buildtools/tree/main/buildozer#do-multiple-changes-at-once
+ * @see https://github.com/bazel-contrib/buildtools/tree/main/buildozer#do-multiple-changes-at-once
  * @returns The standard out of the buildozer command, split by lines
  */
 function run(...commands) {
@@ -21,7 +21,7 @@ function run(...commands) {
  * @param flags any buildozer flags to pass
  */
 function runWithOptions(commands, options, flags = []) {
-    // From https://github.com/bazelbuild/buildtools/tree/main/buildozer#usage:
+    // From https://github.com/bazel-contrib/buildtools/tree/main/buildozer#usage:
     // Here, label-list is a space-separated list of Bazel labels,
     // for example //path/to/pkg1:rule1 //path/to/pkg2:rule2.
     // Buildozer reads commands from FILE (- for stdin 
@@ -34,7 +34,7 @@ function runWithOptions(commands, options, flags = []) {
         input,
         encoding: 'utf-8',
     });
-    // https://github.com/bazelbuild/buildtools/tree/main/buildozer#error-code
+    // https://github.com/bazel-contrib/buildtools/tree/main/buildozer#error-code
     if (status == 0 || status == 3) return stdout.trim().split('\n').filter(l => !!l);
 
     console.error(`buildozer exited with status ${status}\n${stderr}`);

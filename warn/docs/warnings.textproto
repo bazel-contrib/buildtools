@@ -115,28 +115,6 @@ warnings: {
 }
 
 warnings: {
-  name: "canonical-repository"
-  header: "String contains `@@` which indicates a canonical repository name reference that should be avoided"
-  description:
-    "Using canonical repository names (with `@@` prefix) makes BUILD files fragile\n"
-    "to repository mapping changes and external dependency updates. Canonical names\n"
-    "are internal implementation details that can change between Bazel versions\n"
-    "or when external dependencies are updated.\n\n"
-    "Instead of using canonical names like:\n\n"
-    "```python\n"
-    "load(\"@@rules_go//go:def.bzl\", \"go_library\")\n"
-    "deps = [\"@@protobuf~5.27.0//src:message\"]\n"
-    "```\n\n"
-    "Use apparent names with single `@`:\n\n"
-    "```python\n"
-    "load(\"@rules_go//go:def.bzl\", \"go_library\")\n"
-    "deps = [\"@protobuf//src:message\"]\n"
-    "```\n\n"
-    "This makes your BUILD files more maintainable and resilient to changes."
-  autofix: false
-}
-
-warnings: {
   name: "confusing-name"
   header: "Never use `l`, `I`, or `O` as names"
   description: "The names `l`, `I`, or `O` can be easily confused with `I`, `l`, or `0` correspondingly."
@@ -325,32 +303,6 @@ warnings: {
 }
 
 warnings: {
-  name: "external-path"
-  header: "String contains `/external/` which may indicate a dependency on external repositories that could be fragile"
-  description:
-    "Using `/external/` paths may indicate a hard-coded dependency on external\n"
-    "repository locations, which can be fragile and break when external dependencies\n"
-    "are updated or reorganized.\n\n"
-    "Paths containing `/external/` (without a leading `//`) may indicate:\n"
-    "- Direct file system paths to external repositories\n"
-    "- Dependencies that bypass Bazel's dependency management\n"
-    "- Code that relies on Bazel's internal directory structure\n\n"
-    "Examples that trigger this warning:\n\n"
-    "```python\n"
-    "srcs = [\"/external/some_repo/file.h\"]\n"
-    "data = [\"path/external/repo/data.txt\"]\n"
-    "```\n\n"
-    "Instead, use proper Bazel labels:\n\n"
-    "```python\n"
-    "srcs = [\"@some_repo//file.h\"]\n"
-    "data = [\"@repo//path:data.txt\"]\n"
-    "```\n\n"
-    "Note: This warning does not apply to main repository paths like `//external/...`\n"
-    "which are legitimate Bazel labels."
-  autofix: false
-}
-
-warnings: {
   name: "filetype"
   header: "The `FileType` function is deprecated"
   description:
@@ -499,6 +451,30 @@ warnings: {
   bazel_flag: "--incompatible_bzl_disallow_load_after_statement"
   bazel_flag_link: "https://github.com/bazelbuild/bazel/issues/5815"
   autofix: true
+}
+
+warnings: {
+  name: "make-location"
+  header: "The `$(location)` make variable is deprecated"
+  description:
+    "The `$(location)` and `$(locations)` make variables are legacy synonyms for\n"
+    "`$(execpath)` and `$(rootpath)` whose behavior depends on the attribute being\n"
+    "expanded. Use `$(execpath ...)` when you need the execution path, or\n"
+    "`$(rootpath ...)` when you need the runfiles path.\n\n"
+    "Examples that trigger this warning:\n\n"
+    "```python\n"
+    "genrule(\n"
+    "    name = \"example\",\n"
+    "    srcs = [\":input\"],\n"
+    "    outs = [\"output\"],\n"
+    "    cmd = \"cp $(location :input) $@\",\n"
+    ")\n"
+    "```\n\n"
+    "Instead, use an explicit make variable:\n\n"
+    "```python\n"
+    "cmd = \"cp $(execpath :input) $@\",\n"
+    "```"
+  autofix: false
 }
 
 warnings: {
@@ -1115,15 +1091,23 @@ warnings: {
     "```\n\n"
     "The line can often be safely removed.\n\n"
     "If you want to keep the variable, you can disable the warning by adding a\n"
-    "comment `# @unused`.\n\n"
+    "comment `# @unused`. For a function parameter, place the comment on the\n"
+    "parameter itself.\n\n"
     "```python\n"
     "x = [1, 2] # @unused\n"
     "\n"
     "# @unused\n"
     "def f(\n"
     "        x,\n"
-    "        y,  # @unused\n"
+    "        y  # @unused\n"
     "):\n"
+    "    pass\n"
+    "```\n\n"
+    "For backward compatibility, an `# @unused` comment at the end of a function\n"
+    "header applies to its final parameter. New code should prefer attaching the\n"
+    "comment directly to the parameter as shown above.\n\n"
+    "```python\n"
+    "def f(x, y):  # @unused applies to y\n"
     "    pass\n"
     "```\n\n"
     "If an unused variable is used for partially unpacking tuples, just prefix\n"

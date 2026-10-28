@@ -19,8 +19,8 @@ package warn
 import (
 	"regexp"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/bzlenv"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
 )
 
 // Type describes an expression type in Starlark.
@@ -179,7 +179,7 @@ func DetectTypes(f *build.File) map[build.Expr]Type {
 				// If the right hand side is not a string, the left hand side can still be a string
 				return
 			}
-			ident, ok := (node.LHS).(*build.Ident)
+			ident, ok := node.LHSIdent()
 			if !ok {
 				return
 			}

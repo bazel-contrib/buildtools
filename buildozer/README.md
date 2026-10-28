@@ -9,7 +9,7 @@ standard commands.
 1. Build a binary and put it into your $GOPATH/bin:
 
 ```bash
-go install github.com/bazelbuild/buildtools/buildozer@latest
+go install github.com/bazel-contrib/buildtools/v10/buildozer@latest
 ```
 
 ## Usage
@@ -79,6 +79,7 @@ OPTIONS include the following options:
   * `-types`: Filter the targets, keeping only those of the given types, e.g.
     `buildozer -types go_library,go_binary 'print rule' '//buildtools/buildozer:*'`
   * `-eol-comments=false`: When adding new comments, put them on a separate line.
+  * `-disable_symlink_safety`: By default Buildozer will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior.
 
 See `buildozer -help` for the full list.
 
@@ -111,6 +112,7 @@ Buildozer supports the following commands(`'command args'`):
     new rule at the end of the BUILD file (before/after `<relative_rule>`). The
     identifier `__pkg__` can be used to position rules relative to package().
   * `print <attr(s)>`
+  * `print_all_lists <attr(s)>`
   * `remove <attr>`: Removes attribute `attr`. The wildcard `*` matches all
     attributes except `name`.
   * `remove <attr> <value(s)>`: Removes `value(s)` from the list `attr`. The
@@ -274,6 +276,12 @@ execution.
 
   * `print <attribute(s)>`: For each target, prints the value of the attributes
    (see below).
+  * `print_all_lists <attribute(s)>`: Similar to `print`, except that for `+`
+    concatenation expressions containing top-level list literals, it prints the
+    combined string elements from all top-level list literals as a list instead
+    of the raw expression string (ignoring non-list operands such as variables
+    or `select(...)` calls). For example, `["a"] + select(...)` prints `[a]`,
+    and `VAR + ["a"] + ["b"]` prints `[a b]`.
   * `print_comment <attr>? <value>?`: Prints a comment associated with a rule,
     an attribute or a specific value in a list.
 

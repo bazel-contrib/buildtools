@@ -21,6 +21,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
+
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 )
 
 // ReadFile can be updated from the caller to change the API
@@ -31,9 +35,16 @@ var ReadFile = readFile
 // for writing a file.
 var WriteFile = writeFile
 
+// WriteFileMode can be updated from the caller to change the API
+// for writing a file with a specific mode.
+var WriteFileMode = writeFileMode
+
 // OpenReadFile can be updated from the caller to change the API
 // for opening a file.
 var OpenReadFile = openReadFile
+
+// DisableSymlinkSafety disables symlink safety checks for WriteFile and WriteFileMode.
+var DisableSymlinkSafety bool
 
 // readFile is like os.ReadFile.
 func readFile(name string) ([]byte, os.FileInfo, error) {
@@ -48,7 +59,48 @@ func readFile(name string) ([]byte, os.FileInfo, error) {
 
 // writeFile is like os.WriteFile.
 func writeFile(name string, data []byte) error {
-	return os.WriteFile(name, data, 0644)
+	return WriteFileMode(name, data, 0644)
+}
+
+// writeFile is like os.WriteFile.
+func writeFileMode(name string, data []byte, mode os.FileMode) error {
+	if DisableSymlinkSafety || runtime.GOOS != "linux" {
+		return os.WriteFile(name, data, mode)
+	}
+	// If we are in a workspace, we allow writes to any symlinked file within the workspace.
+	if wsRoot, _ := wspace.FindWorkspaceRoot(name); wsRoot != "" {
+		relPath, err := filepath.Rel(wsRoot, name)
+		if err != nil {
+			return err
+		}
+		return writeFileBeneath(wsRoot, relPath, data, mode)
+	}
+	dir, file := filepath.Split(name)
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	// If we are not in a workspace, we only allow writes to the directory where the file is located.
+	return writeFileBeneath(absDir, file, data, mode)
+}
+
+func writeFileBeneath(dir, name string, data []byte, mode os.FileMode) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // openReadFile is like os.Open.

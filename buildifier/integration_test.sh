@@ -125,6 +125,14 @@ bazel_dep(name = "weird_dep", version = "3.19.0", dev_dependency = "True" == "Tr
 bazel_dep(name='yet_another_prod_dep',version='3.19.0')
 EOF
 
+cat > test_dir/REPO.bazel <<'EOF'
+repo(default_visibility='//visibility:private',default_testonly=False)
+EOF
+
+cat > test_dir/VENDOR.bazel << 'EOF'
+ignore ('foo')
+EOF
+
 cp test_dir/foo.bar golden/foo.bar
 cp test_dir/subdir/build golden/build
 cp test_dir/.git/git.bzl golden/git.bzl
@@ -255,6 +263,17 @@ bazel_dep(name = "weird_dep", version = "3.19.0", dev_dependency = "True" == "Tr
 bazel_dep(name = "yet_another_prod_dep", version = "3.19.0")
 EOF
 
+cat > golden/REPO.bazel.golden <<'EOF'
+repo(
+    default_testonly = False,
+    default_visibility = "//visibility:private",
+)
+EOF
+
+cat > golden/VENDOR.bazel.golden <<'EOF'
+ignore("foo")
+EOF
+
 cat > golden/.buildifier.example.json <<EOF
 {
   "type": "auto",
@@ -271,7 +290,6 @@ cat > golden/.buildifier.example.json <<EOF
     "attr-single-file",
     "build-args-kwargs",
     "bzl-visibility",
-    "canonical-repository",
     "confusing-name",
     "constant-glob",
     "ctx-actions",
@@ -283,7 +301,6 @@ cat > golden/.buildifier.example.json <<EOF
     "dict-concatenation",
     "dict-method-named-arg",
     "duplicated-name",
-    "external-path",
     "filetype",
     "function-docstring",
     "function-docstring-args",
@@ -295,6 +312,7 @@ cat > golden/.buildifier.example.json <<EOF
     "keyword-positional-params",
     "list-append",
     "load",
+    "make-location",
     "module-docstring",
     "name-conventions",
     "native-android",
@@ -377,6 +395,8 @@ diff -u stdout golden/test.bzl.golden
 diff -u test_dir/.git/git.bzl golden/git.bzl
 diff -u test_dir/excluded/nested/excluded.bzl golden/excluded.bzl
 diff -u test_dir/MODULE.bazel golden/MODULE.bazel.golden
+diff -u test_dir/REPO.bazel golden/REPO.bazel.golden
+diff -u test_dir/VENDOR.bazel golden/VENDOR.bazel.golden
 diff -u test_dir/.buildifier.example.json golden/.buildifier.example.json
 
 # Test run on a directory without -r
@@ -437,11 +457,11 @@ test_dir/to_fix_tmp.bzl: applied fixes, 2 warnings left
 fixed test_dir/to_fix_tmp.bzl
 EOF
 
-error_bzl="test_dir/to_fix_tmp.bzl:1: bzl-visibility: Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//to_fix_tmp.bzl\". (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#bzl-visibility)"
-error_docstring="test_dir/to_fix_tmp.bzl:1: module-docstring: The file has no module docstring."$'\n'"A module docstring is a string literal (not a comment) which should be the first statement of a file (it may follow comment lines). (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#module-docstring)"
-error_integer="test_dir/to_fix_tmp.bzl:4: integer-division: The \"/\" operator for integer division is deprecated in favor of \"//\". (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#integer-division)"
-error_dict="test_dir/to_fix_tmp.bzl:5: unsorted-dict-items: Dictionary items are out of their lexicographical order. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#unsorted-dict-items)"
-error_cfg="test_dir/to_fix_tmp.bzl:6: attr-cfg: cfg = \"data\" for attr definitions has no effect and should be removed. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#attr-cfg)"
+error_bzl="test_dir/to_fix_tmp.bzl:1: bzl-visibility: Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//to_fix_tmp.bzl\". (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#bzl-visibility)"
+error_docstring="test_dir/to_fix_tmp.bzl:1: module-docstring: The file has no module docstring."$'\n'"A module docstring is a string literal (not a comment) which should be the first statement of a file (it may follow comment lines). (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#module-docstring)"
+error_integer="test_dir/to_fix_tmp.bzl:4: integer-division: The \"/\" operator for integer division is deprecated in favor of \"//\". (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division)"
+error_dict="test_dir/to_fix_tmp.bzl:5: unsorted-dict-items: Dictionary items are out of their lexicographical order. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#unsorted-dict-items)"
+error_cfg="test_dir/to_fix_tmp.bzl:6: attr-cfg: cfg = \"data\" for attr definitions has no effect and should be removed. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#attr-cfg)"
 
 test_lint () {
   ret=0
@@ -486,12 +506,12 @@ EOF
   diff -u test_dir/fix_report golden/fix_report_golden || die "$1: wrong console output for --lint=fix"
 }
 
-test_lint "default" "" "test_dir/fixed_golden.bzl" "$error_bzl"$'\n'"$error_docstring"$'\n'"$error_integer"$'\n'"$error_cfg" 2
-test_lint "all" "--warnings=all" "test_dir/fixed_golden_all.bzl" "$error_bzl"$'\n'"$error_docstring"$'\n'"$error_integer"$'\n'"$error_dict"$'\n'"$error_cfg" 2
+test_lint "default" "" "test_dir/fixed_golden.bzl" "$error_docstring"$'\n'"$error_bzl"$'\n'"$error_integer"$'\n'"$error_cfg" 2
+test_lint "all" "--warnings=all" "test_dir/fixed_golden_all.bzl" "$error_docstring"$'\n'"$error_bzl"$'\n'"$error_integer"$'\n'"$error_dict"$'\n'"$error_cfg" 2
 test_lint "cfg" "--warnings=attr-cfg" "test_dir/fixed_golden_cfg.bzl" "$error_cfg" 0
 test_lint "custom" "--warnings=-bzl-visibility,-integer-division,+unsorted-dict-items" "test_dir/fixed_golden_dict_cfg.bzl" "$error_docstring"$'\n'"$error_dict"$'\n'"$error_cfg" 1
 
-# Test --format=json
+# Test --format=json and --format=sarif
 
 mkdir test_dir/json
 cp test_dir/to_fix.bzl test_dir/json
@@ -538,7 +558,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": false,
                     "message": "Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//json/to_fix.bzl\".",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#bzl-visibility"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#bzl-visibility"
                 },
                 {
                     "start": {
@@ -553,7 +573,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": true,
                     "message": "The \"/\" operator for integer division is deprecated in favor of \"//\".",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#integer-division"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division"
                 },
                 {
                     "start": {
@@ -568,7 +588,7 @@ cat > golden/json_report_golden <<EOF
                     "actionable": true,
                     "autoFixable": true,
                     "message": "cfg = \"data\" for attr definitions has no effect and should be removed.",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#attr-cfg"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#attr-cfg"
                 }
             ]
         },
@@ -642,6 +662,259 @@ cat > golden/json_report_invalid_file_golden <<EOF
 }
 EOF
 
+cat > golden/sarif_report_golden <<'EOF'
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "buildifier",
+                    "informationUri": "https://github.com/bazel-contrib/buildtools/tree/main/buildifier",
+                    "rules": [
+                        {
+                            "id": "bzl-visibility",
+                            "helpUri": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#bzl-visibility"
+                        },
+                        {
+                            "id": "integer-division",
+                            "helpUri": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division"
+                        },
+                        {
+                            "id": "attr-cfg",
+                            "helpUri": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#attr-cfg"
+                        },
+                        {
+                            "id": "format",
+                            "shortDescription": {
+                                "text": "The file is not formatted according to buildifier's rules."
+                            }
+                        }
+                    ]
+                }
+            },
+            "columnKind": "unicodeCodePoints",
+            "results": [
+                {
+                    "ruleId": "bzl-visibility",
+                    "ruleIndex": 0,
+                    "level": "warning",
+                    "message": {
+                        "text": "Module \"//foo/bar/internal/baz:module.bzl\" can only be loaded from files located inside \"//foo/bar\", not from \"//json/to_fix.bzl\"."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "to_fix.bzl"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 6,
+                                    "endLine": 1,
+                                    "endColumn": 41
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "integer-division",
+                    "ruleIndex": 1,
+                    "level": "warning",
+                    "message": {
+                        "text": "The \"/\" operator for integer division is deprecated in favor of \"//\"."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "to_fix.bzl"
+                                },
+                                "region": {
+                                    "startLine": 4,
+                                    "startColumn": 5,
+                                    "endLine": 4,
+                                    "endColumn": 10
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "attr-cfg",
+                    "ruleIndex": 2,
+                    "level": "warning",
+                    "message": {
+                        "text": "cfg = \"data\" for attr definitions has no effect and should be removed."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "to_fix.bzl"
+                                },
+                                "region": {
+                                    "startLine": 6,
+                                    "startColumn": 15,
+                                    "endLine": 6,
+                                    "endColumn": 27
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "format",
+                    "ruleIndex": 3,
+                    "level": "warning",
+                    "message": {
+                        "text": "The file needs to be reformatted."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "to_fix_2.bzl"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "format",
+                    "ruleIndex": 3,
+                    "level": "warning",
+                    "message": {
+                        "text": "The file needs to be reformatted."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "to_fix_3.bzl"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+EOF
+
+cat > golden/sarif_report_small_golden <<'EOF'
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "buildifier",
+                    "informationUri": "https://github.com/bazel-contrib/buildtools/tree/main/buildifier",
+                    "rules": []
+                }
+            },
+            "columnKind": "unicodeCodePoints",
+            "results": []
+        }
+    ]
+}
+EOF
+
+cat > golden/sarif_report_stdin_golden <<'EOF'
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "buildifier",
+                    "informationUri": "https://github.com/bazel-contrib/buildtools/tree/main/buildifier",
+                    "rules": [
+                        {
+                            "id": "format",
+                            "shortDescription": {
+                                "text": "The file is not formatted according to buildifier's rules."
+                            }
+                        }
+                    ]
+                }
+            },
+            "columnKind": "unicodeCodePoints",
+            "results": [
+                {
+                    "ruleId": "format",
+                    "ruleIndex": 0,
+                    "level": "warning",
+                    "message": {
+                        "text": "The file needs to be reformatted."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "%3Cstdin%3E"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+EOF
+
+cat > golden/sarif_report_invalid_file_golden <<'EOF'
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "buildifier",
+                    "informationUri": "https://github.com/bazel-contrib/buildtools/tree/main/buildifier",
+                    "rules": [
+                        {
+                            "id": "parse-error",
+                            "shortDescription": {
+                                "text": "The file is not a valid Starlark file."
+                            }
+                        }
+                    ]
+                }
+            },
+            "columnKind": "unicodeCodePoints",
+            "results": [
+                {
+                    "ruleId": "parse-error",
+                    "ruleIndex": 0,
+                    "level": "error",
+                    "message": {
+                        "text": "The file could not be parsed."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "foo.bar"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+EOF
+
 cd test_dir/json
 
 $buildifier --mode=check --format=json --lint=warn --warnings=-module-docstring -v to_fix.bzl to_fix_2.bzl to_fix_3.bzl to_fix_4.bzl > json_report
@@ -655,6 +928,18 @@ diff -u json_report ../../golden/json_report_stdin_golden || die "$1: wrong cons
 
 $buildifier --mode=check --format=json --lint=warn --warnings=-module-docstring -v to_fix_4.bzl foo.bar > json_report
 diff -u json_report ../../golden/json_report_invalid_file_golden || die "$1: wrong console output for --mode=check --format=json --lint=warn with an invalid file"
+
+$buildifier --mode=check --format=sarif --lint=warn --warnings=-module-docstring -v to_fix.bzl to_fix_2.bzl to_fix_3.bzl to_fix_4.bzl > sarif_report
+diff -u sarif_report ../../golden/sarif_report_golden || die "$1: wrong console output for --mode=check --format=sarif --lint=warn with many files"
+
+$buildifier --mode=check --format=sarif --lint=warn --warnings=-module-docstring -v to_fix_4.bzl > sarif_report
+diff -u sarif_report ../../golden/sarif_report_small_golden || die "$1: wrong console output for --mode=check --format=sarif --lint=warn with a single file"
+
+$buildifier --mode=check --format=sarif --lint=warn --warnings=-module-docstring -v < to_fix_2.bzl > sarif_report
+diff -u sarif_report ../../golden/sarif_report_stdin_golden || die "$1: wrong console output for --mode=check --format=sarif --lint=warn with stdin"
+
+$buildifier --mode=check --format=sarif --lint=warn --warnings=-module-docstring -v to_fix_4.bzl foo.bar > sarif_report
+diff -u sarif_report ../../golden/sarif_report_invalid_file_golden || die "$1: wrong console output for --mode=check --format=sarif --lint=warn with an invalid file"
 
 cd ../..
 
@@ -691,7 +976,7 @@ load(":nonexistent.bzl", "foo2", "bar2")
 EOF
 
 cat > report_golden <<EOF
-BUILD:1: deprecated-function: The function "bar" defined in "//lib.bzl" is deprecated. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#deprecated-function)
+BUILD:1: deprecated-function: The function "bar" defined in "//lib.bzl" is deprecated. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#deprecated-function)
 EOF
 
 $buildifier --lint=warn --warnings=deprecated-function BUILD 2> report || ret=$?
@@ -721,11 +1006,73 @@ cat > buildifier.tables <<EOF
 EOF
 
 cat > report_golden <<EOF
-BUILD:1: allowed-symbol-load-locations: Symbol "s1" must be loaded from :z.bzl. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
-BUILD:2: allowed-symbol-load-locations: Symbol "s3" must be loaded from one of the allowed locations: :x.bzl, :y.bzl. (https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
+BUILD:1: allowed-symbol-load-locations: Symbol "s1" must be loaded from :z.bzl. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
+BUILD:2: allowed-symbol-load-locations: Symbol "s3" must be loaded from one of the allowed locations: :x.bzl, :y.bzl. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#allowed-symbol-load-locations)
 EOF
 
 $buildifier --lint=warn --warnings=allowed-symbol-load-locations -tables=buildifier.tables BUILD 2> report || true
 diff -u report_golden report || die "$1: wrong console output for allowed symbol load locations"
 
 cd ../..
+
+# Test that buildifier cannot write to symlinks pointing outside the workspace or directory
+if [[ "$(uname -s)" == "Linux" ]]; then
+# 1. Inside a workspace: symlink pointing outside the workspace should fail
+mkdir -p test_dir/symlinks_ws/ws
+mkdir -p test_dir/symlinks_ws/outside
+touch test_dir/symlinks_ws/ws/WORKSPACE.bazel
+UNFORMATTED="foo( b=2, a=1 )"
+echo "$UNFORMATTED" > test_dir/symlinks_ws/outside/target.bzl
+ln -s ../outside/target.bzl test_dir/symlinks_ws/ws/symlink_outside.bzl
+
+ret=0
+"$buildifier" test_dir/symlinks_ws/ws/symlink_outside.bzl 2> /dev/null || ret=$?
+if [[ $ret -ne 3 ]]; then
+  die "Symlink outside workspace: expected buildifier to exit with 3, actual: $ret"
+fi
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl || die "Symlink outside workspace should not modify target file"
+
+# Disabling symlink safety via flag should allow modifying target through symlink
+"$buildifier" --disable_symlink_safety test_dir/symlinks_ws/ws/symlink_outside.bzl || die "Symlink outside workspace with --disable_symlink_safety: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl > /dev/null && die "Symlink outside workspace with --disable_symlink_safety: target file should be formatted"
+
+# Disabling symlink safety via config file should allow modifying target through symlink
+echo "$UNFORMATTED" > test_dir/symlinks_ws/outside/target.bzl
+echo '{"disable_symlink_safety": true}' > test_dir/symlinks_ws/ws/.buildifier.json
+"$buildifier" --config=test_dir/symlinks_ws/ws/.buildifier.json test_dir/symlinks_ws/ws/symlink_outside.bzl || die "Symlink outside workspace with .buildifier.json: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/outside/target.bzl > /dev/null && die "Symlink outside workspace with .buildifier.json: target file should be formatted"
+rm -f test_dir/symlinks_ws/ws/.buildifier.json
+
+# Symlink pointing inside the workspace should succeed
+echo "$UNFORMATTED" > test_dir/symlinks_ws/ws/target_inside.bzl
+ln -s target_inside.bzl test_dir/symlinks_ws/ws/symlink_inside.bzl
+"$buildifier" test_dir/symlinks_ws/ws/symlink_inside.bzl || die "Symlink inside workspace: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") test_dir/symlinks_ws/ws/target_inside.bzl > /dev/null && die "Symlink inside workspace: target file should be formatted"
+
+# 2. Outside a workspace: symlink pointing outside the directory should fail
+NOWS_DIR="${TEST_TMPDIR:-/tmp}/nowspace_test_$$"
+mkdir -p "$NOWS_DIR/dir"
+mkdir -p "$NOWS_DIR/outside"
+echo "$UNFORMATTED" > "$NOWS_DIR/outside/target.bzl"
+ln -s ../outside/target.bzl "$NOWS_DIR/dir/symlink_outside.bzl"
+
+ret=0
+"$buildifier" "$NOWS_DIR/dir/symlink_outside.bzl" 2> /dev/null || ret=$?
+if [[ $ret -ne 3 ]]; then
+  die "Symlink outside directory (no workspace): expected buildifier to exit with 3, actual: $ret"
+fi
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/outside/target.bzl" || die "Symlink outside directory should not modify target file"
+
+# Disabling symlink safety via flag should allow modifying target through symlink
+"$buildifier" --disable_symlink_safety "$NOWS_DIR/dir/symlink_outside.bzl" || die "Symlink outside directory with --disable_symlink_safety: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/outside/target.bzl" > /dev/null && die "Symlink outside directory with --disable_symlink_safety: target file should be formatted"
+
+# Symlink pointing inside the directory should succeed
+echo "$UNFORMATTED" > "$NOWS_DIR/dir/target_inside.bzl"
+ln -s target_inside.bzl "$NOWS_DIR/dir/symlink_inside.bzl"
+"$buildifier" "$NOWS_DIR/dir/symlink_inside.bzl" || die "Symlink inside directory: expected buildifier to succeed"
+diff -u <(echo "$UNFORMATTED") "$NOWS_DIR/dir/target_inside.bzl" > /dev/null && die "Symlink inside directory: target file should be formatted"
+
+rm -rf "$NOWS_DIR"
+fi
+

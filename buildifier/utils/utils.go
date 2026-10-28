@@ -25,8 +25,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/warn"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 )
 
 func isStarlarkFile(name string) bool {
@@ -145,6 +145,10 @@ func GetParser(inputType string) func(filename string, data []byte) (*build.File
 		return build.ParseWorkspace
 	case "module":
 		return build.ParseModule
+	case "repo":
+		return build.ParseRepo
+	case "vendor":
+		return build.ParseVendor
 	default:
 		return build.ParseDefault
 	}

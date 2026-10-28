@@ -1,0 +1,11 @@
+# Test that `type` soft keyword can be used as ordinary identifier in valid contexts.
+
+def _type_test_cases():
+    a = type
+    b = type.foo()
+    c = foo.type[0]
+    d = type(1, 2, 3)
+    e = type(type = 1)
+
+    def type(type = ""):
+        return type

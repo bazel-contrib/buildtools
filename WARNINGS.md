@@ -13,7 +13,6 @@ Warning categories supported by buildifier's linter:
   * [`attr-single-file`](#attr-single-file)
   * [`build-args-kwargs`](#build-args-kwargs)
   * [`bzl-visibility`](#bzl-visibility)
-  * [`canonical-repository`](#canonical-repository)
   * [`confusing-name`](#confusing-name)
   * [`constant-glob`](#constant-glob)
   * [`ctx-actions`](#ctx-actions)
@@ -25,7 +24,6 @@ Warning categories supported by buildifier's linter:
   * [`dict-concatenation`](#dict-concatenation)
   * [`dict-method-named-arg`](#dict-method-named-arg)
   * [`duplicated-name`](#duplicated-name)
-  * [`external-path`](#external-path)
   * [`filetype`](#filetype)
   * [`function-docstring`](#function-docstring)
   * [`function-docstring-args`](#function-docstring-args)
@@ -38,6 +36,7 @@ Warning categories supported by buildifier's linter:
   * [`list-append`](#list-append)
   * [`load`](#load)
   * [`load-on-top`](#load-on-top)
+  * [`make-location`](#make-location)
   * [`module-docstring`](#module-docstring)
   * [`name-conventions`](#name-conventions)
   * [`native-android`](#native-android)
@@ -283,35 +282,6 @@ but not from `dir/other_rule/file.bzl`.
 
 --------------------------------------------------------------------------------
 
-## <a name="canonical-repository"></a>String contains `@@` which indicates a canonical repository name reference that should be avoided
-
-  * Category name: `canonical-repository`
-  * Automatic fix: no
-  * [Suppress the warning](#suppress): `# buildifier: disable=canonical-repository`
-
-Using canonical repository names (with `@@` prefix) makes BUILD files fragile
-to repository mapping changes and external dependency updates. Canonical names
-are internal implementation details that can change between Bazel versions
-or when external dependencies are updated.
-
-Instead of using canonical names like:
-
-```python
-load("@@rules_go//go:def.bzl", "go_library")
-deps = ["@@protobuf~5.27.0//src:message"]
-```
-
-Use apparent names with single `@`:
-
-```python
-load("@rules_go//go:def.bzl", "go_library")
-deps = ["@protobuf//src:message"]
-```
-
-This makes your BUILD files more maintainable and resilient to changes.
-
---------------------------------------------------------------------------------
-
 ## <a name="confusing-name"></a>Never use `l`, `I`, or `O` as names
 
   * Category name: `confusing-name`
@@ -549,40 +519,6 @@ To fix the issue just change the name attribute of one rule/macro.
 
 --------------------------------------------------------------------------------
 
-## <a name="external-path"></a>String contains `/external/` which may indicate a dependency on external repositories that could be fragile
-
-  * Category name: `external-path`
-  * Automatic fix: no
-  * [Suppress the warning](#suppress): `# buildifier: disable=external-path`
-
-Using `/external/` paths may indicate a hard-coded dependency on external
-repository locations, which can be fragile and break when external dependencies
-are updated or reorganized.
-
-Paths containing `/external/` (without a leading `//`) may indicate:
-- Direct file system paths to external repositories
-- Dependencies that bypass Bazel's dependency management
-- Code that relies on Bazel's internal directory structure
-
-Examples that trigger this warning:
-
-```python
-srcs = ["/external/some_repo/file.h"]
-data = ["path/external/repo/data.txt"]
-```
-
-Instead, use proper Bazel labels:
-
-```python
-srcs = ["@some_repo//file.h"]
-data = ["@repo//path:data.txt"]
-```
-
-Note: This warning does not apply to main repository paths like `//external/...`
-which are legitimate Bazel labels.
-
---------------------------------------------------------------------------------
-
 ## <a name="filetype"></a>The `FileType` function is deprecated
 
   * Category name: `filetype`
@@ -758,6 +694,36 @@ Obsolete; the warning has been implemented in the formatter and the fix is now a
 
 Load statements should be first statements (with the exception of `WORKSPACE` files),
 they can follow only comments and docstrings.
+
+--------------------------------------------------------------------------------
+
+## <a name="make-location"></a>The `$(location)` make variable is deprecated
+
+  * Category name: `make-location`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=make-location`
+
+The `$(location)` and `$(locations)` make variables are legacy synonyms for
+`$(execpath)` and `$(rootpath)` whose behavior depends on the attribute being
+expanded. Use `$(execpath ...)` when you need the execution path, or
+`$(rootpath ...)` when you need the runfiles path.
+
+Examples that trigger this warning:
+
+```python
+genrule(
+    name = "example",
+    srcs = [":input"],
+    outs = ["output"],
+    cmd = "cp $(location :input) $@",
+)
+```
+
+Instead, use an explicit make variable:
+
+```python
+cmd = "cp $(execpath :input) $@",
+```
 
 --------------------------------------------------------------------------------
 
@@ -1529,7 +1495,8 @@ x = [1, 2]
 The line can often be safely removed.
 
 If you want to keep the variable, you can disable the warning by adding a
-comment `# @unused`.
+comment `# @unused`. For a function parameter, place the comment on the
+parameter itself.
 
 ```python
 x = [1, 2] # @unused
@@ -1537,8 +1504,17 @@ x = [1, 2] # @unused
 # @unused
 def f(
         x,
-        y,  # @unused
+        y  # @unused
 ):
+    pass
+```
+
+For backward compatibility, an `# @unused` comment at the end of a function
+header applies to its final parameter. New code should prefer attaching the
+comment directly to the parameter as shown above.
+
+```python
+def f(x, y):  # @unused applies to y
     pass
 ```
 

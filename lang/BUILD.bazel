@@ -22,7 +22,7 @@ go_library(
     srcs = [
         "tables.go",  # keep
     ],
-    importpath = "github.com/bazelbuild/buildtools/lang",
+    importpath = "github.com/bazel-contrib/buildtools/v10/lang",
     visibility = ["//visibility:public"],
     deps = [
         "//build_proto",  # keep

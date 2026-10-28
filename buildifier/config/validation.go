@@ -26,11 +26,11 @@ import (
 // ValidateInputType validates the value of --type
 func ValidateInputType(inputType *string) error {
 	switch *inputType {
-	case "build", "bzl", "workspace", "default", "module", "auto":
+	case "build", "bzl", "workspace", "default", "module", "repo", "vendor", "auto":
 		return nil
 
 	default:
-		return fmt.Errorf("unrecognized input type %s; valid types are build, bzl, workspace, default, module, auto", *inputType)
+		return fmt.Errorf("unrecognized input type %s; valid types are build, bzl, workspace, default, module, repo, vendor, auto", *inputType)
 	}
 }
 
@@ -40,13 +40,13 @@ func ValidateFormat(format, mode *string) error {
 	case "":
 		return nil
 
-	case "text", "json":
+	case "text", "json", "sarif":
 		if *mode != "check" {
 			return fmt.Errorf("cannot specify --format without --mode=check")
 		}
 
 	default:
-		return fmt.Errorf("unrecognized format %s; valid types are text, json", *format)
+		return fmt.Errorf("unrecognized format %s; valid types are text, json, sarif", *format)
 	}
 	return nil
 }

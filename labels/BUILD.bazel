@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "labels",
     srcs = ["labels.go"],
-    importpath = "github.com/bazelbuild/buildtools/labels",
+    importpath = "github.com/bazel-contrib/buildtools/v10/labels",
     visibility = ["//visibility:public"],
 )
 

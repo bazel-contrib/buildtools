@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/testutils"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
 )
 
 const (
@@ -32,9 +32,11 @@ const (
 	scopeWorkspace   = build.TypeWorkspace
 	scopeDefault     = build.TypeDefault
 	scopeModule      = build.TypeModule
-	scopeEverywhere  = scopeBuild | scopeBzl | scopeWorkspace | scopeDefault | scopeModule
-	scopeBazel       = scopeBuild | scopeBzl | scopeWorkspace | scopeModule
-	scopeDeclarative = scopeBuild | scopeWorkspace | scopeModule
+	scopeRepo        = build.TypeRepo
+	scopeVendor      = build.TypeVendor
+	scopeEverywhere  = scopeBuild | scopeBzl | scopeWorkspace | scopeDefault | scopeModule | scopeRepo | scopeVendor
+	scopeBazel       = scopeBuild | scopeBzl | scopeWorkspace | scopeModule | scopeRepo | scopeVendor
+	scopeDeclarative = scopeBuild | scopeWorkspace | scopeModule | scopeRepo | scopeVendor
 )
 
 // A global FileReader object that can be used by tests. If a test redefines it it must
@@ -88,6 +90,10 @@ func getFilename(fileType build.FileType) string {
 		return "test_file.bzl"
 	case build.TypeModule:
 		return "MODULE.bazel"
+	case build.TypeRepo:
+		return "REPO.bazel"
+	case build.TypeVendor:
+		return "VENDOR.bazel"
 	default:
 		return "test_file.strlrk"
 	}
@@ -359,6 +365,9 @@ cc_library(
 
 # buildifier: disable=skylark-comment
 # some comment mentioning skylark
+
+def foo(x, y): # buildifier: disable=unused-variable
+    pass
 `
 
 	f, err := build.ParseBzl("file.bzl", []byte(contents))
@@ -405,6 +414,11 @@ cc_library(
 			start:    16,
 			end:      17,
 			category: "skylark-comment",
+		},
+		{
+			start:    19,
+			end:      19,
+			category: "unused-variable",
 		},
 	}
 

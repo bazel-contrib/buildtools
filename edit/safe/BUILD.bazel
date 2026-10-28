@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "safe",
     srcs = ["buildifier.go"],
-    importpath = "github.com/bazelbuild/buildtools/edit/safe",
+    importpath = "github.com/bazel-contrib/buildtools/v10/edit/safe",
     visibility = ["//visibility:public"],
     deps = [
         "//build",

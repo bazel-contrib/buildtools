@@ -23,8 +23,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit"
 )
 
 // LintMode is an enum representing a linter mode. Can be either "warn", "fix", or "suggest"
@@ -78,7 +78,7 @@ type Replacement struct {
 }
 
 func docURL(cat string) string {
-	return "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#" + cat
+	return "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#" + cat
 }
 
 // makeFinding creates a Finding object
@@ -125,7 +125,6 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"attr-output-default":           attrOutputDefaultWarning,
 	"attr-single-file":              attrSingleFileWarning,
 	"build-args-kwargs":             argsKwargsInBuildFilesWarning,
-	"canonical-repository":          canonicalRepositoryWarning,
 	"confusing-name":                confusingNameWarning,
 	"constant-glob":                 constantGlobWarning,
 	"ctx-actions":                   ctxActionsWarning,
@@ -136,7 +135,6 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"dict-method-named-arg":         dictMethodNamedArgWarning,
 	"dict-concatenation":            dictionaryConcatenationWarning,
 	"duplicated-name":               duplicatedNameWarning,
-	"external-path":                 externalPathWarning,
 	"filetype":                      fileTypeWarning,
 	"function-docstring":            functionDocstringWarning,
 	"function-docstring-header":     functionDocstringHeaderWarning,
@@ -146,6 +144,7 @@ var FileWarningMap = map[string]func(f *build.File) []*LinterFinding{
 	"keyword-positional-params":     keywordPositionalParametersWarning,
 	"list-append":                   listAppendWarning,
 	"load":                          unusedLoadWarning,
+	"make-location":                 makeLocationVariableWarning,
 	"module-docstring":              moduleDocstringWarning,
 	"name-conventions":              nameConventionsWarning,
 	"native-build":                  nativeInBuildFilesWarning,
@@ -373,7 +372,18 @@ func FileWarnings(f *build.File, enabledWarnings []string, formatted *[]byte, mo
 			os.Exit(1)
 		}
 	}
-	sort.Slice(findings, func(i, j int) bool { return findings[i].Start.Line < findings[j].Start.Line })
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Start.Line != findings[j].Start.Line {
+			return findings[i].Start.Line < findings[j].Start.Line
+		}
+		if findings[i].Start.LineRune != findings[j].Start.LineRune {
+			return findings[i].Start.LineRune < findings[j].Start.LineRune
+		}
+		if findings[i].Category != findings[j].Category {
+			return findings[i].Category < findings[j].Category
+		}
+		return findings[i].Message < findings[j].Message
+	})
 	return findings
 }
 

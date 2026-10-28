@@ -27,9 +27,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/tables"
-	"github.com/bazelbuild/buildtools/warn"
-	"github.com/bazelbuild/buildtools/wspace"
+	"github.com/bazel-contrib/buildtools/v10/tables"
+	"github.com/bazel-contrib/buildtools/v10/warn"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 )
 
 const buildifierJSONFilename = ".buildifier.json"
@@ -93,10 +93,11 @@ func findTablesPath(file string) (string, error) {
 type Config struct {
 	// InputType determines the input file type: build (for BUILD files), bzl
 	// (for .bzl files), workspace (for WORKSPACE files), default (for generic
-	// Starlark files), module (for MODULE.bazel files)
+	// Starlark files), module (for MODULE.bazel files),
+	// repo (for REPO.bazel files), vendor (for VENDOR.bazel files),
 	// or auto (default, based on the filename)
 	InputType string `json:"type,omitempty"`
-	// Format sets the diagnostics format: text or json (default text)
+	// Format sets the diagnostics format: text, json or sarif (default text)
 	Format string `json:"format,omitempty"`
 	// Mode determines the formatting mode: check, diff, or fix (default fix)
 	Mode string `json:"mode,omitempty"`
@@ -132,6 +133,10 @@ type Config struct {
 	DisableRewrites ArrayFlags `json:"buildifier_disable,omitempty"`
 	// AllowSort specifies additional sort contexts to treat as safe
 	AllowSort ArrayFlags `json:"allowsort,omitempty"`
+
+	// Per default Buildifier will not write to symlinks pointing outside of the Bazel workspace.
+	// Setting this to true will disable this behavior.
+	DisableSymlinkSafety bool `json:"disable_symlink_safety,omitempty"`
 
 	// Help is true if the -h flag is set
 	Help bool `json:"-"`
@@ -177,17 +182,18 @@ func (c *Config) FlagSet(name string, errorHandling flag.ErrorHandling) *flag.Fl
 	flags.Var(&c.Exclude, "exclude", "path pattern to exclude when finding starlark files recursively")
 	flags.BoolVar(&c.MultiDiff, "multi_diff", c.MultiDiff, "the command specified by the -diff_command flag can diff multiple files in the style of tkdiff (default false)")
 	flags.StringVar(&c.Mode, "mode", c.Mode, "formatting mode: check, diff, or fix (default fix)")
-	flags.StringVar(&c.Format, "format", c.Format, "diagnostics format: text or json (default text)")
+	flags.StringVar(&c.Format, "format", c.Format, "diagnostics format: text, json or sarif (default text)")
 	flags.StringVar(&c.DiffCommand, "diff_command", c.DiffCommand, "command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command)")
 	flags.StringVar(&c.Lint, "lint", c.Lint, "lint mode: off, warn, or fix (default off)")
 	flags.StringVar(&c.Warnings, "warnings", c.Warnings, "comma-separated warnings used in the lint mode or \"all\"")
 	flags.StringVar(&c.WorkspaceRelativePath, "path", c.WorkspaceRelativePath, "assume BUILD file has this path relative to the workspace directory")
 	flags.StringVar(&c.TablesPath, "tables", c.TablesPath, "path to JSON file with custom table definitions which will replace the built-in tables")
 	flags.StringVar(&c.AddTablesPath, "add_tables", c.AddTablesPath, "path to JSON file with custom table definitions which will be merged with the built-in tables")
-	flags.StringVar(&c.InputType, "type", c.InputType, "Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), default (for generic Starlark files) or auto (default, based on the filename)")
+	flags.StringVar(&c.InputType, "type", c.InputType, "Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename)")
 	flags.StringVar(&c.ConfigPath, "config", "", "path to .buildifier.json config file")
 	flags.Var(&c.AllowSort, "allowsort", "additional sort contexts to treat as safe")
 	flags.Var(&c.DisableRewrites, "buildifier_disable", "list of buildifier rewrites to disable")
+	flags.BoolVar(&c.DisableSymlinkSafety, "disable_symlink_safety", c.DisableSymlinkSafety, "per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior")
 
 	return flags
 }

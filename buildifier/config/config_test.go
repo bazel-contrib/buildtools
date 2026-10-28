@@ -53,7 +53,6 @@ func ExampleExample() {
 	//     "attr-single-file",
 	//     "build-args-kwargs",
 	//     "bzl-visibility",
-	//     "canonical-repository",
 	//     "confusing-name",
 	//     "constant-glob",
 	//     "ctx-actions",
@@ -65,7 +64,6 @@ func ExampleExample() {
 	//     "dict-concatenation",
 	//     "dict-method-named-arg",
 	//     "duplicated-name",
-	//     "external-path",
 	//     "filetype",
 	//     "function-docstring",
 	//     "function-docstring-args",
@@ -77,6 +75,7 @@ func ExampleExample() {
 	//     "keyword-positional-params",
 	//     "list-append",
 	//     "load",
+	//     "make-location",
 	//     "module-docstring",
 	//     "name-conventions",
 	//     "native-android",
@@ -160,8 +159,9 @@ func ExampleFlagSet() {
 	// config: path to .buildifier.json config file ("")
 	// d: alias for -mode=diff ("false")
 	// diff_command: command to run when the formatting mode is diff (default uses the BUILDIFIER_DIFF, BUILDIFIER_MULTIDIFF, and DISPLAY environment variables to create the diff command) ("")
+	// disable_symlink_safety: per default Buildifier will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior ("false")
 	// exclude: path pattern to exclude when finding starlark files recursively ("")
-	// format: diagnostics format: text or json (default text) ("")
+	// format: diagnostics format: text, json or sarif (default text) ("")
 	// help: print usage information ("false")
 	// lint: lint mode: off, warn, or fix (default off) ("")
 	// mode: formatting mode: check, diff, or fix (default fix) ("")
@@ -169,7 +169,7 @@ func ExampleFlagSet() {
 	// path: assume BUILD file has this path relative to the workspace directory ("")
 	// r: find starlark files recursively ("false")
 	// tables: path to JSON file with custom table definitions which will replace the built-in tables ("")
-	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
+	// type: Input file type: build (for BUILD files), bzl (for .bzl files), workspace (for WORKSPACE files), module (for MODULE.bazel files), repo (for REPO.bazel files), vendor (for VENDOR.bazel files), default (for generic Starlark files) or auto (default, based on the filename) ("auto")
 	// v: print verbose information to standard error ("false")
 	// version: print the version of buildifier ("false")
 	// warnings: comma-separated warnings used in the lint mode or "all" ("")
@@ -186,6 +186,7 @@ func ExampleFlagSet_parse() {
 		"--config=/path/to/.buildifier.json",
 		"-d",
 		"--diff_command=diff",
+		"--disable_symlink_safety=true",
 		"--exclude=vendor/*",
 		"--exclude=third_party/*",
 		"--format=json",
@@ -233,7 +234,8 @@ func ExampleFlagSet_parse() {
 	//   "allowsort": [
 	//     "proto_library.deps",
 	//     "proto_library.srcs"
-	//   ]
+	//   ],
+	//   "disable_symlink_safety": true
 	// }
 }
 
@@ -261,15 +263,19 @@ func TestValidate(t *testing.T) {
 		"lint fix error":        {options: "--lint=fix --mode=check", wantErr: fmt.Errorf("--lint=fix is only compatible with --mode=fix")},
 		"format mode error":     {options: "--mode=fix --format=text", wantErr: fmt.Errorf("cannot specify --format without --mode=check")},
 		"format text":           {options: "--mode=check --format=text"},
+		"format sarif":          {options: "--mode=check --format=sarif"},
+		"format sarif error":    {options: "--mode=fix --format=sarif", wantErr: fmt.Errorf("cannot specify --format without --mode=check")},
 		"format json":           {options: "--mode=check --format=json"},
-		"format error":          {options: "--mode=check --format=foo", wantErr: fmt.Errorf("unrecognized format foo; valid types are text, json")},
+		"format error":          {options: "--mode=check --format=foo", wantErr: fmt.Errorf("unrecognized format foo; valid types are text, json, sarif")},
 		"type build":            {options: "--type=build"},
 		"type bzl":              {options: "--type=bzl"},
 		"type workspace":        {options: "--type=workspace"},
 		"type default":          {options: "--type=default"},
 		"type module":           {options: "--type=module"},
+		"type repo":             {options: "--type=repo"},
+		"type vendor":           {options: "--type=vendor"},
 		"type auto":             {options: "--type=auto"},
-		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, auto")},
+		"type error":            {options: "--type=foo", wantErr: fmt.Errorf("unrecognized input type foo; valid types are build, bzl, workspace, default, module, repo, vendor, auto")},
 		"warnings all": {options: "--warnings=all", wantWarnings: []string{
 			"allowed-symbol-load-locations",
 			"attr-applicable_licenses",
@@ -281,7 +287,6 @@ func TestValidate(t *testing.T) {
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
-			"canonical-repository",
 			"confusing-name",
 			"constant-glob",
 			"ctx-actions",
@@ -293,7 +298,6 @@ func TestValidate(t *testing.T) {
 			"dict-concatenation",
 			"dict-method-named-arg",
 			"duplicated-name",
-			"external-path",
 			"filetype",
 			"function-docstring",
 			"function-docstring-args",
@@ -305,6 +309,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -383,7 +388,6 @@ func TestValidate(t *testing.T) {
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
-			"canonical-repository",
 			"confusing-name",
 			"constant-glob",
 			"ctx-actions",
@@ -395,7 +399,6 @@ func TestValidate(t *testing.T) {
 			"dict-concatenation",
 			"dict-method-named-arg",
 			"duplicated-name",
-			"external-path",
 			"filetype",
 			"function-docstring",
 			"function-docstring-args",
@@ -407,6 +410,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -485,7 +489,6 @@ func TestValidate(t *testing.T) {
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
-			"canonical-repository",
 			"confusing-name",
 			"constant-glob",
 			"ctx-actions",
@@ -497,7 +500,6 @@ func TestValidate(t *testing.T) {
 			"dict-concatenation",
 			"dict-method-named-arg",
 			"duplicated-name",
-			"external-path",
 			"filetype",
 			"function-docstring",
 			"function-docstring-args",
@@ -509,6 +511,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",
@@ -587,7 +590,6 @@ func TestValidate(t *testing.T) {
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
-			"canonical-repository",
 			"confusing-name",
 			"constant-glob",
 			"ctx-actions",
@@ -599,7 +601,6 @@ func TestValidate(t *testing.T) {
 			"dict-concatenation",
 			"dict-method-named-arg",
 			"duplicated-name",
-			"external-path",
 			"filetype",
 			"function-docstring",
 			"function-docstring-args",
@@ -611,6 +612,7 @@ func TestValidate(t *testing.T) {
 			"keyword-positional-params",
 			"list-append",
 			"load",
+			"make-location",
 			"module-docstring",
 			"name-conventions",
 			"native-android",

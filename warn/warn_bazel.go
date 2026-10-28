@@ -20,10 +20,17 @@ package warn
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 )
+
+// locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.
+// Note that this is applied to individual string tokens in the parsed file, so we cannot
+// require a match for a closing parenthesis if we are to detect constructions like this:
+//     args = ["$(location " + src + ")", "$(location " + gen + ")"],
+var locationMakeVariableRe = regexp.MustCompile(`\$\(locations?(?:\s[^)]*)?`)
 
 func constantGlobPatternWarning(patterns *build.ListExpr) []*LinterFinding {
 	findings := []*LinterFinding{}
@@ -256,44 +263,21 @@ func printWarning(f *build.File) []*LinterFinding {
 	return findings
 }
 
-func externalPathWarning(f *build.File) []*LinterFinding {
-	if f.Type == build.TypeDefault {
-		// Only applicable to Bazel files
+func makeLocationVariableWarning(f *build.File) []*LinterFinding {
+	if f.Type != build.TypeBuild && f.Type != build.TypeBzl {
 		return nil
 	}
 
 	findings := []*LinterFinding{}
 	build.Walk(f, func(expr build.Expr, stack []build.Expr) {
-		// Look for any string expression that contains "/external/"
 		stringExpr, ok := expr.(*build.StringExpr)
 		if !ok {
 			return
 		}
-		// Warn for "/external/" but not if "//" appears in the string (main repository paths)
-		if strings.Contains(stringExpr.Value, "/external/") && !strings.Contains(stringExpr.Value, "//") {
+		if locationMakeVariableRe.MatchString(stringExpr.Value) {
 			findings = append(findings,
-				makeLinterFinding(stringExpr, `String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`))
-		}
-	})
-	return findings
-}
-
-func canonicalRepositoryWarning(f *build.File) []*LinterFinding {
-	if f.Type == build.TypeDefault {
-		// Only applicable to Bazel files
-		return nil
-	}
-
-	findings := []*LinterFinding{}
-	build.Walk(f, func(expr build.Expr, stack []build.Expr) {
-		// Look for any string expression that contains "@@"
-		stringExpr, ok := expr.(*build.StringExpr)
-		if !ok {
-			return
-		}
-		if strings.Contains(stringExpr.Value, "@@") {
-			findings = append(findings,
-				makeLinterFinding(stringExpr, `String contains "@@" which indicates a canonical repository name reference that should be avoided.`))
+				makeLinterFinding(stringExpr,
+					`The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`))
 		}
 	})
 	return findings
