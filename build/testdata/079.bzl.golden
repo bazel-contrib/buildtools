@@ -50,7 +50,7 @@ def well_commented[
     # comment after U
 ](
         x: T,  # comment about x
-        y: U  # comment about y
+        y: U,  # comment about y
         # comment after y
 ) -> T:  # comment after type
     # comment in body

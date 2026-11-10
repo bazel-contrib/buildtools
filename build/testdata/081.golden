@@ -1,0 +1,30 @@
+def same_line(
+        x,
+        y):
+    pass
+
+def separate_line(
+        x,
+        y,
+):
+    pass
+
+def typed(
+        x: int,
+) -> int:
+    return x
+
+def generic[T](
+        # comment
+):
+    pass
+
+def varargs(
+        *args,
+):
+    pass
+
+def kwargs(
+        **kwargs,
+):
+    pass
