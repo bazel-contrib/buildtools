@@ -17,6 +17,10 @@ limitations under the License.
 package utils
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -163,5 +167,72 @@ func TestIsStarlarkFile(t *testing.T) {
 		if isStarlarkFile(tc.filename) != tc.ok {
 			t.Errorf("Wrong result for %q, want %t", tc.filename, tc.ok)
 		}
+	}
+}
+
+func TestExpandDirectoriesExcludesPaths(t *testing.T) {
+	root := t.TempDir()
+	for _, filename := range []string{
+		"BUILD",
+		"included/defs.bzl",
+		"excluded/direct.bzl",
+		"excluded/nested/BUILD.bazel",
+		"other/skip.sky",
+		"other/keep.star",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(filename))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	args := []string{root}
+	files, err := ExpandDirectories(
+		&args,
+		filepath.Join(root, "excluded", "*"),
+		filepath.Join(root, "*", "skip.sky"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		filepath.Join(root, "BUILD"),
+		filepath.Join(root, "included", "defs.bzl"),
+		filepath.Join(root, "other", "keep.star"),
+	}
+	if !reflect.DeepEqual(files, want) {
+		t.Errorf("ExpandDirectories() = %q, want %q", files, want)
+	}
+}
+
+func TestMatchPathAllowsWildcardsAcrossSeparators(t *testing.T) {
+	for _, tc := range []struct {
+		pattern  string
+		filename string
+		want     bool
+	}{
+		{pattern: "./vendor/*", filename: "vendor/direct.bzl", want: true},
+		{pattern: "./vendor/*", filename: "vendor/nested/defs.bzl", want: true},
+		{pattern: "./vendor/*.bzl", filename: "vendor/nested/defs.bzl", want: true},
+		{pattern: "./vendor/*.bzl", filename: "third_party/defs.bzl", want: false},
+	} {
+		got, err := matchPath(tc.pattern, tc.filename)
+		if err != nil {
+			t.Errorf("matchPath(%q, %q) returned error: %v", tc.pattern, tc.filename, err)
+		} else if got != tc.want {
+			t.Errorf("matchPath(%q, %q) = %t, want %t", tc.pattern, tc.filename, got, tc.want)
+		}
+	}
+}
+
+func TestExpandDirectoriesRejectsInvalidExcludePattern(t *testing.T) {
+	args := []string{t.TempDir()}
+	_, err := ExpandDirectories(&args, "[")
+	if err == nil || !strings.Contains(err.Error(), "syntax error in pattern") {
+		t.Fatalf("ExpandDirectories() error = %v, want invalid pattern error", err)
 	}
 }
