@@ -191,8 +191,12 @@ func (b *buildifier) run(args []string) int {
 	} else {
 		files := args
 		if b.config.Recursive {
-			var err error
-			files, err = utils.ExpandDirectories(&args)
+			excluder, err := utils.NewExcluder(b.config.Exclude, b.config.RespectBazelignore)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "buildifier: %v\n", err)
+				return 3
+			}
+			files, err = utils.ExpandDirectories(&args, excluder)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "buildifier: %v\n", err)
 				return 3

@@ -32,6 +32,20 @@ in a directory recursively:
 buildifier -r path/to/dir
 ```
 
+Paths can be excluded from recursive discovery with repeatable `-exclude`
+patterns. Patterns use the syntax of Bazel's `glob()`: `*` and `?` match within a
+single path segment and `**` matches any number of segments. They are relative to
+the workspace root, wherever buildifier runs, and use forward slashes on every
+platform. A pattern matching a directory excludes everything below it:
+
+```bash
+buildifier -r -exclude='third_party/**/vendor' -exclude='**/node_modules' .
+```
+
+By default, the paths listed in the workspace's `.bazelignore` and the patterns
+passed to `ignore_directories()` in its `REPO.bazel` are excluded too. Use
+`-respect_bazelignore=false` to discover them anyway.
+
 Buildifier supports the following file types: `BUILD`, `WORKSPACE`, `.bzl`, and
 default, the latter is reserved for Starlark files buildifier doesn't know about
 (e.g. configuration files for third-party projects that use Starlark). The

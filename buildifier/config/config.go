@@ -37,7 +37,8 @@ const buildifierJSONFilename = ".buildifier.json"
 // New constructs a Config with default values.
 func New() *Config {
 	return &Config{
-		InputType: "auto",
+		InputType:          "auto",
+		RespectBazelignore: true,
 	}
 }
 
@@ -111,6 +112,13 @@ type Config struct {
 	WarningsList []string `json:"warningsList,omitempty"`
 	// Recursive instructs buildifier to find starlark files recursively
 	Recursive bool `json:"recursive,omitempty"`
+	// Exclude contains glob() patterns, relative to the workspace root, to skip
+	// during recursive file discovery
+	Exclude ArrayFlags `json:"exclude,omitempty"`
+	// RespectBazelignore also skips the paths ignored by the workspace's
+	// .bazelignore and the ignore_directories() of its REPO.bazel during
+	// recursive file discovery
+	RespectBazelignore bool `json:"respectBazelignore"`
 	// Verbose instructs buildifier to output verbose diagnostics
 	Verbose bool `json:"verbose,omitempty"`
 	// DiffCommand is the command to run when the formatting mode is diff
@@ -177,6 +185,8 @@ func (c *Config) FlagSet(name string, errorHandling flag.ErrorHandling) *flag.Fl
 	flags.BoolVar(&c.Verbose, "v", c.Verbose, "print verbose information to standard error")
 	flags.BoolVar(&c.DiffMode, "d", c.DiffMode, "alias for -mode=diff")
 	flags.BoolVar(&c.Recursive, "r", c.Recursive, "find starlark files recursively")
+	flags.Var(&c.Exclude, "exclude", "glob() pattern, relative to the workspace root, to exclude when finding starlark files recursively")
+	flags.BoolVar(&c.RespectBazelignore, "respect_bazelignore", c.RespectBazelignore, "also exclude the paths ignored by .bazelignore and the ignore_directories() of REPO.bazel when finding starlark files recursively")
 	flags.BoolVar(&c.MultiDiff, "multi_diff", c.MultiDiff, "the command specified by the -diff_command flag can diff multiple files in the style of tkdiff (default false)")
 	flags.StringVar(&c.Mode, "mode", c.Mode, "formatting mode: check, diff, or fix (default fix)")
 	flags.StringVar(&c.Format, "format", c.Format, "diagnostics format: text, json or sarif (default text)")
