@@ -112,6 +112,47 @@ register_toolchains(
 		scopeBuild)
 }
 
+func TestPositionalArgumentsWithLoadedHelpersAndMacros(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"test/package/helpers.bzl": `
+def _resolve(label):
+  return str(native.package_relative_label(label))
+
+def flags_from_dict(flags):
+  return {
+      _resolve(k): v
+      for k, v in flags.items()
+      if native.repo_name() != "" or native.module_name() != None or native.module_version() != None
+  }
+
+def list_subpackages(pattern):
+  _ = native.package_default_visibility()
+  return native.subpackages(include = [pattern])
+
+def register_all(tc, ep):
+  native.register_toolchains(tc)
+  native.register_execution_platforms(ep)
+
+def real_macro(name, srcs):
+  native.cc_library(name = name, srcs = srcs)
+`,
+	})()
+
+	checkFindings(t, "positional-args", `
+load(":helpers.bzl", "flags_from_dict", "list_subpackages", "real_macro", "register_all")
+
+FLAGS = flags_from_dict({":flag": "on"})
+SUBPKGS = list_subpackages("*")
+register_all("//tc:all", "//ep:all")
+real_macro("lib", ["foo.cc"])
+`,
+		[]string{
+			`6: All calls to rules or macros should pass arguments by keyword (arg_name=value) syntax.
+Found call to rule or macro "real_macro" with positional arguments.`,
+		},
+		scopeBuild)
+}
+
 func TestPositionalArgumentsWarnsForPositionalMacrosOrRuleCalls(t *testing.T) {
 	checkFindings(t, "positional-args", `
 my_macro = macro()

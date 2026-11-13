@@ -227,8 +227,11 @@ func (ma macroAnalyzer) IsRuleOrMacro(fn function) (report functionReport) {
 	// Check for native rules
 	if fn.filename == nativeModule {
 		switch fn.name {
-		case "glob", "existing_rule", "existing_rules", "package_name",
-			"repository_name", "exports_files":
+		case "glob", "subpackages", "existing_rule", "existing_rules",
+			"package_name", "package_default_visibility", "package_relative_label",
+			"repo_name", "repository_name", "module_name", "module_version",
+			"exports_files", "package", "licenses", "distribs",
+			"register_toolchains", "register_execution_platforms":
 			// Not a rule
 		default:
 			report.isRuleOrMacro = true

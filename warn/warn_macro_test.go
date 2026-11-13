@@ -31,24 +31,41 @@ def macro(x):
 def not_macro(x):
   foo()
   native.glob()
+  native.subpackages()
   native.existing_rule()
   native.existing_rules()
   native.package_name()
+  native.package_default_visibility()
+  native.package_relative_label()
+  native.repo_name()
   native.repository_name()
+  native.module_name()
+  native.module_version()
   native.exports_files()
+  native.package()
+  native.licenses()
+  native.distribs()
+  native.register_toolchains()
+  native.register_execution_platforms()
   return my_rule
 
 def another_macro(x):
   foo()
   [native.cc_library() for i in x]
+
+def pkg_group_macro(x):
+  native.package_group(name = x)
 `,
 		[]string{
 			`5: The macro "macro" should have a keyword argument called "name".
 
 It is considered a macro because it calls a rule or another macro "my_rule" on line 7.`,
-			`19: The macro "another_macro" should have a keyword argument called "name".
+			`30: The macro "another_macro" should have a keyword argument called "name".
 
-It is considered a macro because it calls a rule or another macro "native.cc_library" on line 21.`,
+It is considered a macro because it calls a rule or another macro "native.cc_library" on line 32.`,
+			`34: The macro "pkg_group_macro" should have a keyword argument called "name".
+
+It is considered a macro because it calls a rule or another macro "native.package_group" on line 35.`,
 		},
 		scopeBzl)
 
