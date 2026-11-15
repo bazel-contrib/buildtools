@@ -2,6 +2,12 @@
   "homepage": "https://github.com/bazel-contrib/buildtools",
   "maintainers": [
     {
+      "email": "fabian@buildbuddy.io",
+      "github": "fmeum",
+      "github_user_id": 4312191,
+      "name": "Fabian Meumertzheim"
+    },
+    {
       "name": "Alex Eagle",
       "email": "eagle@post.harvard.edu",
       "github": "alexeagle",
