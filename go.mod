@@ -7,6 +7,7 @@ toolchain go1.27.1
 require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0
+	github.com/tailscale/hujson v0.0.0-20260302212456-ecc657c15afd
 	go.starlark.net v0.0.0-20210223155950-e043a3d3c984
 	google.golang.org/protobuf v1.36.10
 )
