@@ -50,6 +50,7 @@ func ExampleExample() {
 	//     "attr-licenses",
 	//     "attr-non-empty",
 	//     "attr-output-default",
+	//     "attr-policy",
 	//     "attr-single-file",
 	//     "build-args-kwargs",
 	//     "bzl-visibility",
@@ -142,7 +143,25 @@ func ExampleExample() {
 	//     "unreachable",
 	//     "unsorted-dict-items",
 	//     "unused-variable"
-	//   ]
+	//   ],
+	//   "attrPolicy": {
+	//     "rules": [
+	//       {
+	//         "name": "no-eternal-timeout",
+	//         "ruleKinds": [
+	//           "*_test"
+	//         ],
+	//         "attr": "timeout",
+	//         "forbidValues": [
+	//           "eternal"
+	//         ],
+	//         "allowlist": [
+	//           "//slow/..."
+	//         ],
+	//         "message": "'eternal' timeout requires approval; add the target to the attrPolicy allowlist."
+	//       }
+	//     ]
+	//   }
 	// }
 }
 
@@ -277,6 +296,7 @@ func TestValidate(t *testing.T) {
 			"attr-licenses",
 			"attr-non-empty",
 			"attr-output-default",
+			"attr-policy",
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
@@ -378,6 +398,7 @@ func TestValidate(t *testing.T) {
 			"attr-licenses",
 			"attr-non-empty",
 			"attr-output-default",
+			"attr-policy",
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
@@ -479,6 +500,7 @@ func TestValidate(t *testing.T) {
 			"attr-licenses",
 			"attr-non-empty",
 			"attr-output-default",
+			"attr-policy",
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
@@ -580,6 +602,7 @@ func TestValidate(t *testing.T) {
 			"attr-licenses",
 			"attr-non-empty",
 			"attr-output-default",
+			"attr-policy",
 			"attr-single-file",
 			"build-args-kwargs",
 			"bzl-visibility",
