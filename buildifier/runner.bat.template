@@ -26,6 +26,10 @@ if not defined buildifier_abs_path if defined RUNFILES_DIR (
 if not defined buildifier_abs_path if defined TEST_SRCDIR (
     for /f "delims=" %%i in ('where /r "%TEST_SRCDIR%" buildifier.exe 2^>nul') do if not defined buildifier_abs_path set "buildifier_abs_path=%%i"
 )
+set "buildifier_short_path=@@BUILDIFIER_SHORT_PATH@@"
+set "buildifier_short_path=%buildifier_short_path:'=%"
+if not defined buildifier_abs_path set "buildifier_abs_path=%CD%\%buildifier_short_path:/=\%"
+if defined buildifier_abs_path if not exist "%buildifier_abs_path%" set "buildifier_abs_path="
 if not defined buildifier_abs_path (
     >&2 echo Error: cannot find buildifier.exe in the Bazel runfiles manifest or directory
     exit /b 1
