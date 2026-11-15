@@ -8,16 +8,32 @@ set stripped_args=%ARGS:~1,-1%
 rem Unquote the arguments
 set stripped_args=%stripped_args:'=%
 
-rem Get the absolute path to the buildifier executable
-if exist MANIFEST (
-    set manifest_file=MANIFEST
-) else if exist "%RUNFILES_MANIFEST_FILE%" (
-    set "manifest_file=%RUNFILES_MANIFEST_FILE:/=\%"
-) else (
-    >&2 echo Error: manifest file not found
+rem Get the absolute path to the buildifier executable.
+set "manifest_file="
+set "buildifier_abs_path="
+if exist MANIFEST set "manifest_file=MANIFEST"
+if not defined manifest_file if exist "%RUNFILES_MANIFEST_FILE%" set "manifest_file=%RUNFILES_MANIFEST_FILE:/=\%"
+if not defined manifest_file if exist "%~f0.runfiles_manifest" set "manifest_file=%~f0.runfiles_manifest"
+if not defined manifest_file if exist "%~f0.runfiles\MANIFEST" set "manifest_file=%~f0.runfiles\MANIFEST"
+if defined manifest_file (
+    for /f "tokens=2" %%i in ('findstr /r "\<buildifier\.exe\>" "%manifest_file%"') do (set "buildifier_abs_path=%%i")
+)
+
+rem Bazel may provide a runfiles directory instead of a manifest.
+if not defined buildifier_abs_path if defined RUNFILES_DIR (
+    for /f "delims=" %%i in ('where /r "%RUNFILES_DIR%" buildifier.exe 2^>nul') do if not defined buildifier_abs_path set "buildifier_abs_path=%%i"
+)
+if not defined buildifier_abs_path if defined TEST_SRCDIR (
+    for /f "delims=" %%i in ('where /r "%TEST_SRCDIR%" buildifier.exe 2^>nul') do if not defined buildifier_abs_path set "buildifier_abs_path=%%i"
+)
+set "buildifier_short_path=@@BUILDIFIER_SHORT_PATH@@"
+set "buildifier_short_path=%buildifier_short_path:'=%"
+if not defined buildifier_abs_path set "buildifier_abs_path=%CD%\%buildifier_short_path:/=\%"
+if defined buildifier_abs_path if not exist "%buildifier_abs_path%" set "buildifier_abs_path="
+if not defined buildifier_abs_path (
+    >&2 echo Error: cannot find buildifier.exe in the Bazel runfiles manifest or directory
     exit /b 1
 )
-for /f "tokens=2" %%i in ('findstr /r "\<buildifier\.exe\>" "%manifest_file%"') do (set buildifier_abs_path=%%i)
 
 powershell ^
 $Files = Get-ChildItem -LiteralPath '%BUILD_WORKSPACE_DIRECTORY:/=\%' -Recurse -File -ErrorAction SilentlyContinue ^|^
