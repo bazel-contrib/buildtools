@@ -13,6 +13,7 @@ Warning categories supported by buildifier's linter:
   * [`attr-single-file`](#attr-single-file)
   * [`build-args-kwargs`](#build-args-kwargs)
   * [`bzl-visibility`](#bzl-visibility)
+  * [`canonical-repository`](#canonical-repository)
   * [`confusing-name`](#confusing-name)
   * [`constant-glob`](#constant-glob)
   * [`ctx-actions`](#ctx-actions)
@@ -24,6 +25,7 @@ Warning categories supported by buildifier's linter:
   * [`dict-concatenation`](#dict-concatenation)
   * [`dict-method-named-arg`](#dict-method-named-arg)
   * [`duplicated-name`](#duplicated-name)
+  * [`external-path`](#external-path)
   * [`filetype`](#filetype)
   * [`function-docstring`](#function-docstring)
   * [`function-docstring-args`](#function-docstring-args)
@@ -282,6 +284,35 @@ but not from `dir/other_rule/file.bzl`.
 
 --------------------------------------------------------------------------------
 
+## <a name="canonical-repository"></a>String contains `@@` which indicates a canonical repository name reference that should be avoided
+
+  * Category name: `canonical-repository`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=canonical-repository`
+
+Using canonical repository names (with `@@` prefix) makes BUILD files fragile
+to repository mapping changes and external dependency updates. Canonical names
+are internal implementation details that can change between Bazel versions
+or when external dependencies are updated.
+
+Instead of using canonical names like:
+
+```python
+load("@@rules_go//go:def.bzl", "go_library")
+deps = ["@@protobuf~5.27.0//src:message"]
+```
+
+Use apparent names with single `@`:
+
+```python
+load("@rules_go//go:def.bzl", "go_library")
+deps = ["@protobuf//src:message"]
+```
+
+This makes your BUILD files more maintainable and resilient to changes.
+
+--------------------------------------------------------------------------------
+
 ## <a name="confusing-name"></a>Never use `l`, `I`, or `O` as names
 
   * Category name: `confusing-name`
@@ -516,6 +547,40 @@ users reading a BUILD file (if they look for the rule “foo”, they may read s
 only one of the macros). It will also confuse tools that edit BUILD files.
 
 To fix the issue just change the name attribute of one rule/macro.
+
+--------------------------------------------------------------------------------
+
+## <a name="external-path"></a>String contains `/external/` which may indicate a dependency on external repositories that could be fragile
+
+  * Category name: `external-path`
+  * Automatic fix: no
+  * [Suppress the warning](#suppress): `# buildifier: disable=external-path`
+
+Using `/external/` paths may indicate a hard-coded dependency on external
+repository locations, which can be fragile and break when external dependencies
+are updated or reorganized.
+
+Paths containing `/external/` (without a leading `//`) may indicate:
+- Direct file system paths to external repositories
+- Dependencies that bypass Bazel's dependency management
+- Code that relies on Bazel's internal directory structure
+
+Examples that trigger this warning:
+
+```python
+copts = ["-iquote $(BINDIR)/external/some_repo/include"]
+args = ["./external/repo/path/data.txt"]
+```
+
+Instead, use proper Bazel labels:
+
+```python
+copts = ["-iquote $(execpath @some_repo//include:foo.h)/.."]
+args = ["$(execpath @repo//path:data.txt)"]
+```
+
+Note: This warning does not apply to main repository paths like `//external/...`
+which are legitimate Bazel labels.
 
 --------------------------------------------------------------------------------
 

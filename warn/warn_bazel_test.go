@@ -275,3 +275,115 @@ def generate_targets(name, src1, src2):
 		},
 		scopeBuild | scopeBzl)
 }
+
+func TestExternalPathWarning(t *testing.T) {
+	checkFindings(t, "external-path", `
+cc_library(
+    name = "foo",
+    srcs = ["//external/com_google_protobuf:src/google/protobuf/message.h"],
+)
+
+py_binary(
+    name = "tool",
+    srcs = ["tool.py"],
+    data = ["/external/some_repo/data.txt"],
+)
+
+java_library(
+    name = "lib",
+    srcs = glob(["*.java"]),
+    deps = ["@maven//:org_apache_commons_commons_lang3"],
+)
+
+filegroup(
+    name = "configs",
+    srcs = ["config.txt"],
+)
+
+some_rule(
+    arg1 = "normal/path/file.txt",
+    arg2 = "/external/repo/file.py",
+    arg3 = ["file1.txt", "/external/another/file.cc"],
+)
+
+def foo():
+    pass
+    """unused triple-quote string with /external/"""
+`,
+		[]string{
+			`:9: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+			`:25: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+			`:26: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+			`31: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+		},
+		scopeBazel)
+
+	// Test cases that should NOT warn (main repository paths with // prefix)
+	checkFindings(t, "external-path", `
+cc_library(
+    name = "foo",
+    srcs = ["//external/repo/file.h"],
+    hdrs = ["//external/another_repo/header.h"],
+)
+
+py_binary(
+    name = "tool",
+    srcs = ["//external/tools/tool.py"],
+    data = ["//some/path/external/nested/file.txt"],
+    args = ["//different/external/location/config.json"],
+)`,
+		[]string{},
+		scopeBazel)
+
+	// Test cases that should NOT warn (doc strings)
+	checkFindings(t, "external-path", `
+def foo():
+    """/external/"""
+    pass
+`,
+		[]string{},
+		scopeBazel)
+}
+
+func TestCanonicalRepositoryWarning(t *testing.T) {
+	checkFindings(t, "canonical-repository", `
+load("@@rules_go//go:def.bzl", "go_library")
+load("@repo//file.bzl", "symbol")  # Should NOT warn (single @)
+load("@@protobuf~5.27.0//src:defs.bzl", "proto_library")
+
+cc_library(
+    name = "test",
+    deps = ["@@rules_go//cc:toolchain"],
+    srcs = ["@@protobuf~5.27.0//src/google/protobuf:message_lite_h"],
+)
+
+py_binary(
+    name = "tool",
+    srcs = ["tool.py"],
+    data = ["@repo//file.txt"],  # Should NOT warn (single @)
+    args = ["@@some_canonical_repo//path:target"],
+)
+
+def foo():
+    pass
+    """unused triple-quote string with @@"""
+`,
+		[]string{
+			`:1: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`:3: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`:7: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`:8: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`:15: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`20: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+		},
+		scopeBazel)
+
+	// Test cases that should NOT warn (doc strings)
+	checkFindings(t, "canonical-repository", `
+def foo():
+    """@@foo"""
+    pass
+`,
+		[]string{},
+		scopeBazel)
+}
