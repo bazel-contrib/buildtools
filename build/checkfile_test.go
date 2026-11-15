@@ -22,7 +22,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/testutils"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
 )
 
 func TestFilesMatch(t *testing.T) {

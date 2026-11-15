@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/tables"
-	"github.com/bazelbuild/buildtools/testutils"
+	"github.com/bazel-contrib/buildtools/v10/tables"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
 )
 
 // List of test files that have irreversible changes (e.g. if a list is sorted only for Bzl,
@@ -526,4 +526,205 @@ func (eq *eqchecker) checkValue(v, w reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+// TestPrintDefParameterAndHeaderComments checks that comments on the final
+// parameter and comments on the function header remain distinct after
+// formatting and reparsing.
+func TestPrintDefParameterAndHeaderComments(t *testing.T) {
+	for _, param := range []string{"x", "x = None", "x: int", "x: int = 0", "*args", "**kwargs"} {
+		for _, returnType := range []string{"", " -> int"} {
+			for _, headerComment := range []string{"", "  # header"} {
+				for _, beforeParam := range []string{"", "\n    "} {
+					input := "def f(" + beforeParam + param + ",  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
+					want := "def f(\n        " + param + "  # @unused\n)" + returnType + ":" + headerComment + "\n    pass\n"
+					t.Run(input, func(t *testing.T) {
+						f, err := ParseBzl("test.bzl", []byte(input))
+						if err != nil {
+							t.Fatal(err)
+						}
+						got := Format(f)
+						if string(got) != want {
+							testutils.Tdiff(t, []byte(want), got)
+						}
+
+						// Formatting must not turn a parameter comment into a header comment.
+						reparsed, err := ParseBzl("test.bzl", got)
+						if err != nil {
+							t.Fatal(err)
+						}
+						def := reparsed.Stmt[0].(*DefStmt)
+						if comments := def.Params[0].Comment().Suffix; len(comments) != 1 || comments[0].Token != "# @unused" {
+							t.Errorf("parameter suffix comments = %v, want # @unused", comments)
+						}
+						comments := def.ColonPos.Comment().Suffix
+						if headerComment == "" && len(comments) != 0 {
+							t.Errorf("unexpected header suffix comments: %v", comments)
+						} else if headerComment != "" && (len(comments) != 1 || comments[0].Token != "# header") {
+							t.Errorf("header suffix comments = %v, want # header", comments)
+						}
+						if reformatted := Format(reparsed); !bytes.Equal(got, reformatted) {
+							t.Error("formatting is not idempotent")
+							testutils.Tdiff(t, got, reformatted)
+						}
+					})
+				}
+			}
+		}
+	}
+}
+
+// TestPrintMultipleEndOfLineComments checks that when the last parameter
+// carries more than one end-of-line comment, the additional comments are
+// aligned with the parameter rather than with the closing parenthesis, so that
+// formatting is idempotent.
+func TestPrintMultipleEndOfLineComments(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "def f(x: # type\n int # param\n):\n    pass\n",
+			want:  "def f(\n        x: int  # type\n        # param\n):\n    pass\n",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			f, err := ParseBzl("test.bzl", []byte(tc.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := Format(f)
+			if string(got) != tc.want {
+				testutils.Tdiff(t, []byte(tc.want), got)
+			}
+			reparsed, err := ParseBzl("test.bzl", got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if reformatted := Format(reparsed); !bytes.Equal(got, reformatted) {
+				t.Error("formatting is not idempotent")
+				testutils.Tdiff(t, got, reformatted)
+			}
+		})
+	}
+}
+
+func TestPrintTypeExprForceMultiLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "multiline type application",
+			input: `type T = list[
+    int,
+    str
+]
+`,
+			want: `type T = list[
+    int,
+    str
+]
+`,
+		},
+		{
+			name: "multiline type application with comments",
+			input: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str
+    # comment 3
+] = [123, "four"]
+`,
+			want: `x: list[
+    # comment 1
+    int,
+    # comment 2
+    str
+    # comment 3
+] = [123, "four"]
+`,
+		},
+		{
+			name: "multiline type list in compact type application",
+			input: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+			want: `type T = Callable[[
+    int,
+    str,
+], int]
+`,
+		},
+		{
+			name: "multiline type dict in compact type application",
+			input: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+			want: `type NumericResult = struct[{
+    "name": str,
+    "data": Sequence[_Numeric] | None,
+}, ...]
+`,
+		},
+		{
+			name: "multiline type dict in non-compact type application",
+			input: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...
+]
+`,
+			want: `type T = struct[
+    {
+        "a": int,
+        "b": str,
+    },
+    ...
+]
+`,
+		},
+		{
+			name:  "dotted type name",
+			input: "type T = typing.Sequence\n",
+			want:  "type T = typing.Sequence\n",
+		},
+		{
+			name:  "dotted type name in type application",
+			input: "type T = typing.Sequence[int]\n",
+			want:  "type T = typing.Sequence[int]\n",
+		},
+		{
+			name:  "multi-dotted type name in type application",
+			input: "type T = a.b.c.D[int, str]\n",
+			want:  "type T = a.b.c.D[int, str]\n",
+		},
+		{
+			name:  "nested dotted type names",
+			input: "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+			want:  "type T = typing.Mapping[str, typing.Sequence[int]]\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := Parse("test.bzl", []byte(tt.input))
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+			got := string(Format(f))
+			if got != tt.want {
+				t.Errorf("Format() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }

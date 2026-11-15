@@ -33,34 +33,35 @@ import (
 	"strconv"
 	"strings"
 
-	apipb "github.com/bazelbuild/buildtools/api_proto"
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit/bzlmod"
-	"github.com/bazelbuild/buildtools/file"
-	"github.com/bazelbuild/buildtools/labels"
-	"github.com/bazelbuild/buildtools/wspace"
+	apipb "github.com/bazel-contrib/buildtools/v10/api_proto"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit/bzlmod"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/labels"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )
 
 // Options represents choices about how buildozer should behave.
 type Options struct {
-	Stdout             bool      // write changed BUILD file to stdout
-	Buildifier         string    // path to buildifier binary
-	Parallelism        int       // number of cores to use for concurrent actions
-	NumIO              int       // number of concurrent actions
-	CommandsFiles      []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
-	KeepGoing          bool      // apply all commands, even if there are failures
-	FilterRuleTypes    []string  // list of rule types to change, empty means all
-	PreferEOLComments  bool      // when adding a new comment, put it on the same line if possible
-	RootDir            string    // If present, use this folder rather than $PWD to find the root dir
-	Quiet              bool      // suppress informational messages.
-	EditVariables      bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
-	IsPrintingProto    bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
-	IsPrintingJSON     bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
-	OutWriter          io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
-	ErrWriter          io.Writer // where to write error output (`os.Stderr` will be used if not specified)
-	RespectBazelignore bool      // whether to use .bazelignore file for ignoring paths
+	Stdout               bool      // write changed BUILD file to stdout
+	Buildifier           string    // path to buildifier binary
+	Parallelism          int       // number of cores to use for concurrent actions
+	NumIO                int       // number of concurrent actions
+	CommandsFiles        []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
+	KeepGoing            bool      // apply all commands, even if there are failures
+	FilterRuleTypes      []string  // list of rule types to change, empty means all
+	PreferEOLComments    bool      // when adding a new comment, put it on the same line if possible
+	RootDir              string    // If present, use this folder rather than $PWD to find the root dir
+	Quiet                bool      // suppress informational messages.
+	EditVariables        bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
+	IsPrintingProto      bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
+	IsPrintingJSON       bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
+	OutWriter            io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
+	ErrWriter            io.Writer // where to write error output (`os.Stderr` will be used if not specified)
+	RespectBazelignore   bool      // whether to use .bazelignore file for ignoring paths
+	DisableSymlinkSafety bool      // whether to disable symlink safety checks
 }
 
 // NewOpts returns a new Options struct with some defaults set.
@@ -120,7 +121,11 @@ func cmdAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
 		return nil, err
 	}
 	for _, val := range env.Args[1:] {
-		if attrType == rawAttr || (attrType == notProvidedTypeAttr && IsIntList(attr)) {
+		if attrType == rawAttr {
+			AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.Ident{Name: val}, &env.Vars)
+			continue
+		}
+		if attrType == notProvidedTypeAttr && IsIntList(attr) {
 			AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.LiteralExpr{Token: val}, &env.Vars)
 			continue
 		}
@@ -365,6 +370,21 @@ func cmdSubstituteLoad(opts *Options, env CmdEnvironment) (*build.File, error) {
 }
 
 func cmdPrint(opts *Options, env CmdEnvironment) (*build.File, error) {
+	return printAttrs(opts, env, false)
+}
+
+func cmdPrintAllLists(opts *Options, env CmdEnvironment) (*build.File, error) {
+	return printAttrs(opts, env, true)
+}
+
+func attrStrings(e build.Expr, allLists bool) []string {
+	if allLists {
+		return AllListsStrings(e)
+	}
+	return build.Strings(e)
+}
+
+func printAttrs(opts *Options, env CmdEnvironment, allLists bool) (*build.File, error) {
 	format := env.Args
 	if len(format) == 0 {
 		format = []string{"name", "kind"}
@@ -429,7 +449,7 @@ func cmdPrint(opts *Options, env CmdEnvironment) (*build.File, error) {
 				Value:             &apipb.Output_Record_Field_Text{Text: string.Value},
 				QuoteWhenPrinting: true,
 			}
-		} else if strList := env.Rule.AttrStrings(str); strList != nil {
+		} else if strList := attrStrings(value, allLists); strList != nil {
 			fields[i] = &apipb.Output_Record_Field{
 				Value: &apipb.Output_Record_Field_List{List: &apipb.RepeatedString{Strings: strList}},
 			}
@@ -994,6 +1014,7 @@ var AllCommands = map[string]CommandInfo{
 	"move":                  {cmdMove, true, 3, -1, "<old_attr> <new_attr> <value(s)>"},
 	"new":                   {cmdNew, false, 2, 4, "<rule_kind> <rule_name> [(before|after) <relative_rule_name>]"},
 	"print":                 {cmdPrint, true, 0, -1, "<attribute(s)>"},
+	"print_all_lists":       {cmdPrintAllLists, true, 0, -1, "<attribute(s)>"},
 	"remove":                {cmdRemove, true, 1, -1, "<attr> <value(s)>"},
 	"remove_comment":        {cmdRemoveComment, true, 0, 2, "<attr>? <value>?"},
 	"remove_if_equal":       {cmdRemoveIfEqual, true, 2, 2, "<attr> <value>"},
@@ -1016,8 +1037,9 @@ var AllCommands = map[string]CommandInfo{
 }
 
 var readonlyCommands = map[string]bool{
-	"print":         true,
-	"print_comment": true,
+	"print":           true,
+	"print_all_lists": true,
+	"print_comment":   true,
 }
 
 func expandTargets(f *build.File, rule string) ([]*build.Rule, error) {
@@ -1191,7 +1213,7 @@ func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) 
 	vars = make(map[string]*build.AssignExpr)
 	for _, expr := range exprs {
 		if as, ok := expr.(*build.AssignExpr); ok {
-			if lhs, ok := as.LHS.(*build.Ident); ok {
+			if lhs, ok := as.LHSIdent(); ok {
 				vars[lhs.Name] = as
 			}
 		}
@@ -1624,6 +1646,7 @@ func printRecord(writer io.Writer, record *apipb.Output_Record) {
 
 // Buildozer loops over all arguments on the command line fixing BUILD files.
 func Buildozer(opts *Options, args []string) int {
+	file.DisableSymlinkSafety = opts.DisableSymlinkSafety
 	if opts.OutWriter == nil {
 		opts.OutWriter = os.Stdout
 	}

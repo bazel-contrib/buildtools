@@ -10,7 +10,7 @@ prunings.
 Build a binary and put it into your $GOPATH/bin:
 
 ```bash
-go install github.com/bazelbuild/buildtools/unused_deps@latest
+go install github.com/bazel-contrib/buildtools/v10/unused_deps@latest
 ```
 
 ## Usage
@@ -20,3 +20,8 @@ unused_deps TARGET...
 ```
 
 Here, `TARGET` is a space-separated list of Bazel labels, with support for `:all` and `...`
+
+## Options
+
+* `-disable_symlink_safety`: By default unused_deps will not write to symlinks pointing outside of the Bazel workspace. Setting this to true will disable this behavior.
+

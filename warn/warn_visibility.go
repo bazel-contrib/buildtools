@@ -23,8 +23,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/labels"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/labels"
 )
 
 var internalDirectory = regexp.MustCompile("/(internal|private)[/:]")
@@ -48,9 +48,9 @@ func hasVisibilityStatement(f *build.File, load *build.LoadStmt, fileReader *Fil
 		}
 		// We don't try to be exhaustive here, but rather only catch the most
 		// common cases of visibility declarations.
-        if ident, ok := call.X.(*build.Ident); ok && ident.Name == "visibility" {
-            return true
-        }
+		if ident, ok := call.X.(*build.Ident); ok && ident.Name == "visibility" {
+			return true
+		}
 	}
 	return false
 }

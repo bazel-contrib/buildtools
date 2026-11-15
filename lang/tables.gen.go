@@ -1,7 +1,7 @@
 // Generated file, do not edit.
 package lang
 
-import buildpb "github.com/bazelbuild/buildtools/build_proto"
+import buildpb "github.com/bazel-contrib/buildtools/v10/build_proto"
 
 var TypeOf = map[string]buildpb.Attribute_Discriminator{
 	"$aar_embedded_jars_extractor":	buildpb.Attribute_LABEL,

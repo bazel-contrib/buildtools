@@ -26,11 +26,12 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/buildifier/config"
-	"github.com/bazelbuild/buildtools/buildifier/utils"
-	"github.com/bazelbuild/buildtools/differ"
-	"github.com/bazelbuild/buildtools/wspace"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/buildifier/config"
+	"github.com/bazel-contrib/buildtools/v10/buildifier/utils"
+	"github.com/bazel-contrib/buildtools/v10/differ"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 )
 
 var buildVersion = "redacted"
@@ -145,6 +146,7 @@ func main() {
 	// Pass down debug flags into build package
 	build.DisableRewrites = c.DisableRewrites
 	build.AllowSort = c.AllowSort
+	file.DisableSymlinkSafety = c.DisableSymlinkSafety
 
 	differ, deprecationWarning := differ.Find()
 	if c.DiffCommand != "" {
@@ -361,7 +363,7 @@ func (b *buildifier) processFile(filename string, data []byte, displayFileNames 
 			return fileDiagnostics, exitCode
 		}
 
-		err := os.WriteFile(filename, ndata, 0666)
+		err := file.WriteFileMode(filename, ndata, 0666)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "buildifier: %s\n", err)
 			return fileDiagnostics, 3

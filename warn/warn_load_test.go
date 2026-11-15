@@ -19,7 +19,7 @@ package warn
 import (
 	"testing"
 
-	"github.com/bazelbuild/buildtools/tables"
+	"github.com/bazel-contrib/buildtools/v10/tables"
 )
 
 func TestWarnLoadLocation(t *testing.T) {
