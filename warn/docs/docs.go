@@ -25,10 +25,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/warn"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 	"github.com/golang/protobuf/proto"
 
-	docspb "github.com/bazelbuild/buildtools/warn/docs/proto"
+	docspb "github.com/bazel-contrib/buildtools/v10/warn/docs/proto"
 )
 
 func readWarningsFromFile(path string) (*docspb.Warnings, error) {
@@ -90,6 +90,19 @@ Warning categories supported by buildifier's linter:
 All warnings can be disabled / suppressed / ignored by adding a special comment ` + "`" + `# buildifier: disable=<category_name>` + "`" + ` to
 the expression that causes the warning. Historically comments with ` + "`" + `buildozer` + "`" + ` instead of
 ` + "`" + `buildifier` + "`" + ` are also supported, they are equivalent.
+
+To disable multiple warnings, you can specify them as a comma-separated list on a single line:
+
+` + "```" + `python
+# buildifier: disable=warning1,warning2
+` + "```" + `
+
+Or place them on separate lines:
+
+` + "```" + `python
+# buildifier: disable=warning1
+# buildifier: disable=warning2
+` + "```" + `
 
 #### Examples
 

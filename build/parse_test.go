@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/buildtools/testutils"
+	"github.com/bazel-contrib/buildtools/v10/testutils"
 )
 
 func TestParse(t *testing.T) {
@@ -96,6 +96,13 @@ var parseTests = []struct {
 	in  string
 	out *File
 }{
+	// Reified types containing ellipsis are valid value arguments too.
+	{
+		in: `cast(value, struct[{"name": str}, ...])`,
+	},
+	{
+		in: `isinstance(struct[{"name": str}, ...], value)`,
+	},
 	{
 		in: `go_binary(name = "x"
 )
@@ -250,4 +257,171 @@ var parseTests = []struct {
 			},
 		},
 	},
+	{
+		in: `type OptionalDict[T, U] = dict[T, U] | None`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&TypeAliasStmt{
+					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
+					Name: &Ident{
+						Name:    "OptionalDict",
+						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
+					},
+					TypeParams: &ListExpr{
+						Start: Position{Line: 1, LineRune: 18, Byte: 17},
+						List: []Expr{
+							&Ident{
+								Name:    "T",
+								NamePos: Position{Line: 1, LineRune: 19, Byte: 18},
+							},
+							&Ident{
+								Name:    "U",
+								NamePos: Position{Line: 1, LineRune: 22, Byte: 21},
+							},
+						},
+						End: End{Pos: Position{Line: 1, LineRune: 23, Byte: 22}},
+					},
+					EqualPos: Position{Line: 1, LineRune: 25, Byte: 24},
+					Type: &BinaryExpr{
+						X: &TypeAppExpr{
+							Type: &Ident{
+								Name:    "dict",
+								NamePos: Position{Line: 1, LineRune: 27, Byte: 26},
+							},
+							ArgsStart: Position{Line: 1, LineRune: 31, Byte: 30},
+							Args: []Expr{
+								&Ident{
+									Name:    "T",
+									NamePos: Position{Line: 1, LineRune: 32, Byte: 31},
+								},
+								&Ident{
+									Name:    "U",
+									NamePos: Position{Line: 1, LineRune: 35, Byte: 34},
+								},
+							},
+							End:          End{Pos: Position{Line: 1, LineRune: 36, Byte: 35}},
+							ForceCompact: true,
+						},
+						Op:      "|",
+						OpStart: Position{Line: 1, LineRune: 38, Byte: 37},
+						Y: &Ident{
+							Name:    "None",
+							NamePos: Position{Line: 1, LineRune: 40, Byte: 39},
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		in: `type T = typing.Sequence[int]`,
+		out: &File{
+			Path: "test",
+			Type: TypeDefault,
+			Stmt: []Expr{
+				&TypeAliasStmt{
+					TypePos: Position{Line: 1, LineRune: 1, Byte: 0},
+					Name: &Ident{
+						Name:    "T",
+						NamePos: Position{Line: 1, LineRune: 6, Byte: 5},
+					},
+					EqualPos: Position{Line: 1, LineRune: 8, Byte: 7},
+					Type: &TypeAppExpr{
+						Type: &DotExpr{
+							X: &Ident{
+								Name:    "typing",
+								NamePos: Position{Line: 1, LineRune: 10, Byte: 9},
+							},
+							Dot:     Position{Line: 1, LineRune: 16, Byte: 15},
+							NamePos: Position{Line: 1, LineRune: 17, Byte: 16},
+							Name:    "Sequence",
+						},
+						ArgsStart: Position{Line: 1, LineRune: 25, Byte: 24},
+						Args: []Expr{
+							&Ident{
+								Name:    "int",
+								NamePos: Position{Line: 1, LineRune: 26, Byte: 25},
+							},
+						},
+						End: End{Pos: Position{Line: 1, LineRune: 29, Byte: 28}},
+					},
+				},
+			},
+		},
+	},
+}
+
+func TestParseError(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "no trailing commas in type applications",
+			in:   "x: dict[str, int,]",
+			want: "test:1:19: syntax error near ]",
+		},
+
+		{
+			name: "no unparenthesized tuples in type syntax",
+			in:   "x: str, int",
+			want: "test:1:8: syntax error near ,",
+		},
+
+		{
+			name: "no unparenthesized tuple type syntax",
+			in:   "x: str,",
+			want: "test:1:8: syntax error near ,",
+		},
+
+		// type alias errors
+		{
+			name: "type alias not at top level",
+			in:   "def f():\n  type T = int\n",
+			want: "test:2:3: syntax error: type alias not at top level",
+		},
+
+		{
+			name: "misspelled type soft keyword",
+			in:   "tpye MyInt = int\n",
+			want: "test:1:11: syntax error near MyInt",
+		},
+
+		{
+			// Check that 'type' soft keyword support doesn't break syntax error handling for
+			// other occurrences of one identifier followed by another.
+			name: "ident followed by ident syntax error",
+			in:   "foo bar\n",
+			want: "test:1:8: syntax error near bar",
+		},
+
+		// wrong order of args to cast; expecting cast(type, value)
+		{
+			name: "wrong order of arguments to cast",
+			in:   `cast(foo(bar), type)`,
+			want: "test:1:10: syntax error near (",
+		},
+
+		// wrong order of args to isinstance; expecting isinstance(value, type)
+		{
+			name: "wrong order of arguments to isinstance",
+			in:   `isinstance(type, foo(bar))`,
+			want: "test:1:22: syntax error near (",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse("test", []byte(tt.in))
+			if err == nil {
+				t.Fatalf("Parse(%q) succeeded, want error %q", tt.in, tt.want)
+			}
+			if got := err.Error(); got != tt.want {
+				t.Errorf("Parse(%q) error = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
 }

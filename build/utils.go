@@ -31,7 +31,8 @@ func GetParamIdent(param Expr) (ident *Ident, op string) {
 	case *Ident:
 		return param, ""
 	case *TypedIdent:
-		return param.Ident, ""
+		ident, _ := GetParamIdent(param.Ident)
+		return ident, ""
 	case *AssignExpr:
 		// keyword parameter
 		return GetParamIdent(param.LHS)
@@ -54,8 +55,18 @@ func GetParamIdent(param Expr) (ident *Ident, op string) {
 // str should return str
 func GetTypes(t Expr) []string {
 	switch t := t.(type) {
+	case *TypeAliasStmt:
+		return GetTypes(t.Type)
 	case *TypedIdent:
 		return GetTypes(t.Type)
+	case *TypeAppExpr:
+		ret := GetTypes(t.Type)
+		for _, x := range t.Args {
+			ret = append(ret, GetTypes(x)...)
+		}
+		return ret
+	case *EllipsisExpr:
+		return []string{}
 	case *Ident:
 		return []string{t.Name}
 	case *DefStmt:
@@ -70,11 +81,29 @@ func GetTypes(t Expr) []string {
 		right := GetTypes(t.Y)
 		return append(left, right...)
 	case *DotExpr:
-		// Special handling for skylark-rust interpreter, types are referred to by a `.type` suffix
-		if t.Name == "type" {
-			return GetTypes(t.X)
+		return GetTypes(t.X)
+	case *BinaryExpr:
+		left := GetTypes(t.X)
+		right := GetTypes(t.Y)
+		return append(left, right...)
+	case *ListExpr:
+		var ret []string
+		for _, x := range t.List {
+			ret = append(ret, GetTypes(x)...)
 		}
-		return []string{}
+		return ret
+	case *DictExpr:
+		var ret []string
+		for _, kv := range t.List {
+			ret = append(ret, GetTypes(kv.Value)...)
+		}
+		return ret
+	case *TupleExpr:
+		var ret []string
+		for _, x := range t.List {
+			ret = append(ret, GetTypes(x)...)
+		}
+		return ret
 	default:
 		return []string{}
 	}

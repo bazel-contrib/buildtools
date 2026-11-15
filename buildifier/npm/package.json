@@ -11,9 +11,9 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/bazelbuild/buildtools.git"
+        "url": "https://github.com/bazel-contrib/buildtools.git"
     },
     "bugs": {
-        "url": "https://github.com/bazelbuild/buildtools/issues"
+        "url": "https://github.com/bazel-contrib/buildtools/issues"
     }
 }

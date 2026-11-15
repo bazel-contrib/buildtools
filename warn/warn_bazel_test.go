@@ -208,84 +208,70 @@ def f(x):
 		scopeBazel)
 }
 
-func TestExternalPathWarning(t *testing.T) {
-	checkFindings(t, "external-path", `
-cc_library(
-    name = "foo",
-    srcs = ["//external/com_google_protobuf:src/google/protobuf/message.h"],
+func TestMakeLocationVariable(t *testing.T) {
+	checkFindings(t, "make-location", `
+genrule(
+    name = "a",
+    srcs = [":foo"],
+    outs = ["out"],
+    cmd = "cp $(location :foo) $@",
 )
 
-py_binary(
-    name = "tool",
-    srcs = ["tool.py"],
-    data = ["/external/some_repo/data.txt"],
+genrule(
+    name = "b",
+    srcs = [":a", ":b"],
+    outs = ["out"],
+    cmd = "cat $(locations :a :b) > $@",
 )
 
-java_library(
-    name = "lib",
-    srcs = glob(["*.java"]),
-    deps = ["@maven//:org_apache_commons_commons_lang3"],
+genrule(
+    name = "c",
+    srcs = [":foo"],
+    outs = ["out"],
+    cmd = "cp $$(location :foo) $$@",
 )
 
-filegroup(
-    name = "configs",
-    srcs = ["config.txt"],
+cc_test(
+    name = "d",
+    args = ["--config=$(execpath :cfg)"],
 )
 
-some_rule(
-    arg1 = "normal/path/file.txt", 
-    arg2 = "/external/repo/file.py",
-    arg3 = ["file1.txt", "/external/another/file.cc"],
-)`,
+load("location", "symbol")
+`,
 		[]string{
-			`:9: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
-			`:25: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
-			`:26: String contains "/external/" which may indicate a dependency on external repositories that could be fragile.`,
+			`:5: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:12: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:19: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 		},
-		scopeBazel)
+		scopeBuild | scopeBzl)
+	checkFindings(t, "make-location", `
+load("location", "symbol")
+def generate_targets(name, src1, src2):
+    native.genrule(
+        name = name + "a",
+        srcs = [src1],
+        outs = ["out"],
+        cmd = "cp $(location " + src1 + ") $@",
+    )
 
-	// Test cases that should NOT warn (main repository paths with // prefix)
-	checkFindings(t, "external-path", `
-cc_library(
-    name = "foo",
-    srcs = ["//external/repo/file.h"],
-    hdrs = ["//external/another_repo/header.h"],
-)
+    native.genrule(
+        name = name + "b",
+        srcs = [src1, src2],
+        outs = ["out"],
+        cmd = "cat $(locations " + src1 + " " + src2 + ") > $@",
+    )
 
-py_binary(
-    name = "tool",
-    srcs = ["//external/tools/tool.py"],
-    data = ["//some/path/external/nested/file.txt"],
-    args = ["//different/external/location/config.json"],
-)`,
-		[]string{},
-		scopeBazel)
-}
-
-func TestCanonicalRepositoryWarning(t *testing.T) {
-	checkFindings(t, "canonical-repository", `
-load("@@rules_go//go:def.bzl", "go_library")
-load("@repo//file.bzl", "symbol")  # Should NOT warn (single @)
-load("@@protobuf~5.27.0//src:defs.bzl", "proto_library")
-
-cc_library(
-    name = "test",
-    deps = ["@@rules_go//cc:toolchain"],
-    srcs = ["@@protobuf~5.27.0//src/google/protobuf:message_lite_h"],
-)
-
-py_binary(
-    name = "tool",
-    srcs = ["tool.py"],
-    data = ["@repo//file.txt"],  # Should NOT warn (single @)
-    args = ["@@some_canonical_repo//path:target"],
-)`,
+    native.genrule(
+        name = name + "c",
+        srcs = [src1],
+        outs = ["out"],
+        cmd = "cp $$(location " + src1 + ") $$@",
+    )
+`,
 		[]string{
-			`:1: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
-			`:3: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
-			`:7: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
-			`:8: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
-			`:15: String contains "@@" which indicates a canonical repository name reference that should be avoided.`,
+			`:7: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:14: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
+			`:21: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 		},
-		scopeBazel)
+		scopeBuild | scopeBzl)
 }

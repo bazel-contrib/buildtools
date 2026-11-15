@@ -19,9 +19,10 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/warn"
 	"strings"
+
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 )
 
 // Diagnostics contains diagnostic information returned by formatter and linter
@@ -30,7 +31,7 @@ type Diagnostics struct {
 	Files   []*FileDiagnostics `json:"files"`   // diagnostics per file
 }
 
-// Format formats a Diagnostics object either as plain text or as json
+// Format formats a Diagnostics object either as plain text, json or sarif
 func (d *Diagnostics) Format(format string, verbose bool) string {
 	switch format {
 	case "text", "":
@@ -61,6 +62,8 @@ func (d *Diagnostics) Format(format string, verbose bool) string {
 			result, _ = json.Marshal(*d)
 		}
 		return string(result) + "\n"
+	case "sarif":
+		return d.formatSarif(verbose)
 	}
 	return ""
 }

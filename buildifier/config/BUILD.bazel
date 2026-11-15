@@ -7,7 +7,7 @@ go_library(
         "jsonc.go",
         "validation.go",
     ],
-    importpath = "github.com/bazelbuild/buildtools/buildifier/config",
+    importpath = "github.com/bazel-contrib/buildtools/v10/buildifier/config",
     visibility = ["//buildifier:__pkg__"],
     deps = [
         "//tables",
