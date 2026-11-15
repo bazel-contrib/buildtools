@@ -255,7 +255,7 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 	// It's still important to know that the variable has been assigned in the
 	// current scope because it could shadow a variable with the same name from an
 	// outer scope.
-	defined = make(map[*build.Ident]bool)
+	assigned = make(map[*build.Ident]bool)
 	used = make(map[*build.Ident]bool)
 
 	// Local scopes for comprehensions
@@ -315,7 +315,7 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 			}
 
 			for _, lValue := range bzlenv.CollectLValues(expr.LHS) {
-				defined[lValue] = hasUnusedComment ||
+				assigned[lValue] = hasUnusedComment ||
 					(!allLValuesUnderscored && strings.HasPrefix(lValue.Name, "_"))
 			}
 
@@ -342,7 +342,7 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 			//     for _, (_b, c) in iterable:
 			//         print(c)
 			for _, lValue := range bzlenv.CollectLValues(expr.Vars) {
-				defined[lValue] = strings.HasPrefix(lValue.Name, "_")
+				assigned[lValue] = strings.HasPrefix(lValue.Name, "_")
 			}
 
 			// Don't traverse inside the inner statements (but still traverse into
@@ -402,7 +402,7 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 
 		case *build.TypedIdent:
 			ident := expr.GetIdent()
-			if _, ok := defined[ident]; ok {
+			if _, ok := assigned[ident]; ok {
 				// If the same ident (not the same variable but the same AST node)
 				// is already registered as defined, it means that our TypedIdent
 				// isn't a var statemet, but the LHS of an AssignExpr that already
@@ -412,7 +412,7 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 			// Var statements declare only 1 variable, so unlike for AssignExpr,
 			// we don't need to check for allLValuesUnderscored.
 			hasUnusedComment := edit.ContainsComments(expr, "@unused")
-			defined[ident] = hasUnusedComment
+			assigned[ident] = hasUnusedComment
 
 		default:
 			// Do nothing, just traverse further
@@ -420,13 +420,13 @@ func extractIdentsFromStmt(stmt build.Expr, mutatingReceiversCountAsUsed map[str
 		return
 	})
 
-	for ident := range defined {
+	for ident := range assigned {
 		// If the same ident (not the same variable but the same AST node) is
 		// registered as both "assigned" and "used", it means it was in fact just
 		// assigned, remove it from "used".
 		delete(used, ident)
 	}
-	return defined, used
+	return assigned, used
 }
 
 // unusedVariableCheck checks for unused variables inside a given node `stmt` (either *build.File or
@@ -663,7 +663,7 @@ func getParamType(param build.Expr) build.Expr {
 //
 // Helper function for unusedVariableCheck.
 func collectUsedTypeSymbols(expr build.Expr, typeParamScope map[string]build.Expr, usedSymbolsFromTypeParams map[string]bool, usedSymbolsFromOuterScope map[string]bool) {
-	_, used := extractIdentsFromStmt(expr)
+	_, used := extractIdentsFromStmt(expr, nil)
 	for ident := range used {
 		_, ok := typeParamScope[ident.Name]
 		if ok {
