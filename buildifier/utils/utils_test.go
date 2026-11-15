@@ -47,7 +47,15 @@ func TestIsStarlarkFile(t *testing.T) {
 		},
 		{
 			filename: "build.foo.bazel",
-			ok:       false,
+			ok:       true,
+		},
+		{
+			filename: "foo.BUILD.bazel",
+			ok:       true,
+		},
+		{
+			filename: "foo.BUILD",
+			ok:       true,
 		},
 		{
 			filename: "build.foo.oss",
@@ -79,7 +87,7 @@ func TestIsStarlarkFile(t *testing.T) {
 		},
 		{
 			filename: "workspace.foo.bazel",
-			ok:       false,
+			ok:       true,
 		},
 		{
 			filename: "workspace.foo.oss",
@@ -140,6 +148,14 @@ func TestIsStarlarkFile(t *testing.T) {
 		{
 			filename: "MODULE.bazel.other",
 			ok:       false,
+		},
+		{
+			filename: "foo.bazel",
+			ok:       true,
+		},
+		{
+			filename: "REPO.bazel",
+			ok:       true,
 		},
 	}
 

@@ -33,34 +33,35 @@ import (
 	"strconv"
 	"strings"
 
-	apipb "github.com/bazelbuild/buildtools/api_proto"
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit/bzlmod"
-	"github.com/bazelbuild/buildtools/file"
-	"github.com/bazelbuild/buildtools/labels"
-	"github.com/bazelbuild/buildtools/wspace"
+	apipb "github.com/bazel-contrib/buildtools/v10/api_proto"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit/bzlmod"
+	"github.com/bazel-contrib/buildtools/v10/file"
+	"github.com/bazel-contrib/buildtools/v10/labels"
+	"github.com/bazel-contrib/buildtools/v10/wspace"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )
 
 // Options represents choices about how buildozer should behave.
 type Options struct {
-	Stdout             bool      // write changed BUILD file to stdout
-	Buildifier         string    // path to buildifier binary
-	Parallelism        int       // number of cores to use for concurrent actions
-	NumIO              int       // number of concurrent actions
-	CommandsFiles      []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
-	KeepGoing          bool      // apply all commands, even if there are failures
-	FilterRuleTypes    []string  // list of rule types to change, empty means all
-	PreferEOLComments  bool      // when adding a new comment, put it on the same line if possible
-	RootDir            string    // If present, use this folder rather than $PWD to find the root dir
-	Quiet              bool      // suppress informational messages.
-	EditVariables      bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
-	IsPrintingProto    bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
-	IsPrintingJSON     bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
-	OutWriter          io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
-	ErrWriter          io.Writer // where to write error output (`os.Stderr` will be used if not specified)
-	RespectBazelignore bool      // whether to use .bazelignore file for ignoring paths
+	Stdout               bool      // write changed BUILD file to stdout
+	Buildifier           string    // path to buildifier binary
+	Parallelism          int       // number of cores to use for concurrent actions
+	NumIO                int       // number of concurrent actions
+	CommandsFiles        []string  // file names to read commands from, use '-' for stdin (format:|-separated command line arguments to buildozer, excluding flags
+	KeepGoing            bool      // apply all commands, even if there are failures
+	FilterRuleTypes      []string  // list of rule types to change, empty means all
+	PreferEOLComments    bool      // when adding a new comment, put it on the same line if possible
+	RootDir              string    // If present, use this folder rather than $PWD to find the root dir
+	Quiet                bool      // suppress informational messages.
+	EditVariables        bool      // for attributes that simply assign a variable (e.g. hdrs = LIB_HDRS), edit the build variable instead of appending to the attribute.
+	IsPrintingProto      bool      // output serialized devtools.buildozer.Output protos instead of human-readable strings
+	IsPrintingJSON       bool      // output serialized devtools.buildozer.Output json instead of human-readable strings
+	OutWriter            io.Writer // where to write normal output (`os.Stdout` will be used if not specified)
+	ErrWriter            io.Writer // where to write error output (`os.Stderr` will be used if not specified)
+	RespectBazelignore   bool      // whether to use .bazelignore file for ignoring paths
+	DisableSymlinkSafety bool      // whether to disable symlink safety checks
 }
 
 // NewOpts returns a new Options struct with some defaults set.
@@ -83,18 +84,56 @@ type CmdEnvironment struct {
 	output *apipb.Output_Record         // output proto, stores whatever a command wants to print
 }
 
+// AttrType is an enum representing a type of the attribute, e.g. expr or not
+// provided type
+type AttrType int
+
+const (
+	// notProvidedTypeAttr represents an attr type that's not provided explicitly and
+	// needs to be inferred by buildozer from bazel's build language proto
+	notProvidedTypeAttr = iota
+	// rawAttr is a type for idents, ints or other types that buildozer should
+	// take as is, without quoting or wrapping
+	rawAttr
+)
+
+// parseAttr parses the attr name and optional type, e.g. "foo" or "bar:expr"
+// The only supported type now is `expr`
+func parseAttr(attrName string) (attr string, attrType AttrType, err error) {
+	chunks := strings.SplitN(attrName, ":", 2)
+	if len(chunks) == 1 {
+		return attrName, notProvidedTypeAttr, nil
+	}
+	attr, typeName := chunks[0], chunks[1]
+	switch typeName {
+	case "expr":
+		return attr, rawAttr, nil
+	default:
+		return attr, notProvidedTypeAttr, fmt.Errorf("unknown attr type: %q", typeName)
+	}
+}
+
 // The cmdXXX functions implement the various commands.
 
 func cmdAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
-	attr := env.Args[0]
+	attr, attrType, err := parseAttr(env.Args[0])
+	if err != nil {
+		return nil, err
+	}
 	for _, val := range env.Args[1:] {
-		if IsIntList(attr) {
+		if attrType == rawAttr {
+			AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.Ident{Name: val}, &env.Vars)
+			continue
+		}
+		if attrType == notProvidedTypeAttr && IsIntList(attr) {
 			AddValueToListAttribute(env.Rule, attr, env.Pkg, &build.LiteralExpr{Token: val}, &env.Vars)
 			continue
 		}
-		strVal := getStringExpr(val, env.Pkg)
+		var strVal build.Expr
+		strVal = getLabelStringExpr(val, env.Pkg)
 		AddValueToListAttribute(env.Rule, attr, env.Pkg, strVal, &env.Vars)
 	}
+
 	ResolveAttr(env.Rule, attr, env.Pkg)
 	return env.File, nil
 }
@@ -331,6 +370,21 @@ func cmdSubstituteLoad(opts *Options, env CmdEnvironment) (*build.File, error) {
 }
 
 func cmdPrint(opts *Options, env CmdEnvironment) (*build.File, error) {
+	return printAttrs(opts, env, false)
+}
+
+func cmdPrintAllLists(opts *Options, env CmdEnvironment) (*build.File, error) {
+	return printAttrs(opts, env, true)
+}
+
+func attrStrings(e build.Expr, allLists bool) []string {
+	if allLists {
+		return AllListsStrings(e)
+	}
+	return build.Strings(e)
+}
+
+func printAttrs(opts *Options, env CmdEnvironment, allLists bool) (*build.File, error) {
 	format := env.Args
 	if len(format) == 0 {
 		format = []string{"name", "kind"}
@@ -395,7 +449,7 @@ func cmdPrint(opts *Options, env CmdEnvironment) (*build.File, error) {
 				Value:             &apipb.Output_Record_Field_Text{Text: string.Value},
 				QuoteWhenPrinting: true,
 			}
-		} else if strList := env.Rule.AttrStrings(str); strList != nil {
+		} else if strList := attrStrings(value, allLists); strList != nil {
 			fields[i] = &apipb.Output_Record_Field{
 				Value: &apipb.Output_Record_Field_List{List: &apipb.RepeatedString{Strings: strList}},
 			}
@@ -528,7 +582,7 @@ func cmdReplace(opts *Options, env CmdEnvironment) (*build.File, error) {
 		attr := env.Rule.Attr(key)
 		if e, ok := attr.(*build.StringExpr); ok {
 			if labels.Equal(e.Value, oldV, env.Pkg) {
-				env.Rule.SetAttr(key, getAttrValueExpr(key, []string{newV}, env))
+				env.Rule.SetAttr(key, getAttrValueExpr(key, notProvidedTypeAttr, []string{newV}, env))
 			}
 		} else {
 			ListReplace(attr, oldV, newV, env.Pkg)
@@ -551,56 +605,71 @@ func cmdSubstitute(opts *Options, env CmdEnvironment) (*build.File, error) {
 			continue
 		}
 		if newValue, ok := stringSubstitute(e.Value, oldRegexp, newTemplate); ok {
-			env.Rule.SetAttr(key, getStringExpr(newValue, env.Pkg))
+			env.Rule.SetAttr(key, getLabelStringExpr(newValue, env.Pkg))
 		}
 	}
 	return env.File, nil
 }
 
 func cmdSet(opts *Options, env CmdEnvironment) (*build.File, error) {
-	attr := env.Args[0]
+	attr, attrType, err := parseAttr(env.Args[0])
+	if err != nil {
+		return nil, err
+	}
 	args := env.Args[1:]
 	if attr == "kind" {
 		env.Rule.SetKind(args[0])
 	} else {
-		env.Rule.SetAttr(attr, getAttrValueExpr(attr, args, env))
+		env.Rule.SetAttr(attr, getAttrValueExpr(attr, attrType, args, env))
 	}
 	return env.File, nil
 }
 
 func cmdSetIfAbsent(opts *Options, env CmdEnvironment) (*build.File, error) {
-	attr := env.Args[0]
+	attr, attrType, err := parseAttr(env.Args[0])
+	if err != nil {
+		return nil, err
+	}
 	args := env.Args[1:]
 	if attr == "kind" {
 		return nil, fmt.Errorf("setting 'kind' is not allowed for set_if_absent. Got %s", env.Args)
 	}
 	if env.Rule.Attr(attr) == nil {
-		env.Rule.SetAttr(attr, getAttrValueExpr(attr, args, env))
+		env.Rule.SetAttr(attr, getAttrValueExpr(attr, attrType, args, env))
 	}
 	return env.File, nil
 }
 
-func getAttrValueExpr(attr string, args []string, env CmdEnvironment) build.Expr {
+func getAttrValueExpr(attr string, attrType AttrType, args []string, env CmdEnvironment) build.Expr {
 	switch {
 	case attr == "kind":
 		return nil
+	case attrType == rawAttr:
+		// treat as an ident (it could be an arbitrary expression though, e.g. an
+		// already quoted string or a function call, will be re-parsed and
+		// formatted properly by the subsequent call of buildifier on the
+		// resulting file)
+		return &build.Ident{Name: args[0]}
 	case IsIntList(attr):
+		// list of raw objects (e.g. ints or idents)
 		var list []build.Expr
 		for _, i := range args {
 			list = append(list, &build.LiteralExpr{Token: i})
 		}
 		return &build.ListExpr{List: list}
 	case IsList(attr) && !(len(args) == 1 && strings.HasPrefix(args[0], "glob(")):
+		// list of labels
 		var list []build.Expr
 		for _, arg := range args {
-			list = append(list, getStringExpr(arg, env.Pkg))
+			list = append(list, getLabelStringExpr(arg, env.Pkg))
 		}
 		return &build.ListExpr{List: list}
 	case len(args) == 0:
 		// Expected a non-list argument, nothing provided
 		return &build.Ident{Name: "None"}
 	case IsString(attr):
-		return getStringExpr(args[0], env.Pkg)
+		// single label
+		return getLabelStringExpr(args[0], env.Pkg)
 	default:
 		return &build.Ident{Name: args[0]}
 	}
@@ -614,13 +683,22 @@ func getStringValue(value string) string {
 	return value
 }
 
-// getStringExpr creates a StringExpr from an input argument, which can be either quoted or not,
+// getStringExprLabel creates a StringExpr from an input argument, which can be either quoted or not,
 // and shortens the label value if possible.
-func getStringExpr(value, pkg string) build.Expr {
+func getLabelStringExpr(value, pkg string) build.Expr {
 	if unquoted, triple, err := build.Unquote(value); err == nil {
 		return &build.StringExpr{Value: ShortenLabel(unquoted, pkg), TripleQuote: triple}
 	}
 	return &build.StringExpr{Value: ShortenLabel(value, pkg)}
+}
+
+// getListExpr creates a ListExpr from a list of input arguments
+func getListExpr(exprs ...string) *build.ListExpr {
+	listVal := &build.ListExpr{}
+	for _, expr := range exprs {
+		listVal.List = append(listVal.List, &build.Ident{Name: expr})
+	}
+	return listVal
 }
 
 func cmdCopy(opts *Options, env CmdEnvironment) (*build.File, error) {
@@ -658,7 +736,7 @@ func cmdDictAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
 			return nil, fmt.Errorf("no colon in dict_add argument %q found", x)
 		}
 		kv = removeEscapes(kv, ':')
-		expr := getStringExpr(kv[1], env.Pkg)
+		expr := getLabelStringExpr(kv[1], env.Pkg)
 
 		prev := DictionaryGet(dict, kv[0])
 		if prev == nil {
@@ -688,10 +766,10 @@ func cmdSetSelect(opts *Options, env CmdEnvironment) (*build.File, error) {
 			if cur := DictionaryGet(dict, key); cur != nil {
 				list = cur.(*build.ListExpr)
 			}
-			AddValueToList(list, env.Pkg, getStringExpr(value, env.Pkg), !attributeMustNotBeSorted(env.Rule.Name(), attr))
+			AddValueToList(list, env.Pkg, getLabelStringExpr(value, env.Pkg), !attributeMustNotBeSorted(env.Rule.Name(), attr))
 			expr = list
 		} else {
-			expr = getStringExpr(value, env.Pkg)
+			expr = getLabelStringExpr(value, env.Pkg)
 		}
 		// Set overwrites previous values.
 		DictionarySet(dict, key, expr)
@@ -719,7 +797,7 @@ func cmdDictSet(opts *Options, env CmdEnvironment) (*build.File, error) {
 			return nil, fmt.Errorf("no colon in dict_set argument %q found", x)
 		}
 		kv = removeEscapes(kv, ':')
-		expr := getStringExpr(kv[1], env.Pkg)
+		expr := getLabelStringExpr(kv[1], env.Pkg)
 		// Set overwrites previous values.
 		DictionarySet(dict, kv[0], expr)
 	}
@@ -777,11 +855,11 @@ func cmdDictReplaceIfEqual(opts *Options, env CmdEnvironment) (*build.File, erro
 			// Key-Value Pair matches key.
 			if val, ok := kv.Value.(*build.StringExpr); ok {
 				if labels.Equal(val.Value, oldV, env.Pkg) {
-					kv.Value = getStringExpr(newV, env.Pkg)
+					kv.Value = getLabelStringExpr(newV, env.Pkg)
 				}
 			} else if val, ok := kv.Value.(*build.Ident); ok {
 				if val.Name == oldV {
-					kv.Value = getStringExpr(newV, env.Pkg)
+					kv.Value = getLabelStringExpr(newV, env.Pkg)
 				}
 			}
 		}
@@ -807,7 +885,7 @@ func cmdDictListAdd(opts *Options, env CmdEnvironment) (*build.File, error) {
 	}
 
 	for _, val := range args {
-		expr := getStringExpr(val, env.Pkg)
+		expr := getLabelStringExpr(val, env.Pkg)
 		prev = AddValueToList(prev, env.Pkg, expr, true)
 	}
 
@@ -936,6 +1014,7 @@ var AllCommands = map[string]CommandInfo{
 	"move":                  {cmdMove, true, 3, -1, "<old_attr> <new_attr> <value(s)>"},
 	"new":                   {cmdNew, false, 2, 4, "<rule_kind> <rule_name> [(before|after) <relative_rule_name>]"},
 	"print":                 {cmdPrint, true, 0, -1, "<attribute(s)>"},
+	"print_all_lists":       {cmdPrintAllLists, true, 0, -1, "<attribute(s)>"},
 	"remove":                {cmdRemove, true, 1, -1, "<attr> <value(s)>"},
 	"remove_comment":        {cmdRemoveComment, true, 0, 2, "<attr>? <value>?"},
 	"remove_if_equal":       {cmdRemoveIfEqual, true, 2, 2, "<attr> <value>"},
@@ -958,8 +1037,9 @@ var AllCommands = map[string]CommandInfo{
 }
 
 var readonlyCommands = map[string]bool{
-	"print":         true,
-	"print_comment": true,
+	"print":           true,
+	"print_all_lists": true,
+	"print_comment":   true,
 }
 
 func expandTargets(f *build.File, rule string) ([]*build.Rule, error) {
@@ -1133,7 +1213,7 @@ func getGlobalVariables(exprs []build.Expr) (vars map[string]*build.AssignExpr) 
 	vars = make(map[string]*build.AssignExpr)
 	for _, expr := range exprs {
 		if as, ok := expr.(*build.AssignExpr); ok {
-			if lhs, ok := as.LHS.(*build.Ident); ok {
+			if lhs, ok := as.LHSIdent(); ok {
 				vars[lhs.Name] = as
 			}
 		}
@@ -1566,6 +1646,7 @@ func printRecord(writer io.Writer, record *apipb.Output_Record) {
 
 // Buildozer loops over all arguments on the command line fixing BUILD files.
 func Buildozer(opts *Options, args []string) int {
+	file.DisableSymlinkSafety = opts.DisableSymlinkSafety
 	if opts.OutWriter == nil {
 		opts.OutWriter = os.Stdout
 	}

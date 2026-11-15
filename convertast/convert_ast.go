@@ -16,7 +16,7 @@ limitations under the License.
 
 // This file contains functions to convert from one AST to the other.
 // Input: AST from go.starlark.net/syntax
-// Output: AST from github.com/bazelbuild/buildtools/build
+// Output: AST from github.com/bazel-contrib/buildtools/v10/build
 
 package convertast
 
@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
+	"github.com/bazel-contrib/buildtools/v10/build"
 	"go.starlark.net/syntax"
 )
 

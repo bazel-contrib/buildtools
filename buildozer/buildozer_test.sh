@@ -224,6 +224,49 @@ function test_add_duplicate_label2() {
 )'
 }
 
+function test_add_override_expr() {
+  in='go_library(
+    name = "edit",
+    deps = ["build"],
+)'
+  run "$in" 'add deps:expr build' '//pkg:edit'
+  assert_equals 'go_library(
+    name = "edit",
+    deps = [
+        build,
+        "build",
+    ],
+)'
+}
+
+function test_add_override_expr_with_dot_and_capital_e() {
+  in='go_library(
+    name = "edit",
+    deps = ["build"],
+)'
+  run "$in" 'add deps:expr SYSTEMS.SYS1' '//pkg:edit'
+  assert_equals 'go_library(
+    name = "edit",
+    deps = [
+        SYSTEMS.SYS1,
+        "build",
+    ],
+)'
+}
+
+function test_add_override_unknown_type() {
+  in='go_library(
+    name = "edit",
+    deps = ["build"],
+)'
+  ERROR=2 run "$in" 'add deps:foo build' '//pkg:edit'
+  assert_equals 'go_library(
+    name = "edit",
+    deps = ["build"],
+)'
+}
+
+
 function test_remove_last_dep() {
   run "$one_dep" 'remove deps //buildifier:build' '//pkg:edit'
   assert_equals 'go_library(name = "edit")'
@@ -1085,6 +1128,16 @@ function test_set_if_absent_present() {
 )'
 }
 
+function test_set_if_absent_override_expr() {
+  in='soy_js(name = "a")'
+
+  run "$in" 'set_if_absent copts:expr foo()' '//pkg:a'
+  assert_equals 'soy_js(
+    name = "a",
+    copts = foo(),
+)'
+}
+
 function test_set_custom_code() {
   in='cc_test(name = "a")'
 
@@ -1095,6 +1148,16 @@ function test_set_custom_code() {
         a = 1,
         b = 2,
     ),
+)'
+}
+
+function test_set_override_expr() {
+  in='cc_library(name = "a")'
+
+  run "$in" 'set copts:expr foo()' '//pkg:a'
+  assert_equals 'cc_library(
+    name = "a",
+    copts = foo(),
 )'
 }
 
@@ -1261,6 +1324,25 @@ cc_library(
   run "$in" 'print attrs' '//pkg:*'
   assert_output '[]
 [name srcs deps]'
+}
+
+function test_print_all_lists() {
+  in='cc_library(
+  name = "a",
+  deps = VAR + [":foo", ":bar"] + select({"//cond": [":baz"]}) + [":qux"],
+)'
+  run "$in" 'print_all_lists name deps' '//pkg:a'
+  assert_output 'a [:foo :bar :qux]'
+}
+
+function test_print_all_lists_json() {
+  in='cc_library(
+  name = "a",
+  deps = [":foo"] + select({"//cond": [":bar"]}),
+  tags = VAR,
+)'
+  run --output_json "$in" 'print_all_lists name deps tags' '//pkg:a'
+  assert_output '{"records":[{"fields":[{"text":"a"},{"list":{"strings":[":foo"]}},{"text":"VAR"}]}]}'
 }
 
 function test_new_cc_library() {
@@ -2421,6 +2503,35 @@ EOF
   diff -u MODULE.bazel.expected MODULE.bazel || fail "File was changed"
   diff -u MODULE.bazel.expected.stdout stdout || fail "Output didn't match"
   diff -u MODULE.bazel.expected.stderr stderr || fail "Error output didn't match"
+}
+
+function test_disable_symlink_safety() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return
+  fi
+  outside="$TEST_TMPDIR/outside_$$"
+  mkdir -p "$outside"
+  cat > "$outside/BUILD" <<EOF
+go_library(
+    name = "edit",
+)
+EOF
+  mkdir -p "$PKG"
+  rm -f "$PKG/BUILD"
+  ln -s "$outside/BUILD" "$PKG/BUILD"
+
+  # Without -disable_symlink_safety, should fail
+  ERROR=2
+  run_with_current_workspace "$buildozer --buildifier=" 'add deps //dep' '//pkg:edit'
+
+  # With -disable_symlink_safety, should succeed
+  ERROR=0
+  run_with_current_workspace "$buildozer --buildifier= -disable_symlink_safety" 'add deps //dep' '//pkg:edit'
+  if ! grep "//dep" "$outside/BUILD" > /dev/null; then
+    fail "Target file was not modified when -disable_symlink_safety was used"
+  fi
+  rm -f "$PKG/BUILD"
+  rm -rf "$outside"
 }
 
 run_suite "buildozer tests"

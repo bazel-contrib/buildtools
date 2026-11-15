@@ -8,23 +8,29 @@ Build the tool:
 * Checkout the repo and then either via `go install` or `bazel build //buildifier`
 * If you already have 'go' installed, then build a binary via:
 
-`go install github.com/bazelbuild/buildtools/buildifier@latest`
+`go install github.com/bazel-contrib/buildtools/v10/buildifier@latest`
 
 ## Usage
 
 Use buildifier to create standardized formatting for BUILD and .bzl files in the
 same way that clang-format is used for source files.
 
-    $ buildifier path/to/file
+```bash
+buildifier path/to/file
+```
 
 You can also process multiple files at once:
 
-    $ buildifier path/to/file1 path/to/file2
+```bash
+buildifier path/to/file1 path/to/file2
+```
 
 You can make buildifier automatically find all Starlark files (i.e. BUILD, WORKSPACE, .bzl, or .sky)
 in a directory recursively:
 
-    $ buildifier -r path/to/dir
+```bash
+buildifier -r path/to/dir
+```
 
 Buildifier supports the following file types: `BUILD`, `WORKSPACE`, `.bzl`, and
 default, the latter is reserved for Starlark files buildifier doesn't know about
@@ -43,11 +49,15 @@ account optional prefixes and suffixes, e.g. `BUILD`, `BUILD.oss`, or
 will be treated as default file type. To override the automatic file type
 detection use the `--type` flag explicitly:
 
-    $ cat foo.bar | buildifier --type=build
-    $ cat foo.bar | buildifier --type=bzl
-    $ cat foo.bar | buildifier --type=workspace
-    $ cat foo.bar | buildifier --type=default
-    $ cat foo.bar | buildifier --type=module
+```bash
+cat foo.bar | buildifier --type=build
+cat foo.bar | buildifier --type=bzl
+cat foo.bar | buildifier --type=workspace
+cat foo.bar | buildifier --type=default
+cat foo.bar | buildifier --type=module
+cat foo.bar | buildifier --type=repo
+cat foo.bar | buildifier --type=vendor
+```
 
 ## Linter
 
@@ -56,8 +66,10 @@ automatically fix various issues. To use it launch one of the following commands
 to show and to fix the issues correspondingly (note that some issues cannot be
 fixed automatically):
 
-    buildifier --lint=warn path/to/file
-    buildifier --lint=fix path/to/file
+```bash
+buildifier --lint=warn path/to/file
+buildifier --lint=fix path/to/file
+```
 
 By default, the linter searches for all known issues relevant for the given
 file type except those that are marked with
@@ -66,18 +78,22 @@ file type except those that are marked with
 You can specify the categories using the `--warnings` flag either by providing
 the categories explicitly:
 
-    buildifier --lint=warn --warnings=positional-args,duplicated-name
+```bash
+buildifier --lint=warn --warnings=positional-args,duplicated-name
+```
 
 or by modifying the default warnings set by using `+` or `-` modifiers before
 each warning category:
 
-    buildifier --lint=warn --warnings=-positional-args,+unsorted-dict-items
+```bash
+buildifier --lint=warn --warnings=-positional-args,+unsorted-dict-items
+```
 
 It's also possible to provide `--warnings=all` to use all supported warnings
 categories (they will still be limited to relevant warnings for the given file
 type).
 
-See also the [full list](../WARNINGS.md) or the supported warnings.
+See also the [full list](../WARNINGS.md) of supported warnings.
 
 ## Setup and usage via Bazel
 
@@ -138,7 +154,7 @@ http_archive(
     sha256 = "ae34c344514e08c23e90da0e2d6cb700fcd28e80c02e23e4d5715dddcb42f7b3",
     strip_prefix = "buildtools-4.2.2",
     urls = [
-        "https://github.com/bazelbuild/buildtools/archive/refs/tags/4.2.2.tar.gz",
+        "https://github.com/bazel-contrib/buildtools/archive/refs/tags/4.2.2.tar.gz",
     ],
 )
 ```
@@ -186,7 +202,7 @@ The output format is the following:
                     "actionable": true,
                     "autoFixable": true,
                     "message": "The \"/\" operator for integer division is deprecated in favor of \"//\".",
-                    "url": "https://github.com/bazelbuild/buildtools/blob/main/WARNINGS.md#integer-division"
+                    "url": "https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#integer-division"
                 }
             ]
         },
@@ -218,3 +234,31 @@ The output format is the following:
 When the `--format` flag is provided, buildifier always returns `0` unless there are internal
 failures or wrong input parameters, this means the output can be parsed as JSON, and its `success`
 field should be used to determine whether the diagnostics result is positive.
+
+## File diagnostics in SARIF
+
+Buildifier can also emit its findings as a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+report, triggered by `--format=sarif` (only works in combination with `--mode=check`). If used in
+combination with `-v`, the output will be indented.
+
+* Every lint warning becomes a result whose `ruleId` is the warning category, with a region
+  (line and column) and level `warning`.
+* A file that is not correctly formatted yields a file-level result (no region) with rule `format`.
+* A file that cannot be parsed yields a result with level `error` and rule `parse-error`.
+
+Example:
+
+```bash
+buildifier --mode=check --lint=warn --format=sarif -r . > buildifier.sarif
+```
+
+## Symlink Safety
+
+By default, Buildifier will not write to symlinks pointing outside of the Bazel workspace to prevent unintended path traversal.
+
+To disable this behavior and allow writing through symlinks pointing outside the workspace, use the `--disable_symlink_safety` flag or set `"disable_symlink_safety": true` in `.buildifier.json`:
+
+```bash
+buildifier --disable_symlink_safety path/to/file
+```
+

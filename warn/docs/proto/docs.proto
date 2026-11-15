@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package docs;
 
-option go_package = "github.com/bazelbuild/buildtools/warn/docs/proto";
+option go_package = "github.com/bazel-contrib/buildtools/v10/warn/docs/proto";
 
 message Warnings {
   message Warning {

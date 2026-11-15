@@ -26,7 +26,7 @@ import (
 	"os"
 	"sort"
 
-	buildpb "github.com/bazelbuild/buildtools/build_proto"
+	buildpb "github.com/bazel-contrib/buildtools/v10/build_proto"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -103,7 +103,7 @@ func generateTable(rules []*buildpb.RuleDefinition) map[string]buildpb.Attribute
 	types["python_version"] = buildpb.Attribute_STRING
 	types["srcs_version"] = buildpb.Attribute_STRING
 	types["stub_shebang"] = buildpb.Attribute_STRING
-	
+
 	// The following attributes used to exist in the native CC rules but were removed
 	// during Starlarkification. Add them here for backwards compatibility, at least for now.
 	types["copts"] = buildpb.Attribute_STRING_LIST
@@ -140,7 +140,7 @@ func main() {
 	fmt.Fprintf(f, `// Generated file, do not edit.
 package lang
 
-import buildpb "github.com/bazelbuild/buildtools/build_proto"
+import buildpb "github.com/bazel-contrib/buildtools/v10/build_proto"
 
 var TypeOf = map[string]buildpb.Attribute_Discriminator{
 `)

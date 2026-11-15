@@ -15,7 +15,7 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_depe
 
 go_rules_dependencies()
 
-go_register_toolchains(version = "1.20.3")
+go_register_toolchains(version = "1.24.0")
 
 http_archive(
     name = "bazel_gazelle",
@@ -55,22 +55,6 @@ go_repository(
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
-
-http_archive(
-    name = "rules_proto",
-    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-    ],
-)
-
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
-
-rules_proto_dependencies()
-
-rules_proto_toolchains()
 
 load("//buildifier:deps.bzl", "buildifier_dependencies")
 

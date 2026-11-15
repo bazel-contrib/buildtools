@@ -47,18 +47,16 @@ find . \
   @@EXCLUDE_PATTERNS@@ \
   \( -name '*.bzl' \
     -o -name '*.sky' \
-    -o -name BUILD.bazel \
+    -o -name '*.star' \
+    -o -name '*.bazel' \
     -o -name BUILD \
     -o -name '*.BUILD' \
     -o -name '*.BUILD.bazel' \
     -o -name 'BUILD.*.bazel' \
+    -o -name BUILD.oss \
     -o -name 'BUILD.*.oss' \
-    -o -name MODULE.bazel \
-    -o -name '*.MODULE.bazel' \
     -o -name WORKSPACE \
-    -o -name WORKSPACE.bazel \
     -o -name WORKSPACE.oss \
     -o -name WORKSPACE.bzlmod \
-    -o -name 'WORKSPACE.*.bazel' \
     -o -name 'WORKSPACE.*.oss' \
   \) -print | xargs "$buildifier_short_path" "${ARGS[@]}"

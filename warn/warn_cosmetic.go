@@ -23,8 +23,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bazelbuild/buildtools/build"
-	"github.com/bazelbuild/buildtools/edit"
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit"
 )
 
 // packageOnTopWarning hoists package statements to the top after any comments / docstrings / load statements.
