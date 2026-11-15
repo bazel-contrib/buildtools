@@ -20,7 +20,7 @@ l = lambda x, y, *args, **kwargs: f(
     y,
     key = x,
     *args,
-    **kwargs
+    **kwargs,
 )
 
 TriggerActionAfterProbe(

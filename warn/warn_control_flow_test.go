@@ -1032,7 +1032,7 @@ f()
 `,
 			want: `def f(
         x,
-        y  # @unused
+        y,  # @unused
 ):
     pass
 
@@ -1052,7 +1052,8 @@ f()
 `,
 			want: `def f(
         x,
-        y):  # @unused
+        y,
+):  # @unused
     pass
 
 f()

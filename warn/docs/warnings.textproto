@@ -1099,7 +1099,7 @@ warnings: {
     "# @unused\n"
     "def f(\n"
     "        x,\n"
-    "        y  # @unused\n"
+    "        y,  # @unused\n"
     "):\n"
     "    pass\n"
     "```\n\n"
