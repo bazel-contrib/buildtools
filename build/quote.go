@@ -86,10 +86,14 @@ var escapable = [256]bool{
 // string value, whether the original was triple-quoted, and
 // an error describing invalid input.
 func Unquote(quoted string) (s string, triple bool, err error) {
-	// Check for raw prefix: means don't interpret the inner \.
+	// Check for a string prefix: "r" disables backslash interpretation; "f"
+	// marks an f-string whose {...} fields ride through as literal text.
 	raw := false
-	if strings.HasPrefix(quoted, "r") {
+	switch {
+	case strings.HasPrefix(quoted, "r"):
 		raw = true
+		quoted = quoted[1:]
+	case strings.HasPrefix(quoted, "f"):
 		quoted = quoted[1:]
 	}
 

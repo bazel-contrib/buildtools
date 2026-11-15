@@ -37,6 +37,7 @@ package build
 	str       string     // decoding of quoted string
 	pos       Position   // position of token
 	triple    bool       // was string triple quoted?
+	prefix    string     // string-literal prefix (e.g. "f"), if any
 
 	// partial syntax trees
 	expr      Expr
@@ -1108,6 +1109,7 @@ string:
 			Value: $<str>1,
 			TripleQuote: $<triple>1,
 			End: $1.add($<tok>1),
+			Prefix: $<prefix>1,
 			Token: $<tok>1,
 		}
 	}

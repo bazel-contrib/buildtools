@@ -635,11 +635,20 @@ func (p *printer) expr(v Expr, outerPrec int) {
 	case *StringExpr:
 		// If the Token is a correct quoting of Value and has double quotes, use it,
 		// also use it if it has single quotes and the value itself contains a double quote symbol
-		// or if it's a raw string literal (starts with "r").
+		// or if it's a raw string literal (starts with "r") or an f-string (starts with "f").
 		// This preserves the specific escaping choices that BUILD authors have made.
+		prefix := v.Prefix
+		if prefix == "" {
+			if strings.HasPrefix(v.Token, "r") {
+				prefix = "r"
+			} else if strings.HasPrefix(v.Token, "f") {
+				prefix = "f"
+			}
+		}
+
 		s, triple, err := Unquote(v.Token)
 		if err == nil && s == v.Value && triple == v.TripleQuote {
-			if strings.HasPrefix(v.Token, `r`) {
+			if prefix == "r" && strings.HasPrefix(v.Token, `r`) {
 				// Raw string literal
 				token := v.Token
 				if strings.HasSuffix(v.Token, `'`) && !strings.ContainsRune(v.Value, '"') {
@@ -654,8 +663,23 @@ func (p *printer) expr(v Expr, outerPrec int) {
 				break
 			}
 
+			if prefix == "f" && strings.HasPrefix(v.Token, `f`) {
+				// f-string literal
+				token := v.Token
+				if strings.HasSuffix(v.Token, `'`) && !strings.ContainsRune(v.Value, '"') {
+					// Single quotes but no double quotes inside the string, replace with double quotes
+					if strings.HasSuffix(token, `'''`) {
+						token = `f"""` + token[4:len(token)-3] + `"""`
+					} else if strings.HasSuffix(token, `'`) {
+						token = `f"` + token[2:len(token)-1] + `"`
+					}
+				}
+				p.prints(token)
+				break
+			}
+
 			// Non-raw string literal
-			if strings.HasPrefix(v.Token, `"`) || strings.ContainsRune(v.Value, '"') {
+			if prefix == "" && (strings.HasPrefix(v.Token, `"`) || strings.ContainsRune(v.Value, '"')) {
 				// Either double quoted or there are double-quotes inside the string
 				if IsCorrectEscaping(v.Token) {
 					p.prints(v.Token)
@@ -664,6 +688,9 @@ func (p *printer) expr(v Expr, outerPrec int) {
 			}
 		}
 
+		if prefix == "f" {
+			p.prints("f")
+		}
 		p.prints(quote(v.Value, v.TripleQuote))
 
 	case *DotExpr:
