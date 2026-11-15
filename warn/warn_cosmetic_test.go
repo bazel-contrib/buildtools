@@ -126,19 +126,37 @@ irrelevant = baz
 
 foo()
 
-package()`,
+package(default_visibility = ["//visibility:public"])`,
 		`
 """This is a docstring"""
 
 load(":foo.bzl", "foo")
 load(":bar.bzl", baz = "bar")
 
+package(default_visibility = ["//visibility:public"])
 irrelevant = baz
 
-foo()
+foo()`,
+		[]string{":10: Package declaration should be at the top of the file, after the load() statements, but before any call to a rule or a macro. package_group() and licenses() may be called before package()."},
+		scopeDefault|scopeBzl|scopeBuild)
 
-package()`,
-		[]string{},
+	// Similar test case from issue #1420: package() after a list assignment
+	checkFindingsAndFix(t,
+		"package-on-top",
+		`package_group(name = "my_group")
+
+some_target(name = "foo")
+
+some_list = []
+
+package(default_visibility = ["//visibility:public"])`,
+		`package_group(name = "my_group")
+
+package(default_visibility = ["//visibility:public"])
+some_target(name = "foo")
+
+some_list = []`,
+		[]string{":7: Package declaration should be at the top of the file, after the load() statements, but before any call to a rule or a macro. package_group() and licenses() may be called before package()."},
 		scopeDefault|scopeBzl|scopeBuild)
 }
 
