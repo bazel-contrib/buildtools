@@ -288,6 +288,7 @@ but not from `dir/other_rule/file.bzl`.
 
   * Category name: `canonical-repository`
   * Automatic fix: no
+  * Not supported by the latest version of Buildifier
   * [Suppress the warning](#suppress): `# buildifier: disable=canonical-repository`
 
 Using canonical repository names (with `@@` prefix) makes BUILD files fragile
@@ -554,6 +555,7 @@ To fix the issue just change the name attribute of one rule/macro.
 
   * Category name: `external-path`
   * Automatic fix: no
+  * Not supported by the latest version of Buildifier
   * [Suppress the warning](#suppress): `# buildifier: disable=external-path`
 
 Using `/external/` paths may indicate a hard-coded dependency on external
