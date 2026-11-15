@@ -1,6 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
-  ]
+    ":dependencyDashboard",
+    ":enablePreCommit",
+    ":semanticPrefixFixDepsChoreOthers",
+    "replacements:all",
+    "workarounds:all",
+    "group:all"
+  ],
+  "timezone": "America/Los_Angeles",
+  "schedule": ["* 0-3 1,15 * *"],
+  "updateNotScheduled": false,
+  "rebaseWhen": "conflicted",
+  "prConcurrentLimit": 1,
+  "branchConcurrentLimit": 1
 }
