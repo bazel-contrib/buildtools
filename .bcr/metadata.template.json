@@ -1,0 +1,14 @@
+{
+  "homepage": "https://github.com/bazel-contrib/buildtools",
+  "maintainers": [
+    {
+      "name": "Alex Eagle",
+      "email": "alex@aspect.build",
+      "github": "alexeagle",
+      "github_user_id": 47395
+    }
+  ],
+  "repository": ["github:bazel-contrib/buildtools"],
+  "versions": [],
+  "yanked_versions": {}
+}
