@@ -721,8 +721,17 @@ func (p *printer) expr(v Expr, outerPrec int) {
 		}
 		// Use the next precedence level (precSuffix), so that nested unary expressions are parenthesized,
 		// for example: `not (-(+(~foo)))` instead of `not -+~foo`
+		//
+		// The exception is `not` directly inside another `not`. The parser gives `not` the same high
+		// precedence as the other unary operators, so `not not foo == bar` is parsed as
+		// `(not not foo) == bar`. Printing it as `not (not foo) == bar` would change its meaning in
+		// Starlark, where `not` binds looser than comparisons and it means `not (not (foo == bar))`.
 		if v.X != nil {
-			p.expr(v.X, precSuffix)
+			prec := precSuffix
+			if x, ok := v.X.(*UnaryExpr); ok && v.Op == "not" && x.Op == "not" {
+				prec = precUnary
+			}
+			p.expr(v.X, prec)
 		}
 
 	case *LambdaExpr:

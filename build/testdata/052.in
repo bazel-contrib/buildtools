@@ -52,6 +52,19 @@ y = "abc" in (copts or []) == False
 
 a = 1 + 2 if 3 + 4 else 5 + 6
 
+# Nested `not` operators
+not  not  foo
+
+not  not  foo>=bar
+
+not  not  "abc"  in  copts
+
+not  not  foo+bar
+
+not  not  not  foo<bar
+
+not  -foo
+
 # Augmented assignments
 
 foo+=bar
