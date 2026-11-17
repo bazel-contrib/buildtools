@@ -19,8 +19,10 @@ package warn
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
 	"github.com/bazel-contrib/buildtools/v10/testutils"
@@ -51,14 +53,27 @@ var testPackage string = "test/package"
 var fileReaderRequests []string
 
 func setUpFileReader(data map[string]string) (cleanup func()) {
+	fsys := fstest.MapFS{}
+	for filename, contents := range data {
+		fsys[filename] = &fstest.MapFile{Data: []byte(contents)}
+	}
+	return setUpFileReaderFS(fsys)
+}
+
+// setUpFileReaderFS is like setUpFileReader, but also supports directory
+// listings and file modes such as symlinks.
+func setUpFileReaderFS(fsys fstest.MapFS) (cleanup func()) {
 	readFile := func(filename string) ([]byte, error) {
 		fileReaderRequests = append(fileReaderRequests, filename)
-		if contents, ok := data[filename]; ok {
-			return []byte(contents), nil
-		}
-		return nil, fmt.Errorf("file not found")
+		return fs.ReadFile(fsys, filename)
 	}
-	testFileReader = NewFileReader(readFile)
+	readDir := func(dir string) ([]fs.DirEntry, error) {
+		if dir == "" {
+			dir = "."
+		}
+		return fs.ReadDir(fsys, dir)
+	}
+	testFileReader = NewFileReaderWithReadDir(readFile, readDir)
 	fileReaderRequests = nil
 	// The cached mapping depends on the file reader, so we need to reset it as well.
 	moduleToApparentRepoName = nil

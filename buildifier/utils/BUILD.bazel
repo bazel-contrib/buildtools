@@ -23,6 +23,10 @@ go_test(
         "utils_test.go",
     ],
     embed = [":utils"],
+    deps = [
+        "//build",
+        "//warn",
+    ],
 )
 
 alias(

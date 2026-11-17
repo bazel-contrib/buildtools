@@ -359,6 +359,7 @@ cat > golden/.buildifier.example.json <<EOF
     "no-effect",
     "output-group",
     "overly-nested-depset",
+    "package-case",
     "package-name",
     "package-on-top",
     "positional-args",
@@ -1008,6 +1009,57 @@ EOF
 
 $buildifier --lint=warn --warnings=allowed-symbol-load-locations -tables=buildifier.tables BUILD 2> report || true
 diff -u report_golden report || die "$1: wrong console output for allowed symbol load locations"
+
+cd ../..
+
+# Test the package-case warning, which compares labels to the directories in the workspace
+
+mkdir test_dir/package_case
+cd test_dir/package_case
+
+touch MODULE.bazel
+mkdir -p lib/sub
+
+cat > BUILD <<'EOF'
+load("//Lib:defs.bzl", "foo")
+
+foo(
+    name = "foo",
+    deps = [
+        "//Lib/Sub:a",
+        "//lib/sub:b",
+        "//missing:c",
+    ],
+)
+EOF
+
+cat > BUILD.golden <<'EOF'
+load("//lib:defs.bzl", "foo")
+
+foo(
+    name = "foo",
+    deps = [
+        "//lib/sub:a",
+        "//lib/sub:b",
+        "//missing:c",
+    ],
+)
+EOF
+
+cat > report_golden <<'EOF'
+BUILD:1: package-case: The package "Lib" in "//Lib:defs.bzl" doesn't match the case of its directory "lib". Use "//lib:defs.bzl" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#package-case)
+BUILD:6: package-case: The package "Lib/Sub" in "//Lib/Sub:a" doesn't match the case of its directory "lib/sub". Use "//lib/sub:a" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#package-case)
+EOF
+
+ret=0
+$buildifier --lint=warn --warnings=package-case BUILD 2> report || ret=$?
+if [[ $ret -ne 4 ]]; then
+  die "package-case: Expected buildifier to exit with 4, actual: $ret"
+fi
+diff -u report_golden report || die "package-case: wrong console output for --lint=warn"
+
+$buildifier --lint=fix --warnings=package-case BUILD || die "package-case: Expected buildifier to succeed with --lint=fix"
+diff -u BUILD.golden BUILD || die "package-case: wrong file output for --lint=fix"
 
 cd ../..
 

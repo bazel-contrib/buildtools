@@ -833,6 +833,42 @@ warnings: {
 }
 
 warnings: {
+  name: "package-case"
+  header: "Package name doesn't match the case of its directory"
+  description:
+    "Bazel compares package names case-sensitively, even on case-insensitive file\n"
+    "systems such as the default ones on macOS and Windows. A label such as\n"
+    "`//Lib:hello-lib` that refers to a package in the directory `lib` thus\n"
+    "refers to a different package than `//lib:hello-lib`, even though both are\n"
+    "loaded from the same directory. As a result, the same target can be built\n"
+    "multiple times with outputs that clash on disk, which causes slow, flaky or\n"
+    "failing builds\n"
+    "([bazelbuild/bazel#32729](https://github.com/bazelbuild/bazel/issues/32729)).\n"
+    "On case-sensitive file systems, such a label refers to a package that doesn't\n"
+    "exist.\n\n"
+    "Example that triggers this warning if the directory of the package is `lib`:\n\n"
+    "```python\n"
+    "cc_binary(\n"
+    "    name = \"main\",\n"
+    "    deps = [\"//Lib:hello-lib\"],\n"
+    ")\n"
+    "```\n\n"
+    "Spell the package name in the same way as its directory instead:\n\n"
+    "```python\n"
+    "cc_binary(\n"
+    "    name = \"main\",\n"
+    "    deps = [\"//lib:hello-lib\"],\n"
+    ")\n"
+    "```\n\n"
+    "The warning applies to all string literals that are labels or target patterns\n"
+    "in the main repository (starting with `//`, `@//` or `@@//`), including `load`\n"
+    "statements. It requires buildifier to know the workspace root and is not\n"
+    "emitted if the package directory doesn't exist or if there are multiple\n"
+    "directories whose names only differ in case."
+  autofix: true
+}
+
+warnings: {
   name: "package-name"
   header: "Global variable `PACKAGE_NAME` is deprecated"
   description:

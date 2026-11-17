@@ -19,6 +19,7 @@ limitations under the License.
 package utils
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,9 +109,37 @@ func GetParser(inputType string) func(filename string, data []byte) (*build.File
 	}
 }
 
+// Linter calls the linter on files. Directory listings don't change while
+// buildifier is running, so a Linter caches them across all files it lints.
+// A Linter is not safe for concurrent use.
+type Linter struct {
+	dirs map[string]dirListing
+}
+
+type dirListing struct {
+	entries []fs.DirEntry
+	err     error
+}
+
+// NewLinter returns a new Linter.
+func NewLinter() *Linter {
+	return &Linter{dirs: make(map[string]dirListing)}
+}
+
+// readDir lists the entries of a directory in the local filesystem or returns
+// them from the cache.
+func (l *Linter) readDir(dir string) ([]fs.DirEntry, error) {
+	if listing, ok := l.dirs[dir]; ok {
+		return listing.entries, listing.err
+	}
+	entries, err := os.ReadDir(dir)
+	l.dirs[dir] = dirListing{entries, err}
+	return entries, err
+}
+
 // getFileReader returns a *FileReader object that reads files from the local
 // filesystem if the workspace root is known.
-func getFileReader(workspaceRoot string) *warn.FileReader {
+func (l *Linter) getFileReader(workspaceRoot string) *warn.FileReader {
 	if workspaceRoot == "" {
 		return nil
 	}
@@ -123,12 +152,16 @@ func getFileReader(workspaceRoot string) *warn.FileReader {
 		return os.ReadFile(path)
 	}
 
-	return warn.NewFileReader(readFile)
+	readDir := func(dir string) ([]fs.DirEntry, error) {
+		return l.readDir(filepath.Join(workspaceRoot, filepath.FromSlash(dir)))
+	}
+
+	return warn.NewFileReaderWithReadDir(readFile, readDir)
 }
 
 // Lint calls the linter and returns a list of unresolved findings
-func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
-	fileReader := getFileReader(f.WorkspaceRoot)
+func (l *Linter) Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
+	fileReader := l.getFileReader(f.WorkspaceRoot)
 
 	switch lint {
 	case "warn":
@@ -137,4 +170,10 @@ func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*w
 		warn.FixWarnings(f, *warningsList, verbose, fileReader)
 	}
 	return nil
+}
+
+// Lint calls the linter and returns a list of unresolved findings. Use a
+// Linter to lint multiple files more efficiently.
+func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
+	return NewLinter().Lint(f, lint, warningsList, verbose)
 }

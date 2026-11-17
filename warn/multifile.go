@@ -17,6 +17,8 @@ limitations under the License.
 package warn
 
 import (
+	"io/fs"
+
 	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
@@ -25,6 +27,7 @@ import (
 type FileReader struct {
 	cache    map[string]*build.File
 	readFile func(string) ([]byte, error)
+	readDir  func(string) ([]fs.DirEntry, error)
 }
 
 // NewFileReader creates and initializes a FileReader instance with a
@@ -36,6 +39,19 @@ func NewFileReader(readFile func(string) ([]byte, error)) *FileReader {
 		cache:    make(map[string]*build.File),
 		readFile: readFile,
 	}
+}
+
+// NewFileReaderWithReadDir is like NewFileReader, but additionally accepts a
+// custom readDir function that lists the entries of an arbitrary directory in
+// the repository using a path relative to the workspace root (OS-independent,
+// with forward slashes, empty for the workspace root itself). It enables
+// warnings that need to inspect the directory structure of the repository.
+// Directory listings aren't cached by the FileReader, but readDir may cache
+// them, e.g. across multiple files.
+func NewFileReaderWithReadDir(readFile func(string) ([]byte, error), readDir func(string) ([]fs.DirEntry, error)) *FileReader {
+	fr := NewFileReader(readFile)
+	fr.readDir = readDir
+	return fr
 }
 
 // retrieveFile reads a Starlark file using only the readFile method
@@ -74,4 +90,22 @@ func (fr *FileReader) GetFile(pkg, label string) *build.File {
 	}
 	fr.cache[filename] = file
 	return file
+}
+
+// canReadDirs returns whether the FileReader is able to list directories.
+func (fr *FileReader) canReadDirs() bool {
+	return fr != nil && fr.readDir != nil
+}
+
+// getDir lists the entries of a directory in the repository. Returns nil if the
+// directory can't be listed.
+func (fr *FileReader) getDir(dir string) []fs.DirEntry {
+	if !fr.canReadDirs() {
+		return nil
+	}
+	entries, err := fr.readDir(dir)
+	if err != nil {
+		return nil
+	}
+	return entries
 }

@@ -87,6 +87,7 @@ Warning categories supported by buildifier's linter:
   * [`out-of-order-load`](#out-of-order-load)
   * [`output-group`](#output-group)
   * [`overly-nested-depset`](#overly-nested-depset)
+  * [`package-case`](#package-case)
   * [`package-name`](#package-name)
   * [`package-on-top`](#package-on-top)
   * [`positional-args`](#positional-args)
@@ -1155,6 +1156,49 @@ For more information, read Bazel documentation about
 [depsets](https://docs.bazel.build/versions/main/skylark/depsets.html)
 and
 [reducing the number of calls to depset](https://docs.bazel.build/versions/main/skylark/performance.html#reduce-the-number-of-calls-to-depset).
+
+--------------------------------------------------------------------------------
+
+## <a name="package-case"></a>Package name doesn't match the case of its directory
+
+  * Category name: `package-case`
+  * Automatic fix: yes
+  * [Suppress the warning](#suppress): `# buildifier: disable=package-case`
+
+Bazel compares package names case-sensitively, even on case-insensitive file
+systems such as the default ones on macOS and Windows. A label such as
+`//Lib:hello-lib` that refers to a package in the directory `lib` thus
+refers to a different package than `//lib:hello-lib`, even though both are
+loaded from the same directory. As a result, the same target can be built
+multiple times with outputs that clash on disk, which causes slow, flaky or
+failing builds
+([bazelbuild/bazel#32729](https://github.com/bazelbuild/bazel/issues/32729)).
+On case-sensitive file systems, such a label refers to a package that doesn't
+exist.
+
+Example that triggers this warning if the directory of the package is `lib`:
+
+```python
+cc_binary(
+    name = "main",
+    deps = ["//Lib:hello-lib"],
+)
+```
+
+Spell the package name in the same way as its directory instead:
+
+```python
+cc_binary(
+    name = "main",
+    deps = ["//lib:hello-lib"],
+)
+```
+
+The warning applies to all string literals that are labels or target patterns
+in the main repository (starting with `//`, `@//` or `@@//`), including `load`
+statements. It requires buildifier to know the workspace root and is not
+emitted if the package directory doesn't exist or if there are multiple
+directories whose names only differ in case.
 
 --------------------------------------------------------------------------------
 

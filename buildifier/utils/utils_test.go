@@ -17,7 +17,12 @@ limitations under the License.
 package utils
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/warn"
 )
 
 func TestIsStarlarkFile(t *testing.T) {
@@ -163,5 +168,42 @@ func TestIsStarlarkFile(t *testing.T) {
 		if isStarlarkFile(tc.filename) != tc.ok {
 			t.Errorf("Wrong result for %q, want %t", tc.filename, tc.ok)
 		}
+	}
+}
+
+func TestLinterCachesDirectoryListings(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "MODULE.bazel"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	libDir := filepath.Join(root, "lib")
+	if err := os.Mkdir(libDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	lint := func(linter *Linter) []*warn.Finding {
+		f, err := build.ParseBuild("BUILD", []byte(`foo(deps = ["//Lib:x"])`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.WorkspaceRoot = root
+		return linter.Lint(f, "warn", &[]string{"package-case"}, false)
+	}
+
+	linter := NewLinter()
+	if findings := lint(linter); len(findings) != 1 {
+		t.Fatalf("got %d findings, want 1", len(findings))
+	}
+
+	if err := os.Remove(libDir); err != nil {
+		t.Fatal(err)
+	}
+	// The same Linter still uses the cached directory listing.
+	if findings := lint(linter); len(findings) != 1 {
+		t.Errorf("got %d findings with the same Linter, want 1", len(findings))
+	}
+	// A new Linter lists the directory again.
+	if findings := lint(NewLinter()); len(findings) != 0 {
+		t.Errorf("got %d findings with a new Linter, want 0", len(findings))
 	}
 }

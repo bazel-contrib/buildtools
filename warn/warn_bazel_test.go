@@ -16,7 +16,12 @@ limitations under the License.
 
 package warn
 
-import "testing"
+import (
+	"fmt"
+	"io/fs"
+	"testing"
+	"testing/fstest"
+)
 
 func TestConstantGlob(t *testing.T) {
 	checkFindings(t, "constant-glob", `
@@ -274,4 +279,122 @@ def generate_targets(name, src1, src2):
 			`:21: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 		},
 		scopeBuild | scopeBzl)
+}
+
+func TestPackageCase(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD":     "",
+		"lib/defs.bzl":  "",
+		"foo/bar/BUILD": "",
+		"Upper/BUILD":   "",
+		"config/BUILD":  "",
+	})()
+
+	checkFindingsAndFix(t, "package-case", `
+load("//Lib:defs.bzl", "x")
+load("//lib:defs.bzl", "y")
+
+cc_library(
+    name = "a",
+    deps = [
+        "//Lib:hello-lib",
+        "//lib:hello-lib",
+        "@//FOO/bar",
+        "@@//foo/Bar:Baz",
+        "//upper",
+        "//Upper",
+    ] + select({
+        "//Config:opt": ["//LIB/..."],
+        "//conditions:default": ["-//Foo/Bar/...:all"],
+    }),
+)
+`, `
+load("//lib:defs.bzl", "x")
+load("//lib:defs.bzl", "y")
+
+cc_library(
+    name = "a",
+    deps = [
+        "//lib:hello-lib",
+        "//lib:hello-lib",
+        "@//foo/bar",
+        "@@//foo/bar:Baz",
+        "//Upper",
+        "//Upper",
+    ] + select({
+        "//config:opt": ["//lib/..."],
+        "//conditions:default": ["-//foo/bar/...:all"],
+    }),
+)
+`, []string{
+		`:1: The package "Lib" in "//Lib:defs.bzl" doesn't match the case of its directory "lib". Use "//lib:defs.bzl" instead.`,
+		`:7: The package "Lib" in "//Lib:hello-lib" doesn't match the case of its directory "lib". Use "//lib:hello-lib" instead.`,
+		`:9: The package "FOO/bar" in "@//FOO/bar" doesn't match the case of its directory "foo/bar". Use "@//foo/bar" instead.`,
+		`:10: The package "foo/Bar" in "@@//foo/Bar:Baz" doesn't match the case of its directory "foo/bar". Use "@@//foo/bar:Baz" instead.`,
+		`:11: The package "upper" in "//upper" doesn't match the case of its directory "Upper". Use "//Upper" instead.`,
+		`:14: The package "Config" in "//Config:opt" doesn't match the case of its directory "config". Use "//config:opt" instead.`,
+		`:14: The package "LIB" in "//LIB/..." doesn't match the case of its directory "lib". Use "//lib/..." instead.`,
+		`:15: The package "Foo/Bar" in "-//Foo/Bar/...:all" doesn't match the case of its directory "foo/bar". Use "-//foo/bar/...:all" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestPackageCaseNoFindings(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+		"file.txt":  "",
+		"amb/BUILD": "",
+		"AMB/BUILD": "",
+	})()
+
+	checkFindings(t, "package-case", `
+x = [
+    "//lib:defs.bzl",
+    "//:Lib",
+    "//",
+    "//...",
+    ":Lib",
+    "Lib",
+    "Lib/file.txt",
+    "@lib//Lib:x",
+    "@Lib//lib",
+    "//Missing:x",
+    "//Lib/missing:x",
+    "//Lib//missing:x",
+    "//./Lib:x",
+    "//Lib/../Lib:x",
+    "//File.txt:x",
+    "//Amb:x",
+    "//AMB:x",
+]
+`, []string{}, scopeEverywhere)
+}
+
+func TestPackageCaseSymlink(t *testing.T) {
+	defer setUpFileReaderFS(fstest.MapFS{
+		"linked": &fstest.MapFile{Mode: fs.ModeSymlink},
+	})()
+
+	checkFindingsAndFix(t, "package-case", `
+x = "//Linked:x"
+`, `
+x = "//linked:x"
+`, []string{
+		`:1: The package "Linked" in "//Linked:x" doesn't match the case of its directory "linked". Use "//linked:x" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestPackageCaseWithoutDirectoryListing(t *testing.T) {
+	// No FileReader at all.
+	checkFindings(t, "package-case", `
+x = "//Lib:x"
+`, []string{}, scopeEverywhere)
+
+	// A FileReader that can read files, but not list directories.
+	testFileReader = NewFileReader(func(string) ([]byte, error) {
+		return nil, fmt.Errorf("file not found")
+	})
+	defer func() { testFileReader = nil }()
+	checkFindings(t, "package-case", `
+x = "//Lib:x"
+`, []string{}, scopeEverywhere)
 }
