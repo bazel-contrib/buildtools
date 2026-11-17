@@ -85,6 +85,23 @@ exports_files(["foo.txt"])
 `,
 		[]string{},
 		scopeBuild|scopeWorkspace)
+
+	checkFindings(t, "duplicated-name", `
+toolchain_type(
+    name = "x",
+) if cond else alias(
+    name = "x",
+    actual = "//foo:x",
+)
+cc_library(name = "y") if a else (cc_binary(name = "y") if b else cc_test(name = "y"))
+[cc_library(name = "z"), cc_binary(name = "z")] if c else None
+cc_library(name = "x")
+`,
+		[]string{
+			`:8: A rule with name "z" was already found on line 8`,
+			`:9: A rule with name "x" was already found on line 1`,
+		},
+		scopeBuild|scopeWorkspace)
 }
 
 func TestPositionalArgumentsDoesNotWarnForNamedArguments(t *testing.T) {

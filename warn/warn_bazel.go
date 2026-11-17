@@ -152,8 +152,24 @@ func duplicatedNameWarning(f *build.File) []*LinterFinding {
 		return nil
 	}
 
+	// Rules in different branches of the same conditional expression, e.g.
+	// `foo(name = "x") if cond else bar(name = "x")`, are never both defined.
+	branches := make(map[*build.CallExpr]map[*build.ConditionalExpr]build.Expr)
+	for _, stmt := range f.Stmt {
+		build.Walk(stmt, func(x build.Expr, stk []build.Expr) {
+			if call, ok := x.(*build.CallExpr); ok {
+				branches[call] = conditionalBranches(x, stk)
+			}
+		})
+	}
+
+	type namedRule struct {
+		call *build.CallExpr
+		line int
+	}
+
 	findings := []*LinterFinding{}
-	names := make(map[string]int) // map from name to line number
+	names := make(map[string][]namedRule) // map from name to previous rules
 	msg := `A rule with name %q was already found on line %d. ` +
 		`Even if it's valid for Blaze, this may confuse other tools. ` +
 		`Please rename it and use different names.`
@@ -164,18 +180,51 @@ func duplicatedNameWarning(f *build.File) []*LinterFinding {
 			continue
 		}
 		start, _ := rule.Call.Span()
-		if line, ok := names[name]; ok {
-			finding := makeLinterFinding(rule.Call, fmt.Sprintf(msg, name, line))
+		for _, previous := range names[name] {
+			if inDifferentBranches(branches[previous.call], branches[rule.Call]) {
+				continue
+			}
+			finding := makeLinterFinding(rule.Call, fmt.Sprintf(msg, name, previous.line))
 			if nameNode := rule.Attr("name"); nameNode != nil {
 				finding.Start, finding.End = nameNode.Span()
-				start = finding.Start
 			}
 			findings = append(findings, finding)
-		} else {
-			names[name] = start.Line
+			break
 		}
+		names[name] = append(names[name], namedRule{rule.Call, start.Line})
 	}
 	return findings
+}
+
+// conditionalBranches returns, for each conditional expression in stk, the
+// branch (Then or Else) that contains x.
+func conditionalBranches(x build.Expr, stk []build.Expr) map[*build.ConditionalExpr]build.Expr {
+	branches := make(map[*build.ConditionalExpr]build.Expr)
+	for i, frame := range stk {
+		cond, ok := frame.(*build.ConditionalExpr)
+		if !ok {
+			continue
+		}
+		child := x
+		if i+1 < len(stk) {
+			child = stk[i+1]
+		}
+		if child == cond.Then || child == cond.Else {
+			branches[cond] = child
+		}
+	}
+	return branches
+}
+
+// inDifferentBranches returns whether two expressions are in different branches
+// of the same conditional expression, given their conditionalBranches.
+func inDifferentBranches(a, b map[*build.ConditionalExpr]build.Expr) bool {
+	for cond, branch := range a {
+		if other, ok := b[cond]; ok && other != branch {
+			return true
+		}
+	}
+	return false
 }
 
 func positionalArgumentsWarning(f *build.File, fileReader *FileReader) (findings []*LinterFinding) {
