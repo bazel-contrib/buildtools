@@ -109,10 +109,12 @@ func GetParser(inputType string) func(filename string, data []byte) (*build.File
 	}
 }
 
-// Linter calls the linter on files. Directory listings don't change while
-// buildifier is running, so a Linter caches them across all files it lints.
-// A Linter is not safe for concurrent use.
+// Linter calls the linter on files. A Linter is not safe for concurrent use.
 type Linter struct {
+	// dirs caches directory listings across all files linted by this Linter.
+	// They don't change while buildifier is running, but may change during the
+	// lifetime of a long-lived process, so the cache is scoped to a Linter
+	// rather than to the process.
 	dirs map[string]dirListing
 }
 
@@ -172,8 +174,7 @@ func (l *Linter) Lint(f *build.File, lint string, warningsList *[]string, verbos
 	return nil
 }
 
-// Lint calls the linter and returns a list of unresolved findings. Use a
-// Linter to lint multiple files more efficiently.
+// Lint calls the linter and returns a list of unresolved findings
 func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
 	return NewLinter().Lint(f, lint, warningsList, verbose)
 }

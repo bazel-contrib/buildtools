@@ -46,8 +46,6 @@ func NewFileReader(readFile func(string) ([]byte, error)) *FileReader {
 // the repository using a path relative to the workspace root (OS-independent,
 // with forward slashes, empty for the workspace root itself). It enables
 // warnings that need to inspect the directory structure of the repository.
-// Directory listings aren't cached by the FileReader, but readDir may cache
-// them, e.g. across multiple files.
 func NewFileReaderWithReadDir(readFile func(string) ([]byte, error), readDir func(string) ([]fs.DirEntry, error)) *FileReader {
 	fr := NewFileReader(readFile)
 	fr.readDir = readDir
@@ -98,7 +96,9 @@ func (fr *FileReader) canReadDirs() bool {
 }
 
 // getDir lists the entries of a directory in the repository. Returns nil if the
-// directory can't be listed.
+// directory can't be listed. Unlike files, directory listings aren't cached
+// here: the warnings that use them cache them per file and readDir can cache
+// them across files.
 func (fr *FileReader) getDir(dir string) []fs.DirEntry {
 	if !fr.canReadDirs() {
 		return nil
