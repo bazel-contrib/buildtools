@@ -363,27 +363,38 @@ func spellTargetDirs(fileReader *FileReader, pkg, target string) string {
 	return spelledDirs + "/" + name
 }
 
-// isPackageSpecification returns whether the innermost node in stack is
-// an element of the packages attribute of a package_group, which contains
-// package specifications such as "//pkg" rather than labels.
+// isPackageSpecification returns whether the innermost node in stack is a
+// package specification such as "//pkg" rather than a label, i.e. an element
+// of the packages attribute of a package_group or an argument of visibility()
+// in a .bzl file.
 func isPackageSpecification(stack []build.Expr) bool {
-	for i := len(stack) - 1; i > 0; i-- {
-		assign, ok := stack[i].(*build.AssignExpr)
-		if !ok {
-			continue
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch node := stack[i].(type) {
+		case *build.AssignExpr:
+			lhs, ok := node.LHS.(*build.Ident)
+			if !ok || lhs.Name != "packages" || i == 0 {
+				return false
+			}
+			call, ok := stack[i-1].(*build.CallExpr)
+			if !ok {
+				return false
+			}
+			kind := (&build.Rule{Call: call}).Kind()
+			return kind == "package_group" || kind == "native.package_group"
+		case *build.CallExpr:
+			return (&build.Rule{Call: node}).Kind() == "visibility"
 		}
-		lhs, ok := assign.LHS.(*build.Ident)
-		if !ok || lhs.Name != "packages" {
-			return false
-		}
-		call, ok := stack[i-1].(*build.CallExpr)
-		if !ok {
-			return false
-		}
-		kind := (&build.Rule{Call: call}).Kind()
-		return kind == "package_group" || kind == "native.package_group"
 	}
 	return false
+}
+
+// specialLabels are labels in the main repository that have a special meaning
+// in Bazel and don't refer to a package in the repository, without the leading
+// "//".
+var specialLabels = map[string]bool{
+	"conditions:default": true,
+	"visibility:private": true,
+	"visibility:public":  true,
 }
 
 func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
@@ -407,7 +418,7 @@ func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 			}
 		}
 		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
-		if !ok {
+		if !ok || specialLabels[pkg+suffix] {
 			return nil, nil
 		}
 		spelledPkg, ok := spellDirs(fileReader, "", pkg)
@@ -421,7 +432,8 @@ func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 			suffix = ":" + path.Base(pkg)
 		}
 		value := prefix + spelledPkg + suffix
-		if value == str.Value {
+		// Don't turn a label into one with a special meaning.
+		if value == str.Value || specialLabels[spelledPkg+suffix] {
 			return nil, nil
 		}
 		fixed := *str

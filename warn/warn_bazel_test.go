@@ -442,6 +442,71 @@ cc_library(
 	}, scopeEverywhere)
 }
 
+func TestLabelCaseSpecialLabels(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"Conditions/BUILD": "",
+		"Visibility/BUILD": "",
+	})()
+
+	// Labels with a special meaning are left alone, even if a directory with a
+	// differently spelled name exists.
+	checkFindingsAndFix(t, "label-case", `
+x = [
+    "//conditions:default",
+    "@//conditions:default",
+    "//visibility:public",
+    "@@//visibility:private",
+    "//conditions:other",
+]
+`, `
+x = [
+    "//conditions:default",
+    "@//conditions:default",
+    "//visibility:public",
+    "@@//visibility:private",
+    "//Conditions:other",
+]
+`, []string{
+		`:6: "//conditions:other" doesn't match the spelling of the directories on disk. Use "//Conditions:other" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseNoSpecialLabelsIntroduced(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"conditions/BUILD": "",
+		"visibility/BUILD": "",
+	})()
+
+	// Fixing these labels would give them a special meaning.
+	checkFindings(t, "label-case", `
+x = [
+    "//Conditions:default",
+    "//Visibility:public",
+]
+`, []string{}, scopeEverywhere)
+}
+
+func TestLabelCaseVisibilityFunction(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	// visibility() in .bzl files takes package specifications rather than labels.
+	checkFindingsAndFix(t, "label-case", `
+visibility(["//Lib", "//Lib/..."])
+
+visibility("//Lib")
+`, `
+visibility(["//lib", "//lib/..."])
+
+visibility("//lib")
+`, []string{
+		`:1: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:1: "//Lib/..." doesn't match the spelling of the directories on disk. Use "//lib/..." instead.`,
+		`:3: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+	}, scopeEverywhere)
+}
+
 func TestLabelCaseSymlinks(t *testing.T) {
 	defer setUpFileReaderFS(fstest.MapFS{
 		"lib/BUILD": {},
