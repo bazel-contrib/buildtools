@@ -21,6 +21,8 @@ TOOLS=(buildifier buildozer unused_deps)
 PLATFORMS=(
   darwin-amd64
   darwin-arm64
+  freebsd-amd64
+  freebsd-arm64
   linux-amd64
   linux-arm64
   linux-riscv64
