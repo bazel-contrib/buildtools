@@ -101,6 +101,26 @@ go_binary(
 )
 
 go_binary(
+    name = "unused_deps-freebsd-amd64",
+    out = "unused_deps-freebsd_amd64",
+    embed = [":unused_deps_lib"],
+    goarch = "amd64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "unused_deps-freebsd-arm64",
+    out = "unused_deps-freebsd_arm64",
+    embed = [":unused_deps_lib"],
+    goarch = "arm64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
     name = "unused_deps-linux-riscv64",
     out = "unused_deps-linux_riscv64",
     embed = [":unused_deps_lib"],

@@ -117,6 +117,26 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+go_binary(
+    name = "buildozer-freebsd-amd64",
+    out = "buildozer-freebsd_amd64",
+    embed = [":buildozer_lib"],
+    goarch = "amd64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "buildozer-freebsd-arm64",
+    out = "buildozer-freebsd_arm64",
+    embed = [":buildozer_lib"],
+    goarch = "arm64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
 exports_files(
     [
         "README.md",
