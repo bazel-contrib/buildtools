@@ -507,6 +507,36 @@ visibility("//lib")
 	}, scopeEverywhere)
 }
 
+func TestLabelCaseWrappedPackageSpecifications(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	// Package specifications stay package specifications when wrapped in other
+	// calls, while includes of a package_group are labels.
+	checkFindingsAndFix(t, "label-case", `
+package_group(
+    name = "group",
+    includes = ["//Lib"],
+    packages = sorted(["//Lib"]),
+)
+
+visibility(sorted(["//Lib"]))
+`, `
+package_group(
+    name = "group",
+    includes = ["//lib:Lib"],
+    packages = sorted(["//lib"]),
+)
+
+visibility(sorted(["//lib"]))
+`, []string{
+		`:3: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib:Lib" instead.`,
+		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+	}, scopeEverywhere)
+}
+
 func TestLabelCaseSymlinks(t *testing.T) {
 	defer setUpFileReaderFS(fstest.MapFS{
 		"lib/BUILD": {},

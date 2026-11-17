@@ -364,25 +364,26 @@ func spellTargetDirs(fileReader *FileReader, pkg, target string) string {
 }
 
 // isPackageSpecification returns whether the innermost node in stack is a
-// package specification such as "//pkg" rather than a label, i.e. an element
-// of the packages attribute of a package_group or an argument of visibility()
-// in a .bzl file.
+// package specification such as "//pkg" rather than a label, i.e. part of the
+// packages attribute of a package_group or of the arguments of visibility() in
+// a .bzl file, possibly wrapped in other calls such as sorted().
 func isPackageSpecification(stack []build.Expr) bool {
-	for i := len(stack) - 1; i >= 0; i-- {
-		switch node := stack[i].(type) {
-		case *build.AssignExpr:
-			lhs, ok := node.LHS.(*build.Ident)
-			if !ok || lhs.Name != "packages" || i == 0 {
-				return false
+	for i, node := range stack {
+		call, ok := node.(*build.CallExpr)
+		if !ok {
+			continue
+		}
+		switch (&build.Rule{Call: call}).Kind() {
+		case "visibility":
+			return true
+		case "package_group", "native.package_group":
+			if i+1 < len(stack) {
+				if assign, ok := stack[i+1].(*build.AssignExpr); ok {
+					if lhs, ok := assign.LHS.(*build.Ident); ok && lhs.Name == "packages" {
+						return true
+					}
+				}
 			}
-			call, ok := stack[i-1].(*build.CallExpr)
-			if !ok {
-				return false
-			}
-			kind := (&build.Rule{Call: call}).Kind()
-			return kind == "package_group" || kind == "native.package_group"
-		case *build.CallExpr:
-			return (&build.Rule{Call: node}).Kind() == "visibility"
 		}
 	}
 	return false
