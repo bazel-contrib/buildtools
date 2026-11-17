@@ -307,6 +307,7 @@ cat > golden/.buildifier.example.json <<EOF
     "http-archive",
     "integer-division",
     "keyword-positional-params",
+    "label-case",
     "list-append",
     "load",
     "make-location",
@@ -359,7 +360,6 @@ cat > golden/.buildifier.example.json <<EOF
     "no-effect",
     "output-group",
     "overly-nested-depset",
-    "package-case",
     "package-name",
     "package-on-top",
     "positional-args",
@@ -1012,10 +1012,10 @@ diff -u report_golden report || die "$1: wrong console output for allowed symbol
 
 cd ../..
 
-# Test the package-case warning, which compares labels to the directories in the workspace
+# Test the label-case warning, which compares labels to the directories in the workspace
 
-mkdir test_dir/package_case
-cd test_dir/package_case
+mkdir test_dir/label_case
+cd test_dir/label_case
 
 touch MODULE.bazel
 mkdir -p lib/sub
@@ -1052,9 +1052,9 @@ foo(
 EOF
 
   cat > report_golden <<'EOF'
-BUILD:1: package-case: "//Lib:defs.bzl" doesn't match the spelling of the directories on disk. Use "//lib:defs.bzl" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#package-case)
-BUILD:5: package-case: "//lib:Sub/file.txt" doesn't match the spelling of the directories on disk. Use "//lib:sub/file.txt" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#package-case)
-BUILD:7: package-case: "//Lib/Sub:a" doesn't match the spelling of the directories on disk. Use "//lib/sub:a" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#package-case)
+BUILD:1: label-case: "//Lib:defs.bzl" doesn't match the spelling of the directories on disk. Use "//lib:defs.bzl" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
+BUILD:5: label-case: "//lib:Sub/file.txt" doesn't match the spelling of the directories on disk. Use "//lib:sub/file.txt" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
+BUILD:7: label-case: "//Lib/Sub:a" doesn't match the spelling of the directories on disk. Use "//lib/sub:a" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
 EOF
   expected_ret=4
 else
@@ -1065,14 +1065,14 @@ else
 fi
 
 ret=0
-$buildifier --lint=warn --warnings=package-case BUILD 2> report || ret=$?
+$buildifier --lint=warn --warnings=label-case BUILD 2> report || ret=$?
 if [[ $ret -ne $expected_ret ]]; then
-  die "package-case: Expected buildifier to exit with $expected_ret, actual: $ret"
+  die "label-case: Expected buildifier to exit with $expected_ret, actual: $ret"
 fi
-diff -u report_golden report || die "package-case: wrong console output for --lint=warn"
+diff -u report_golden report || die "label-case: wrong console output for --lint=warn"
 
-$buildifier --lint=fix --warnings=package-case BUILD || die "package-case: Expected buildifier to succeed with --lint=fix"
-diff -u BUILD.golden BUILD || die "package-case: wrong file output for --lint=fix"
+$buildifier --lint=fix --warnings=label-case BUILD || die "label-case: Expected buildifier to succeed with --lint=fix"
+diff -u BUILD.golden BUILD || die "label-case: wrong file output for --lint=fix"
 
 cd ../..
 

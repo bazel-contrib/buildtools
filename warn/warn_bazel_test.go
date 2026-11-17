@@ -281,7 +281,7 @@ def generate_targets(name, src1, src2):
 		scopeBuild | scopeBzl)
 }
 
-func TestPackageCase(t *testing.T) {
+func TestLabelCase(t *testing.T) {
 	defer setUpFileReader(map[string]string{
 		"lib/BUILD":              "",
 		"lib/defs.bzl":           "",
@@ -293,7 +293,7 @@ func TestPackageCase(t *testing.T) {
 		"sub/file.txt":           "",
 	})()
 
-	checkFindingsAndFix(t, "package-case", `
+	checkFindingsAndFix(t, "label-case", `
 load("//Lib:defs.bzl", "x")
 load("//lib:defs.bzl", "y")
 
@@ -372,7 +372,7 @@ cc_library(
 	}, scopeEverywhere)
 }
 
-func TestPackageCaseNoFindings(t *testing.T) {
+func TestLabelCaseNoFindings(t *testing.T) {
 	defer setUpFileReader(map[string]string{
 		"lib/BUILD":            "",
 		"lib/file.txt":         "",
@@ -382,7 +382,7 @@ func TestPackageCaseNoFindings(t *testing.T) {
 		"AMB/BUILD":            "",
 	})()
 
-	checkFindings(t, "package-case", `
+	checkFindings(t, "label-case", `
 x = [
     "//lib:defs.bzl",
     "//lib",
@@ -413,7 +413,36 @@ x = [
 `, []string{}, scopeEverywhere)
 }
 
-func TestPackageCaseSymlinks(t *testing.T) {
+func TestLabelCaseConcatenation(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	checkFindingsAndFix(t, "label-case", `
+cc_library(
+    name = "a",
+    deps = [
+        "//Lib" + ":x",
+        "@repo" + "//Lib:y",
+        "//Lib:" + NAME,
+    ],
+)
+`, `
+cc_library(
+    name = "a",
+    deps = [
+        "//lib" + ":x",
+        "@repo" + "//Lib:y",
+        "//lib:" + NAME,
+    ],
+)
+`, []string{
+		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:6: "//Lib:" doesn't match the spelling of the directories on disk. Use "//lib:" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseSymlinks(t *testing.T) {
 	defer setUpFileReaderFS(fstest.MapFS{
 		"lib/BUILD": {},
 		"linked":    {Mode: fs.ModeSymlink, Data: []byte("lib")},
@@ -421,7 +450,7 @@ func TestPackageCaseSymlinks(t *testing.T) {
 		"filelink":  {Mode: fs.ModeSymlink, Data: []byte("lib/BUILD")},
 	})()
 
-	checkFindingsAndFix(t, "package-case", `
+	checkFindingsAndFix(t, "label-case", `
 x = [
     "//Linked:x",
     "//Broken:x",
@@ -438,9 +467,9 @@ x = [
 	}, scopeEverywhere)
 }
 
-func TestPackageCaseWithoutLookup(t *testing.T) {
+func TestLabelCaseWithoutLookup(t *testing.T) {
 	// No FileReader at all.
-	checkFindings(t, "package-case", `
+	checkFindings(t, "label-case", `
 x = "//Lib:x"
 `, []string{}, scopeEverywhere)
 
@@ -449,7 +478,7 @@ x = "//Lib:x"
 		return nil, fmt.Errorf("file not found")
 	})
 	defer func() { testFileReader = nil }()
-	checkFindings(t, "package-case", `
+	checkFindings(t, "label-case", `
 x = "//Lib:x"
 `, []string{}, scopeEverywhere)
 }

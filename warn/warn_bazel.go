@@ -386,7 +386,7 @@ func isPackageSpecification(stack []build.Expr) bool {
 	return false
 }
 
-func packageCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
+func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 	if !fileReader.canLookUp() {
 		return nil
 	}
@@ -395,6 +395,17 @@ func packageCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding 
 	// match the file system as well as the string literal with the fixed
 	// spelling.
 	check := func(str *build.StringExpr, stack []build.Expr) (*LinterFinding, *build.StringExpr) {
+		// A string that is concatenated with others may only be part of a label.
+		isPrefix := false
+		if len(stack) > 0 {
+			if concat, ok := stack[len(stack)-1].(*build.BinaryExpr); ok && concat.Op == "+" {
+				if concat.Y == str {
+					// The string may follow a repository name, e.g. "@repo" + "//pkg".
+					return nil, nil
+				}
+				isPrefix = true
+			}
+		}
 		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
 		if !ok {
 			return nil, nil
@@ -405,7 +416,7 @@ func packageCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding 
 		}
 		if target, ok := strings.CutPrefix(suffix, ":"); ok {
 			suffix = ":" + spellTargetDirs(fileReader, spelledPkg, target)
-		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPackageSpecification(stack) {
+		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPrefix && !isPackageSpecification(stack) {
 			// "//pkg" is short for "//pkg:pkg", keep the original target name.
 			suffix = ":" + path.Base(pkg)
 		}

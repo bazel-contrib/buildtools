@@ -175,6 +175,7 @@ var MultiFileWarningMap = map[string]func(f *build.File, fileReader *FileReader)
 	"deprecated-function":                deprecatedFunctionWarning,
 	"git-repository":                     nativeGitRepositoryWarning,
 	"http-archive":                       nativeHTTPArchiveWarning,
+	"label-case":                         labelCaseWarning,
 	"native-android":                     nativeAndroidRulesWarning,
 	"native-cc-binary":                   NativeCcRulesWarning("cc_binary"),
 	"native-cc-import":                   NativeCcRulesWarning("cc_import"),
@@ -217,7 +218,6 @@ var MultiFileWarningMap = map[string]func(f *build.File, fileReader *FileReader)
 	"native-sh-binary":                   NativeShellRulesWarning("sh_binary"),
 	"native-sh-library":                  NativeShellRulesWarning("sh_library"),
 	"native-sh-test":                     NativeShellRulesWarning("sh_test"),
-	"package-case":                       packageCaseWarning,
 	"positional-args":                    positionalArgumentsWarning,
 	"unnamed-macro":                      unnamedMacroWarning,
 }

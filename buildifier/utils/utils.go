@@ -139,7 +139,7 @@ func NewLinter() *Linter {
 
 // lookup returns the entry of the directory dir in the local filesystem that
 // name refers to, with the type of the file it refers to after following
-// symlinks.
+// symlinks and junctions.
 func (l *Linter) lookup(dir, name string) (fs.DirEntry, error) {
 	d, ok := l.dirs[dir]
 	if !ok {
@@ -165,7 +165,7 @@ func (l *Linter) lookup(dir, name string) (fs.DirEntry, error) {
 
 // lookupUncached returns the entry among the entries of the directory dir that
 // name refers to, with the type of the file it refers to after following
-// symlinks.
+// symlinks and junctions.
 func lookupUncached(dir, name string, entries map[string]fs.DirEntry) (fs.DirEntry, error) {
 	entry, ok := entries[name]
 	if !ok {
@@ -191,7 +191,9 @@ func lookupUncached(dir, name string, entries map[string]fs.DirEntry) (fs.DirEnt
 			return nil, fmt.Errorf("%q doesn't refer to an entry of %q", name, dir)
 		}
 	}
-	if entry.Type()&fs.ModeSymlink != 0 {
+	// Resolve symlinks as well as Windows junctions, which are reported as
+	// irregular files.
+	if entry.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
 		info, err := os.Stat(filepath.Join(dir, entry.Name()))
 		if err != nil {
 			return nil, err

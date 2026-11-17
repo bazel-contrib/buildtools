@@ -18,7 +18,9 @@ package utils
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
@@ -193,6 +195,11 @@ func TestLinterLookup(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "file.txt"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// The same name in Unicode normalization forms D and C.
+	decomposed, composed := "e\u0301", "\u00e9"
+	if err := os.Mkdir(filepath.Join(root, decomposed), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	linter := NewLinter()
 	// check looks up name and verifies the name and type of the resulting entry.
@@ -219,10 +226,21 @@ func TestLinterLookup(t *testing.T) {
 	check("file.txt", "file.txt", false)
 	check("missing", "", false)
 	if caseInsensitive {
+		// Different wrong spellings of the same name are looked up independently.
+		check("Lib", "lib", true)
 		check("LIB", "lib", true)
 		check("File.TXT", "file.txt", false)
 	} else {
+		check("Lib", "", false)
 		check("LIB", "", false)
+	}
+
+	// Matching names is left to the file system, which may also ignore
+	// differences in Unicode normalization (e.g. APFS on macOS).
+	if _, err := os.Lstat(filepath.Join(root, composed)); err == nil {
+		check(composed, decomposed, true)
+	} else {
+		check(composed, "", false)
 	}
 
 	// Symlinks keep their own name, but have the type of the file they point to.
@@ -236,12 +254,39 @@ func TestLinterLookup(t *testing.T) {
 	if err := os.Symlink("missing", filepath.Join(root, "broken")); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Symlink("loop", filepath.Join(root, "loop")); err != nil {
+		t.Fatal(err)
+	}
 	linter = NewLinter()
 	check("linked", "linked", true)
 	check("filelink", "filelink", false)
 	check("broken", "", false)
+	check("loop", "", false)
 	if caseInsensitive {
 		check("LINKED", "linked", true)
+	}
+}
+
+func TestLinterLookupJunction(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("junctions only exist on Windows")
+	}
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Unlike symlinks, junctions can be created without special privileges.
+	junction := filepath.Join(root, "linked")
+	if out, err := exec.Command("cmd", "/c", "mklink", "/J", junction, filepath.Join(root, "lib")).CombinedOutput(); err != nil {
+		t.Fatalf("failed to create junction: %v\n%s", err, out)
+	}
+
+	entry, err := NewLinter().lookup(root, "LINKED")
+	if err != nil {
+		t.Fatalf("lookup failed: %v", err)
+	}
+	if entry.Name() != "linked" || !entry.IsDir() {
+		t.Errorf("lookup = %q (directory: %t), want %q (directory: true)", entry.Name(), entry.IsDir(), "linked")
 	}
 }
 
@@ -259,25 +304,25 @@ func TestLinterCachesLookups(t *testing.T) {
 	}
 
 	lint := func(linter *Linter) []*warn.Finding {
-		f, err := build.ParseBuild("BUILD", []byte(`foo(deps = ["//Lib:x"])`))
+		f, err := build.ParseBuild("BUILD", []byte(`foo(deps = ["//Lib:x", "//LIB:y"])`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		f.WorkspaceRoot = root
-		return linter.Lint(f, "warn", &[]string{"package-case"}, false)
+		return linter.Lint(f, "warn", &[]string{"label-case"}, false)
 	}
 
 	linter := NewLinter()
-	if findings := lint(linter); len(findings) != 1 {
-		t.Fatalf("got %d findings, want 1", len(findings))
+	if findings := lint(linter); len(findings) != 2 {
+		t.Fatalf("got %d findings, want 2", len(findings))
 	}
 
 	if err := os.Remove(libDir); err != nil {
 		t.Fatal(err)
 	}
-	// The same Linter still uses the cached lookup.
-	if findings := lint(linter); len(findings) != 1 {
-		t.Errorf("got %d findings with the same Linter, want 1", len(findings))
+	// The same Linter still uses the cached lookups of both spellings.
+	if findings := lint(linter); len(findings) != 2 {
+		t.Errorf("got %d findings with the same Linter, want 2", len(findings))
 	}
 	// A new Linter looks up the directory again.
 	if findings := lint(NewLinter()); len(findings) != 0 {
