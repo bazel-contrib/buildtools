@@ -20,7 +20,6 @@ package warn
 
 import (
 	"fmt"
-	"io/fs"
 	"path"
 	"regexp"
 	"strings"
@@ -313,118 +312,120 @@ func splitMainRepoLabel(value string) (prefix, pkg, suffix string, ok bool) {
 		pkg = strings.TrimSuffix(pkg, "/...")
 		suffix = "/..." + suffix
 	}
-	if pkg == "" {
-		return "", "", "", false
-	}
 	return prefix, pkg, suffix, true
 }
 
-// foldCase maps a name to a key that is shared by all names that only differ
-// in case.
-func foldCase(name string) string {
-	return strings.ToLower(strings.ToUpper(name))
+// isValidPathComponent returns whether a component of a path in a label can
+// be looked up in a directory.
+func isValidPathComponent(component string) bool {
+	return component != "" && component != "." && component != ".."
 }
 
-// subdirIndex records the names of the subdirectories of a directory in the
-// repository.
-type subdirIndex struct {
-	exact map[string]bool
-	// folded maps case-folded names to names. It is only built when needed.
-	folded map[string][]string
-}
-
-// caseInsensitiveMatches returns the names of all subdirectories whose names
-// only differ in case from name.
-func (index *subdirIndex) caseInsensitiveMatches(name string) []string {
-	if index.folded == nil {
-		index.folded = make(map[string][]string)
-		for subdir := range index.exact {
-			key := foldCase(subdir)
-			index.folded[key] = append(index.folded[key], subdir)
-		}
+// spellDirs returns the path rel of a directory relative to the directory base
+// as spelled by the entries stored in the file system. Returns false if rel
+// doesn't refer to a directory.
+func spellDirs(fileReader *FileReader, base, rel string) (string, bool) {
+	if rel == "" {
+		return "", true
 	}
-	return index.folded[foldCase(name)]
-}
-
-// packageSpellingResolver determines how package paths are spelled in the
-// repository.
-type packageSpellingResolver struct {
-	fileReader *FileReader
-	dirs       map[string]*subdirIndex
-}
-
-func (r *packageSpellingResolver) subdirs(dir string) *subdirIndex {
-	if index, ok := r.dirs[dir]; ok {
-		return index
-	}
-	index := &subdirIndex{exact: make(map[string]bool)}
-	for _, entry := range r.fileReader.getDir(dir) {
-		// Symlinks may point to directories and are followed by Bazel.
-		if entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 {
-			index.exact[entry.Name()] = true
-		}
-	}
-	r.dirs[dir] = index
-	return index
-}
-
-// spelling returns the package path pkg as spelled by the directories in the
-// repository. Returns false if a directory along the path doesn't exist or if
-// its spelling is ambiguous because there are multiple directories that only
-// differ in case and none of them matches exactly.
-func (r *packageSpellingResolver) spelling(pkg string) (string, bool) {
-	components := strings.Split(pkg, "/")
-	dir := ""
+	components := strings.Split(rel, "/")
+	dir := base
 	for i, component := range components {
-		if component == "" || component == "." || component == ".." {
+		if !isValidPathComponent(component) {
 			return "", false
 		}
-		index := r.subdirs(dir)
-		if !index.exact[component] {
-			candidates := index.caseInsensitiveMatches(component)
-			if len(candidates) != 1 {
-				return "", false
-			}
-			components[i] = candidates[0]
+		entry := fileReader.lookUpEntry(dir, component)
+		if entry == nil || !entry.IsDir() {
+			return "", false
 		}
+		components[i] = entry.Name()
 		dir = path.Join(dir, components[i])
 	}
-	return dir, true
+	return strings.Join(components, "/"), true
+}
+
+// spellTargetDirs returns the name of a target in the package pkg with the
+// directories it contains spelled as the entries stored in the file system.
+// The last component of the target name is never changed as the target may be
+// a rule.
+func spellTargetDirs(fileReader *FileReader, pkg, target string) string {
+	i := strings.LastIndexByte(target, '/')
+	if i < 0 {
+		return target
+	}
+	dirs, name := target[:i], target[i+1:]
+	spelledDirs, ok := spellDirs(fileReader, pkg, dirs)
+	// Rule names may contain slashes and output files don't exist in the source
+	// tree, so only change the spelling if the target exists on disk.
+	if !ok || !isValidPathComponent(name) || fileReader.lookUpEntry(path.Join(pkg, spelledDirs), name) == nil {
+		return target
+	}
+	return spelledDirs + "/" + name
+}
+
+// isPackageSpecification returns whether the innermost node in stack is
+// an element of the packages attribute of a package_group, which contains
+// package specifications such as "//pkg" rather than labels.
+func isPackageSpecification(stack []build.Expr) bool {
+	for i := len(stack) - 1; i > 0; i-- {
+		assign, ok := stack[i].(*build.AssignExpr)
+		if !ok {
+			continue
+		}
+		lhs, ok := assign.LHS.(*build.Ident)
+		if !ok || lhs.Name != "packages" {
+			return false
+		}
+		call, ok := stack[i-1].(*build.CallExpr)
+		if !ok {
+			return false
+		}
+		kind := (&build.Rule{Call: call}).Kind()
+		return kind == "package_group" || kind == "native.package_group"
+	}
+	return false
 }
 
 func packageCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
-	if !fileReader.canReadDirs() {
+	if !fileReader.canLookUp() {
 		return nil
 	}
-	resolver := &packageSpellingResolver{
-		fileReader: fileReader,
-		dirs:       make(map[string]*subdirIndex),
-	}
 
-	// check returns the finding for a string literal with a misspelled package
-	// path as well as the string literal with the fixed spelling.
-	check := func(str *build.StringExpr) (*LinterFinding, *build.StringExpr) {
+	// check returns the finding for a string literal whose spelling doesn't
+	// match the file system as well as the string literal with the fixed
+	// spelling.
+	check := func(str *build.StringExpr, stack []build.Expr) (*LinterFinding, *build.StringExpr) {
 		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
 		if !ok {
 			return nil, nil
 		}
-		spelling, ok := resolver.spelling(pkg)
-		if !ok || spelling == pkg {
+		spelledPkg, ok := spellDirs(fileReader, "", pkg)
+		if !ok {
+			return nil, nil
+		}
+		if target, ok := strings.CutPrefix(suffix, ":"); ok {
+			suffix = ":" + spellTargetDirs(fileReader, spelledPkg, target)
+		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPackageSpecification(stack) {
+			// "//pkg" is short for "//pkg:pkg", keep the original target name.
+			suffix = ":" + path.Base(pkg)
+		}
+		value := prefix + spelledPkg + suffix
+		if value == str.Value {
 			return nil, nil
 		}
 		fixed := *str
-		fixed.Value = prefix + spelling + suffix
+		fixed.Value = value
 		fixed.Token = ""
 		return makeLinterFinding(str, fmt.Sprintf(
-			"The package %q in %q doesn't match the case of its directory %q. Use %q instead.",
-			pkg, str.Value, spelling, fixed.Value)), &fixed
+			"%q doesn't match the spelling of the directories on disk. Use %q instead.",
+			str.Value, value)), &fixed
 	}
 
 	var findings []*LinterFinding
 	build.WalkPointers(f, func(expr *build.Expr, stack []build.Expr) {
 		switch node := (*expr).(type) {
 		case *build.LoadStmt:
-			finding, fixed := check(node.Module)
+			finding, fixed := check(node.Module, nil)
 			if finding == nil {
 				return
 			}
@@ -441,7 +442,7 @@ func packageCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding 
 					return
 				}
 			}
-			finding, fixed := check(node)
+			finding, fixed := check(node, stack)
 			if finding == nil {
 				return
 			}

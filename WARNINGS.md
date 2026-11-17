@@ -1159,7 +1159,7 @@ and
 
 --------------------------------------------------------------------------------
 
-## <a name="package-case"></a>Package name doesn't match the case of its directory
+## <a name="package-case"></a>Label doesn't match the spelling of the directories on disk
 
   * Category name: `package-case`
   * Automatic fix: yes
@@ -1169,12 +1169,15 @@ Bazel compares package names case-sensitively, even on case-insensitive file
 systems such as the default ones on macOS and Windows. A label such as
 `//Lib:hello-lib` that refers to a package in the directory `lib` thus
 refers to a different package than `//lib:hello-lib`, even though both are
-loaded from the same directory. As a result, the same target can be built
-multiple times with outputs that clash on disk, which causes slow, flaky or
-failing builds
+loaded from the same directory
+([bazelbuild/bazel#6401](https://github.com/bazelbuild/bazel/issues/6401)).
+As a result, the same target can be built multiple times with outputs that
+clash on disk, which can poison caches
+([bazelbuild/bazel#8009](https://github.com/bazelbuild/bazel/issues/8009))
+and cause slow, flaky or failing builds
 ([bazelbuild/bazel#32729](https://github.com/bazelbuild/bazel/issues/32729)).
-On case-sensitive file systems, such a label refers to a package that doesn't
-exist.
+The same applies to directories in target names, such as `//lib:Src/hello.cc`
+for the file `lib/src/hello.cc`.
 
 Example that triggers this warning if the directory of the package is `lib`:
 
@@ -1196,9 +1199,18 @@ cc_binary(
 
 The warning applies to all string literals that are labels or target patterns
 in the main repository (starting with `//`, `@//` or `@@//`), including `load`
-statements. It requires buildifier to know the workspace root and is not
-emitted if the package directory doesn't exist or if there are multiple
-directories whose names only differ in case.
+statements. Buildifier asks the file system whether the package path or a
+directory in the target name refers to a directory that is stored under a
+different name, usually one that differs in case. The warning is thus only
+emitted on case-insensitive file systems: on case-sensitive ones, such labels
+refer to directories that don't exist, which Bazel already reports as an
+error. It also requires buildifier to know the workspace root.
+
+The automatic fix only changes the names of directories. Since `//Lib` is
+short for `//Lib:Lib`, it is fixed to `//lib:Lib`, except for package
+specifications in `package_group`. Directories in a target name are only
+fixed if the target exists as a file or directory, since it may also be a rule
+or an output file.
 
 --------------------------------------------------------------------------------
 

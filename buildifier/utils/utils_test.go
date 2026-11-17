@@ -171,8 +171,85 @@ func TestIsStarlarkFile(t *testing.T) {
 	}
 }
 
-func TestLinterCachesDirectoryListings(t *testing.T) {
+// isCaseInsensitive returns whether the file system containing dir resolves
+// names case-insensitively.
+func isCaseInsensitive(t *testing.T, dir string) bool {
+	t.Helper()
+	probe := filepath.Join(dir, "case-probe")
+	if err := os.Mkdir(probe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(probe)
+	_, err := os.Lstat(filepath.Join(dir, "CASE-PROBE"))
+	return err == nil
+}
+
+func TestLinterLookup(t *testing.T) {
 	root := t.TempDir()
+	caseInsensitive := isCaseInsensitive(t, root)
+	if err := os.Mkdir(filepath.Join(root, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "file.txt"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	linter := NewLinter()
+	// check looks up name and verifies the name and type of the resulting entry.
+	// An empty wantName means that the lookup is expected to fail.
+	check := func(name, wantName string, wantDir bool) {
+		t.Helper()
+		entry, err := linter.lookup(root, name)
+		if wantName == "" {
+			if err == nil {
+				t.Errorf("lookup(%q) = %q, want error", name, entry.Name())
+			}
+			return
+		}
+		if err != nil {
+			t.Errorf("lookup(%q) failed: %v", name, err)
+			return
+		}
+		if entry.Name() != wantName || entry.IsDir() != wantDir {
+			t.Errorf("lookup(%q) = %q (directory: %t), want %q (directory: %t)", name, entry.Name(), entry.IsDir(), wantName, wantDir)
+		}
+	}
+
+	check("lib", "lib", true)
+	check("file.txt", "file.txt", false)
+	check("missing", "", false)
+	if caseInsensitive {
+		check("LIB", "lib", true)
+		check("File.TXT", "file.txt", false)
+	} else {
+		check("LIB", "", false)
+	}
+
+	// Symlinks keep their own name, but have the type of the file they point to.
+	if err := os.Symlink("lib", filepath.Join(root, "linked")); err != nil {
+		t.Logf("Skipping symlink checks: %v", err)
+		return
+	}
+	if err := os.Symlink("file.txt", filepath.Join(root, "filelink")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("missing", filepath.Join(root, "broken")); err != nil {
+		t.Fatal(err)
+	}
+	linter = NewLinter()
+	check("linked", "linked", true)
+	check("filelink", "filelink", false)
+	check("broken", "", false)
+	if caseInsensitive {
+		check("LINKED", "linked", true)
+	}
+}
+
+func TestLinterCachesLookups(t *testing.T) {
+	root := t.TempDir()
+	if !isCaseInsensitive(t, root) {
+		t.Skip("requires a case-insensitive file system")
+	}
 	if err := os.WriteFile(filepath.Join(root, "MODULE.bazel"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -198,11 +275,11 @@ func TestLinterCachesDirectoryListings(t *testing.T) {
 	if err := os.Remove(libDir); err != nil {
 		t.Fatal(err)
 	}
-	// The same Linter still uses the cached directory listing.
+	// The same Linter still uses the cached lookup.
 	if findings := lint(linter); len(findings) != 1 {
 		t.Errorf("got %d findings with the same Linter, want 1", len(findings))
 	}
-	// A new Linter lists the directory again.
+	// A new Linter looks up the directory again.
 	if findings := lint(NewLinter()); len(findings) != 0 {
 		t.Errorf("got %d findings with a new Linter, want 0", len(findings))
 	}

@@ -27,7 +27,7 @@ import (
 type FileReader struct {
 	cache    map[string]*build.File
 	readFile func(string) ([]byte, error)
-	readDir  func(string) ([]fs.DirEntry, error)
+	lookup   func(dir, name string) (fs.DirEntry, error)
 }
 
 // NewFileReader creates and initializes a FileReader instance with a
@@ -41,14 +41,18 @@ func NewFileReader(readFile func(string) ([]byte, error)) *FileReader {
 	}
 }
 
-// NewFileReaderWithReadDir is like NewFileReader, but additionally accepts a
-// custom readDir function that lists the entries of an arbitrary directory in
-// the repository using a path relative to the workspace root (OS-independent,
-// with forward slashes, empty for the workspace root itself). It enables
-// warnings that need to inspect the directory structure of the repository.
-func NewFileReaderWithReadDir(readFile func(string) ([]byte, error), readDir func(string) ([]fs.DirEntry, error)) *FileReader {
+// NewFileReaderWithLookup is like NewFileReader, but additionally accepts a
+// custom lookup function that returns the entry of a directory in the
+// repository that a name refers to according to the file system. The directory
+// is given as a path relative to the workspace root (OS-independent, with
+// forward slashes, empty for the workspace root itself). The returned entry has
+// the name stored in the directory, which can differ from the name that was
+// looked up, e.g. in case on a case-insensitive file system, and the type of
+// the file it refers to after following symlinks. lookup returns an error if
+// the name doesn't refer to exactly one entry.
+func NewFileReaderWithLookup(readFile func(string) ([]byte, error), lookup func(dir, name string) (fs.DirEntry, error)) *FileReader {
 	fr := NewFileReader(readFile)
-	fr.readDir = readDir
+	fr.lookup = lookup
 	return fr
 }
 
@@ -90,22 +94,21 @@ func (fr *FileReader) GetFile(pkg, label string) *build.File {
 	return file
 }
 
-// canReadDirs returns whether the FileReader is able to list directories.
-func (fr *FileReader) canReadDirs() bool {
-	return fr != nil && fr.readDir != nil
+// canLookUp returns whether the FileReader is able to look up directory
+// entries.
+func (fr *FileReader) canLookUp() bool {
+	return fr != nil && fr.lookup != nil
 }
 
-// getDir lists the entries of a directory in the repository. Returns nil if the
-// directory can't be listed. Unlike files, directory listings aren't cached
-// here: the warnings that use them cache them per file and readDir can cache
-// them across files.
-func (fr *FileReader) getDir(dir string) []fs.DirEntry {
-	if !fr.canReadDirs() {
+// lookUpEntry returns the entry of a directory in the repository that name
+// refers to according to the file system, or nil if there is no such entry.
+func (fr *FileReader) lookUpEntry(dir, name string) fs.DirEntry {
+	if !fr.canLookUp() {
 		return nil
 	}
-	entries, err := fr.readDir(dir)
+	entry, err := fr.lookup(dir, name)
 	if err != nil {
 		return nil
 	}
-	return entries
+	return entry
 }

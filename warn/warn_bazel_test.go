@@ -283,19 +283,35 @@ def generate_targets(name, src1, src2):
 
 func TestPackageCase(t *testing.T) {
 	defer setUpFileReader(map[string]string{
-		"lib/BUILD":     "",
-		"lib/defs.bzl":  "",
-		"foo/bar/BUILD": "",
-		"Upper/BUILD":   "",
-		"config/BUILD":  "",
+		"lib/BUILD":              "",
+		"lib/defs.bzl":           "",
+		"foo/bar/BUILD":          "",
+		"foo/bar/baz/file.txt":   "",
+		"foo/bar/baz/deep/x.txt": "",
+		"Upper/BUILD":            "",
+		"config/BUILD":           "",
+		"sub/file.txt":           "",
 	})()
 
 	checkFindingsAndFix(t, "package-case", `
 load("//Lib:defs.bzl", "x")
 load("//lib:defs.bzl", "y")
 
+package_group(
+    name = "group",
+    packages = [
+        "//Lib",
+        "-//Foo/bar/...",
+    ],
+)
+
 cc_library(
     name = "a",
+    srcs = [
+        "//Foo/Bar:Baz/file.txt",
+        "//foo/bar:Baz/Deep/x.txt",
+        "//:Sub/file.txt",
+    ],
     deps = [
         "//Lib:hello-lib",
         "//lib:hello-lib",
@@ -312,14 +328,27 @@ cc_library(
 load("//lib:defs.bzl", "x")
 load("//lib:defs.bzl", "y")
 
+package_group(
+    name = "group",
+    packages = [
+        "//lib",
+        "-//foo/bar/...",
+    ],
+)
+
 cc_library(
     name = "a",
+    srcs = [
+        "//foo/bar:baz/file.txt",
+        "//foo/bar:baz/deep/x.txt",
+        "//:sub/file.txt",
+    ],
     deps = [
         "//lib:hello-lib",
         "//lib:hello-lib",
         "@//foo/bar",
         "@@//foo/bar:Baz",
-        "//Upper",
+        "//Upper:upper",
         "//Upper",
     ] + select({
         "//config:opt": ["//lib/..."],
@@ -327,28 +356,36 @@ cc_library(
     }),
 )
 `, []string{
-		`:1: The package "Lib" in "//Lib:defs.bzl" doesn't match the case of its directory "lib". Use "//lib:defs.bzl" instead.`,
-		`:7: The package "Lib" in "//Lib:hello-lib" doesn't match the case of its directory "lib". Use "//lib:hello-lib" instead.`,
-		`:9: The package "FOO/bar" in "@//FOO/bar" doesn't match the case of its directory "foo/bar". Use "@//foo/bar" instead.`,
-		`:10: The package "foo/Bar" in "@@//foo/Bar:Baz" doesn't match the case of its directory "foo/bar". Use "@@//foo/bar:Baz" instead.`,
-		`:11: The package "upper" in "//upper" doesn't match the case of its directory "Upper". Use "//Upper" instead.`,
-		`:14: The package "Config" in "//Config:opt" doesn't match the case of its directory "config". Use "//config:opt" instead.`,
-		`:14: The package "LIB" in "//LIB/..." doesn't match the case of its directory "lib". Use "//lib/..." instead.`,
-		`:15: The package "Foo/Bar" in "-//Foo/Bar/...:all" doesn't match the case of its directory "foo/bar". Use "-//foo/bar/...:all" instead.`,
+		`:1: "//Lib:defs.bzl" doesn't match the spelling of the directories on disk. Use "//lib:defs.bzl" instead.`,
+		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:8: "-//Foo/bar/..." doesn't match the spelling of the directories on disk. Use "-//foo/bar/..." instead.`,
+		`:15: "//Foo/Bar:Baz/file.txt" doesn't match the spelling of the directories on disk. Use "//foo/bar:baz/file.txt" instead.`,
+		`:16: "//foo/bar:Baz/Deep/x.txt" doesn't match the spelling of the directories on disk. Use "//foo/bar:baz/deep/x.txt" instead.`,
+		`:17: "//:Sub/file.txt" doesn't match the spelling of the directories on disk. Use "//:sub/file.txt" instead.`,
+		`:20: "//Lib:hello-lib" doesn't match the spelling of the directories on disk. Use "//lib:hello-lib" instead.`,
+		`:22: "@//FOO/bar" doesn't match the spelling of the directories on disk. Use "@//foo/bar" instead.`,
+		`:23: "@@//foo/Bar:Baz" doesn't match the spelling of the directories on disk. Use "@@//foo/bar:Baz" instead.`,
+		`:24: "//upper" doesn't match the spelling of the directories on disk. Use "//Upper:upper" instead.`,
+		`:27: "//Config:opt" doesn't match the spelling of the directories on disk. Use "//config:opt" instead.`,
+		`:27: "//LIB/..." doesn't match the spelling of the directories on disk. Use "//lib/..." instead.`,
+		`:28: "-//Foo/Bar/...:all" doesn't match the spelling of the directories on disk. Use "-//foo/bar/...:all" instead.`,
 	}, scopeEverywhere)
 }
 
 func TestPackageCaseNoFindings(t *testing.T) {
 	defer setUpFileReader(map[string]string{
-		"lib/BUILD": "",
-		"file.txt":  "",
-		"amb/BUILD": "",
-		"AMB/BUILD": "",
+		"lib/BUILD":            "",
+		"lib/file.txt":         "",
+		"file.txt":             "",
+		"foo/bar/baz/file.txt": "",
+		"amb/BUILD":            "",
+		"AMB/BUILD":            "",
 	})()
 
 	checkFindings(t, "package-case", `
 x = [
     "//lib:defs.bzl",
+    "//lib",
     "//:Lib",
     "//",
     "//...",
@@ -363,33 +400,51 @@ x = [
     "//./Lib:x",
     "//Lib/../Lib:x",
     "//File.txt:x",
+    "//lib:File.txt",
+    "//foo/bar:Baz/missing.txt",
+    "//foo/bar:Baz/",
+    "//foo/bar:Baz/../x",
+    "//foo/bar:baz/File.txt",
+    "//visibility:public",
+    "//conditions:default",
     "//Amb:x",
     "//AMB:x",
 ]
 `, []string{}, scopeEverywhere)
 }
 
-func TestPackageCaseSymlink(t *testing.T) {
+func TestPackageCaseSymlinks(t *testing.T) {
 	defer setUpFileReaderFS(fstest.MapFS{
-		"linked": &fstest.MapFile{Mode: fs.ModeSymlink},
+		"lib/BUILD": {},
+		"linked":    {Mode: fs.ModeSymlink, Data: []byte("lib")},
+		"broken":    {Mode: fs.ModeSymlink, Data: []byte("missing")},
+		"filelink":  {Mode: fs.ModeSymlink, Data: []byte("lib/BUILD")},
 	})()
 
 	checkFindingsAndFix(t, "package-case", `
-x = "//Linked:x"
+x = [
+    "//Linked:x",
+    "//Broken:x",
+    "//FileLink:x",
+]
 `, `
-x = "//linked:x"
+x = [
+    "//linked:x",
+    "//Broken:x",
+    "//FileLink:x",
+]
 `, []string{
-		`:1: The package "Linked" in "//Linked:x" doesn't match the case of its directory "linked". Use "//linked:x" instead.`,
+		`:2: "//Linked:x" doesn't match the spelling of the directories on disk. Use "//linked:x" instead.`,
 	}, scopeEverywhere)
 }
 
-func TestPackageCaseWithoutDirectoryListing(t *testing.T) {
+func TestPackageCaseWithoutLookup(t *testing.T) {
 	// No FileReader at all.
 	checkFindings(t, "package-case", `
 x = "//Lib:x"
 `, []string{}, scopeEverywhere)
 
-	// A FileReader that can read files, but not list directories.
+	// A FileReader that can read files, but not look up directory entries.
 	testFileReader = NewFileReader(func(string) ([]byte, error) {
 		return nil, fmt.Errorf("file not found")
 	})
