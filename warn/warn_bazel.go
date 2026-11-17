@@ -402,12 +402,6 @@ var specialLabels = map[string]bool{
 	"visibility:public":  true,
 }
 
-// specialPackages are the packages of specialLabels.
-var specialPackages = map[string]bool{
-	"conditions": true,
-	"visibility": true,
-}
-
 func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 	if !fileReader.canLookUp() {
 		return nil
@@ -417,41 +411,29 @@ func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 	// match the file system as well as the string literal with the fixed
 	// spelling.
 	check := func(str *build.StringExpr, stack []build.Expr) (*LinterFinding, *build.StringExpr) {
-		// A string that is concatenated with others may only be the start of a
-		// label. Only the leftmost string of a concatenation can be the start of
-		// a label in the main repository, unlike e.g. in "@repo" + "//pkg".
-		isPrefix := false
-		var child build.Expr = str
-	concatenation:
+		// A string that is concatenated with others is only part of a label,
+		// e.g. in "//pkg" + ":target" or "@repo" + "//pkg:target". The full
+		// label is unknown, so leave it alone.
 		for i := len(stack) - 1; i >= 0; i-- {
-			switch parent := stack[i].(type) {
-			case *build.ParenExpr:
-			case *build.BinaryExpr:
-				if parent.Op != "+" {
-					break concatenation
-				}
-				if parent.Y == child {
-					return nil, nil
-				}
-				isPrefix = true
-			default:
-				break concatenation
+			if _, ok := stack[i].(*build.ParenExpr); ok {
+				continue
 			}
-			child = stack[i]
+			if concat, ok := stack[i].(*build.BinaryExpr); ok && concat.Op == "+" {
+				return nil, nil
+			}
+			break
 		}
 		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
 		if !ok || specialLabels[pkg+suffix] {
 			return nil, nil
 		}
 		spelledPkg, ok := spellDirs(fileReader, "", pkg)
-		// The rest of a concatenated label is unknown, so it may be or become a
-		// label with a special meaning.
-		if !ok || isPrefix && (specialPackages[pkg] || specialPackages[spelledPkg]) {
+		if !ok {
 			return nil, nil
 		}
 		if target, ok := strings.CutPrefix(suffix, ":"); ok {
 			suffix = ":" + spellTargetDirs(fileReader, spelledPkg, target)
-		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPrefix && !isPackageSpecification(stack) {
+		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPackageSpecification(stack) {
 			// "//pkg" is short for "//pkg:pkg", keep the original target name.
 			suffix = ":" + path.Base(pkg)
 		}

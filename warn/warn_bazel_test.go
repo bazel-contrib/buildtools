@@ -418,7 +418,8 @@ func TestLabelCaseConcatenation(t *testing.T) {
 		"lib/BUILD": "",
 	})()
 
-	checkFindingsAndFix(t, "label-case", `
+	// Strings that are concatenated with others are only parts of labels.
+	checkFindings(t, "label-case", `
 cc_library(
     name = "a",
     deps = [
@@ -429,22 +430,7 @@ cc_library(
         "@repo" + ("//Lib:w"),
     ],
 )
-`, `
-cc_library(
-    name = "a",
-    deps = [
-        "//lib" + ":x",
-        "@repo" + "//Lib:y",
-        "//lib:" + NAME,
-        ("//lib") + ":z",
-        "@repo" + ("//Lib:w"),
-    ],
-)
-`, []string{
-		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
-		`:6: "//Lib:" doesn't match the spelling of the directories on disk. Use "//lib:" instead.`,
-		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
-	}, scopeEverywhere)
+`, []string{}, scopeEverywhere)
 }
 
 func TestLabelCaseSpecialLabels(t *testing.T) {
@@ -462,7 +448,6 @@ x = [
     "//visibility:public",
     "@@//visibility:private",
     "//conditions:other",
-    "//conditions" + ":default",
 ]
 `, `
 x = [
@@ -471,7 +456,6 @@ x = [
     "//visibility:public",
     "@@//visibility:private",
     "//Conditions:other",
-    "//conditions" + ":default",
 ]
 `, []string{
 		`:6: "//conditions:other" doesn't match the spelling of the directories on disk. Use "//Conditions:other" instead.`,
@@ -489,7 +473,6 @@ func TestLabelCaseNoSpecialLabelsIntroduced(t *testing.T) {
 x = [
     "//Conditions:default",
     "//Visibility:public",
-    "//Conditions" + ":default",
 ]
 `, []string{}, scopeEverywhere)
 }
