@@ -198,6 +198,13 @@ func noEffectStatementsCheck(body []build.Expr, isTopLevel, isFunc bool, finding
 					makeLinterFinding(stmt, "Expression result is not used. Use a for-loop instead of a list comprehension."))
 			}
 			continue
+		case *build.ConditionalExpr:
+			// Calls in either branch have an effect, e.g. `foo() if x else bar()`.
+			// This is the only way to call a rule conditionally in BUILD files,
+			// which don't support if statements.
+			if conditionalHasCall(s) {
+				continue
+			}
 		}
 
 		msg := "Expression result is not used."
@@ -207,6 +214,29 @@ func noEffectStatementsCheck(body []build.Expr, isTopLevel, isFunc bool, finding
 		findings = append(findings, makeLinterFinding(stmt, msg))
 	}
 	return findings
+}
+
+// conditionalHasCall returns whether either branch of a (possibly nested)
+// conditional expression is a call.
+func conditionalHasCall(cond *build.ConditionalExpr) bool {
+	for _, branch := range []build.Expr{cond.Then, cond.Else} {
+		for {
+			paren, ok := branch.(*build.ParenExpr)
+			if !ok {
+				break
+			}
+			branch = paren.X
+		}
+		switch b := branch.(type) {
+		case *build.CallExpr:
+			return true
+		case *build.ConditionalExpr:
+			if conditionalHasCall(b) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func noEffectWarning(f *build.File) []*LinterFinding {
