@@ -366,14 +366,17 @@ func spellTargetDirs(fileReader *FileReader, pkg, target string) string {
 // isPackageSpecification returns whether the innermost node in stack is a
 // package specification such as "//pkg" rather than a label, i.e. part of the
 // packages attribute of a package_group or of the arguments of visibility() in
-// a .bzl file, possibly wrapped in other calls such as sorted().
+// a .bzl file, possibly wrapped in other calls such as sorted(), but not in an
+// explicit Label().
 func isPackageSpecification(stack []build.Expr) bool {
-	for i, node := range stack {
-		call, ok := node.(*build.CallExpr)
+	for i := len(stack) - 1; i >= 0; i-- {
+		call, ok := stack[i].(*build.CallExpr)
 		if !ok {
 			continue
 		}
 		switch (&build.Rule{Call: call}).Kind() {
+		case "Label":
+			return false
 		case "visibility":
 			return true
 		case "package_group", "native.package_group":
@@ -384,6 +387,7 @@ func isPackageSpecification(stack []build.Expr) bool {
 					}
 				}
 			}
+			return false
 		}
 	}
 	return false
@@ -398,6 +402,12 @@ var specialLabels = map[string]bool{
 	"visibility:public":  true,
 }
 
+// specialPackages are the packages of specialLabels.
+var specialPackages = map[string]bool{
+	"conditions": true,
+	"visibility": true,
+}
+
 func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 	if !fileReader.canLookUp() {
 		return nil
@@ -407,23 +417,36 @@ func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
 	// match the file system as well as the string literal with the fixed
 	// spelling.
 	check := func(str *build.StringExpr, stack []build.Expr) (*LinterFinding, *build.StringExpr) {
-		// A string that is concatenated with others may only be part of a label.
+		// A string that is concatenated with others may only be the start of a
+		// label. Only the leftmost string of a concatenation can be the start of
+		// a label in the main repository, unlike e.g. in "@repo" + "//pkg".
 		isPrefix := false
-		if len(stack) > 0 {
-			if concat, ok := stack[len(stack)-1].(*build.BinaryExpr); ok && concat.Op == "+" {
-				if concat.Y == str {
-					// The string may follow a repository name, e.g. "@repo" + "//pkg".
+		var child build.Expr = str
+	concatenation:
+		for i := len(stack) - 1; i >= 0; i-- {
+			switch parent := stack[i].(type) {
+			case *build.ParenExpr:
+			case *build.BinaryExpr:
+				if parent.Op != "+" {
+					break concatenation
+				}
+				if parent.Y == child {
 					return nil, nil
 				}
 				isPrefix = true
+			default:
+				break concatenation
 			}
+			child = stack[i]
 		}
 		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
 		if !ok || specialLabels[pkg+suffix] {
 			return nil, nil
 		}
 		spelledPkg, ok := spellDirs(fileReader, "", pkg)
-		if !ok {
+		// The rest of a concatenated label is unknown, so it may be or become a
+		// label with a special meaning.
+		if !ok || isPrefix && (specialPackages[pkg] || specialPackages[spelledPkg]) {
 			return nil, nil
 		}
 		if target, ok := strings.CutPrefix(suffix, ":"); ok {

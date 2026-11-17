@@ -425,6 +425,8 @@ cc_library(
         "//Lib" + ":x",
         "@repo" + "//Lib:y",
         "//Lib:" + NAME,
+        ("//Lib") + ":z",
+        "@repo" + ("//Lib:w"),
     ],
 )
 `, `
@@ -434,11 +436,14 @@ cc_library(
         "//lib" + ":x",
         "@repo" + "//Lib:y",
         "//lib:" + NAME,
+        ("//lib") + ":z",
+        "@repo" + ("//Lib:w"),
     ],
 )
 `, []string{
 		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
 		`:6: "//Lib:" doesn't match the spelling of the directories on disk. Use "//lib:" instead.`,
+		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
 	}, scopeEverywhere)
 }
 
@@ -457,6 +462,7 @@ x = [
     "//visibility:public",
     "@@//visibility:private",
     "//conditions:other",
+    "//conditions" + ":default",
 ]
 `, `
 x = [
@@ -465,6 +471,7 @@ x = [
     "//visibility:public",
     "@@//visibility:private",
     "//Conditions:other",
+    "//conditions" + ":default",
 ]
 `, []string{
 		`:6: "//conditions:other" doesn't match the spelling of the directories on disk. Use "//Conditions:other" instead.`,
@@ -482,6 +489,7 @@ func TestLabelCaseNoSpecialLabelsIntroduced(t *testing.T) {
 x = [
     "//Conditions:default",
     "//Visibility:public",
+    "//Conditions" + ":default",
 ]
 `, []string{}, scopeEverywhere)
 }
@@ -522,6 +530,8 @@ package_group(
 )
 
 visibility(sorted(["//Lib"]))
+
+visibility([Label("//Lib").package])
 `, `
 package_group(
     name = "group",
@@ -530,10 +540,13 @@ package_group(
 )
 
 visibility(sorted(["//lib"]))
+
+visibility([Label("//lib:Lib").package])
 `, []string{
 		`:3: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib:Lib" instead.`,
 		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
 		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:9: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib:Lib" instead.`,
 	}, scopeEverywhere)
 }
 
