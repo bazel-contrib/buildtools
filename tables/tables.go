@@ -14,10 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Tables about what Buildifier can and cannot edit.
+// Package tables contains tables about what Buildifier can and cannot edit.
 // Perhaps eventually this will be
 // derived from the BUILD encyclopedia.
-
 package tables
 
 // IsLabelArg contains a list of named arguments to a rule call that are
@@ -26,6 +25,7 @@ package tables
 var IsLabelArg = map[string]bool{
 	"app_target":          true,
 	"appdir":              true,
+	"aspect_hints":        true,
 	"base_package":        true,
 	"build_deps":          true,
 	"cc_deps":             true,
@@ -102,6 +102,7 @@ var LabelDenylist = map[string]bool{
 	"package_group.includes": true,
 }
 
+// IsListArg contains a set of attributes that are considered to be a list.
 // By default, edit.types.IsList consults lang.TypeOf to determine if an arg is a list.
 // You may override this using IsListArg. Specifying a name here overrides any value
 // in lang.TypeOf.
@@ -111,6 +112,7 @@ var IsListArg = map[string]bool{}
 // considered to be a sortable list . There is a separate denylist for
 // rule-specific exceptions.
 var IsSortableListArg = map[string]bool{
+	"aspect_hints":        true,
 	"cc_deps":             true,
 	"common_deps":         true,
 	"compile_deps":        true,
@@ -209,8 +211,10 @@ var NamePriority = map[string]int{
 	"alwayslink":          7,
 }
 
+// StripLabelLeadingSlashes controls whether leading slashes are stripped from labels.
 var StripLabelLeadingSlashes = false
 
+// ShortenAbsoluteLabelsToRelative controls whether absolute labels in the current package are shortened to relative labels.
 var ShortenAbsoluteLabelsToRelative = false
 
 // AndroidNativeRules lists all Android rules that are being migrated from Native to Starlark.

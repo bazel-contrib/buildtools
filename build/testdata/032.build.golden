@@ -21,6 +21,7 @@ bigrule(
     quux = 1,
     destdir = 1,
     deps = 1,
+    implementation_deps = 1,
     implementation = 1,
     implements = 1,
     alwayslink = 1,

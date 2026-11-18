@@ -13,6 +13,7 @@ bigrule(
     name = 1,
     include = 1,
     implements = 1,
+    implementation_deps = 1,
     implementation = 1,
     hdrs = 1,
     has_services = 1,

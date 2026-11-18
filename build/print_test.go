@@ -408,14 +408,14 @@ type eqchecker struct {
 
 // errorf returns an error described by the printf-style format and arguments,
 // inserting the current file position before the error text.
-func (eq *eqchecker) errorf(format string, args ...interface{}) error {
+func (eq *eqchecker) errorf(format string, args ...any) error {
 	return fmt.Errorf("%s:%d: %s", eq.file, eq.pos.Line,
 		fmt.Sprintf(format, args...))
 }
 
 // check checks that v and w represent the same parse tree.
 // If not, it returns an error describing the first difference.
-func (eq *eqchecker) check(v, w interface{}) error {
+func (eq *eqchecker) check(v, w any) error {
 	return eq.checkValue(reflect.ValueOf(v), reflect.ValueOf(w))
 }
 
