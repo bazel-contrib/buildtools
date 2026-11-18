@@ -415,71 +415,83 @@ func cleanUnusedLoads(f *build.File) bool {
 	return fixed
 }
 
+// isPackageHeaderSkippable reports whether stmt may appear before package() at
+// the top of a BUILD file.
+func isPackageHeaderSkippable(stmt build.Expr) bool {
+	if stmt == nil {
+		return true
+	}
+	_, isComment := stmt.(*build.CommentBlock)
+	_, isString := stmt.(*build.StringExpr)
+	_, isLoad := stmt.(*build.LoadStmt)
+	_, isLicenses := ExprToRule(stmt, "licenses")
+	_, isPackageGroup := ExprToRule(stmt, "package_group")
+	return isComment || isString || isLoad || isLicenses || isPackageGroup
+}
+
 // movePackageDeclarationToTheTop ensures that the call to package() is done
-// before everything else (except comments, docstrings, and loads).
+// before any rule or macro calls (after comments, docstrings, loads, and any
+// top-of-file variable assignments referenced by package()).
 func movePackageDeclarationToTheTop(f *build.File) bool {
 	pkg := ExistingPackageDeclaration(f)
 	if pkg == nil {
 		return false
 	}
 
-	// Collect variables defined by assignment statements before package()
-	definedVars := make(map[string]bool)
-	for _, stmt := range f.Stmt {
+	pkgIdx := -1
+	for i, stmt := range f.Stmt {
 		if stmt == pkg.Call {
+			pkgIdx = i
 			break
 		}
-		if assign, ok := stmt.(*build.AssignExpr); ok {
-			if ident, ok := assign.LHS.(*build.Ident); ok {
-				definedVars[ident.Name] = true
-			}
+	}
+	if pkgIdx == -1 {
+		return false
+	}
+
+	// Find any preceding variable assignments that package() depends on
+	// (directly or transitively).
+	neededVars := UsedSymbols(pkg.Call)
+	lastRequiredAssignIdx := -1
+	for i := pkgIdx - 1; i >= 0; i-- {
+		assign, ok := f.Stmt[i].(*build.AssignExpr)
+		if !ok {
+			continue
+		}
+		ident, ok := assign.LHS.(*build.Ident)
+		if !ok || !neededVars[ident.Name] {
+			continue
+		}
+		if lastRequiredAssignIdx == -1 {
+			lastRequiredAssignIdx = i
+		}
+		for sym := range UsedSymbols(assign.RHS) {
+			neededVars[sym] = true
 		}
 	}
 
-	// Check if the package() call uses any of the defined variables.
-	// If so, we can't as easily move it.
-	usedSymbols := UsedSymbols(pkg.Call)
-	for varName := range definedVars {
-		if usedSymbols[varName] {
+	// If a rule or macro precedes an assignment required by package(), we
+	// cannot hoist package() above all rules without also moving assignments.
+	for j := 0; j < lastRequiredAssignIdx; j++ {
+		_, isAssign := f.Stmt[j].(*build.AssignExpr)
+		if !isAssign && !isPackageHeaderSkippable(f.Stmt[j]) {
 			return false
 		}
 	}
 
-	var beforePkg []build.Expr
-	var afterPkg []build.Expr
-	seenPkg := false
-	pkgMisplaced := false
-
-	for _, stmt := range f.Stmt {
-		if stmt == pkg.Call {
-			seenPkg = true
-			continue
-		}
-		_, isComment := stmt.(*build.CommentBlock)
-		_, isString := stmt.(*build.StringExpr)
-		_, isLoad := stmt.(*build.LoadStmt)
-		_, isLicenses := ExprToRule(stmt, "licenses")
-		_, isPackageGroup := ExprToRule(stmt, "package_group")
-		shouldSkip := isComment || isString || isLoad || isLicenses || isPackageGroup
-
-		if shouldSkip {
-			beforePkg = append(beforePkg, stmt)
-		} else {
-			if !seenPkg {
-				pkgMisplaced = true
-			}
-			afterPkg = append(afterPkg, stmt)
-		}
+	insertIdx := lastRequiredAssignIdx + 1
+	for insertIdx < pkgIdx && isPackageHeaderSkippable(f.Stmt[insertIdx]) {
+		insertIdx++
 	}
-
-	if !pkgMisplaced {
+	if insertIdx >= pkgIdx {
 		return false
 	}
 
 	all := make([]build.Expr, 0, len(f.Stmt))
-	all = append(all, beforePkg...)
+	all = append(all, f.Stmt[:insertIdx]...)
 	all = append(all, pkg.Call)
-	all = append(all, afterPkg...)
+	all = append(all, f.Stmt[insertIdx:pkgIdx]...)
+	all = append(all, f.Stmt[pkgIdx+1:]...)
 
 	f.Stmt = all
 	return true

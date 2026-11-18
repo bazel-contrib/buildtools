@@ -125,10 +125,10 @@ foo()
 package(default_visibility = VISIBILITY)`,
 			`VISIBILITY = ["//visibility:public"]
 
-foo()
+package(default_visibility = VISIBILITY)
 
-package(default_visibility = VISIBILITY)`,
-			false},
+foo()`,
+			true},
 		{`VISIBILITY = "//visibility:public"
 
 foo()
@@ -136,9 +136,45 @@ foo()
 package(default_visibility = [VISIBILITY])`,
 			`VISIBILITY = "//visibility:public"
 
-foo()
+package(default_visibility = [VISIBILITY])
 
-package(default_visibility = [VISIBILITY])`,
+foo()`,
+			true},
+		{`# file comment
+
+load(":defs.bzl", "VISIBILITY")
+
+a = [VISIBILITY]
+
+cc_library(name = "foo")
+
+# package comment
+package(default_visibility = a)
+
+cc_library(name = "bar")`,
+			`# file comment
+
+load(":defs.bzl", "VISIBILITY")
+
+a = [VISIBILITY]
+
+# package comment
+package(default_visibility = a)
+
+cc_library(name = "foo")
+
+cc_library(name = "bar")`,
+			true},
+		{`foo()
+
+VISIBILITY = ["//visibility:public"]
+
+package(default_visibility = VISIBILITY)`,
+			`foo()
+
+VISIBILITY = ["//visibility:public"]
+
+package(default_visibility = VISIBILITY)`,
 			false},
 	}
 
