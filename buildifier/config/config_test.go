@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -866,5 +867,106 @@ func TestFindTablePath(t *testing.T) {
 				t.Errorf("FindTablePath want = %q, got = %q", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestParseJSONC(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want map[string]any
+	}{
+		{
+			name: "line comment",
+			in:   "{\"mode\": \"fix\"} // trailing comment\n",
+			want: map[string]any{"mode": "fix"},
+		},
+		{
+			name: "block comment",
+			in:   `{"mode": /* inline */ "fix"}`,
+			want: map[string]any{"mode": "fix"},
+		},
+		{
+			name: "comment-like sequences in strings",
+			in:   `{"url": "http://example.com", "note": "use // sparingly /* ok */ ,}"}`,
+			want: map[string]any{
+				"url":  "http://example.com",
+				"note": "use // sparingly /* ok */ ,}",
+			},
+		},
+		{
+			name: "escaped quotes in strings",
+			in:   `{"note": "escaped \" // not a comment"} // real comment`,
+			want: map[string]any{"note": `escaped " // not a comment`},
+		},
+		{
+			name: "trailing comma",
+			in:   `{"mode": "fix", /* comment before close */}`,
+			want: map[string]any{"mode": "fix"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := parseJSONC([]byte(tc.in))
+			if err != nil {
+				t.Fatalf("parseJSONC() error = %v", err)
+			}
+			if !json.Valid(data) {
+				t.Fatalf("parseJSONC() = invalid JSON %q", data)
+			}
+
+			var got map[string]any
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatalf("json.Unmarshal() error = %v", err)
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for key, want := range tc.want {
+				if got[key] != want {
+					t.Fatalf("got[%q] = %v, want %v", key, got[key], want)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadReaderJSONC(t *testing.T) {
+	input := `{
+  // Lint settings for the workspace.
+  "mode": "check",
+  /* Keep lint off until warnings are triaged. */
+  "lint": "off",
+  "warnings": "native-cc-binary", // single warning for now
+}`
+
+	c := New()
+	if err := c.LoadReader(strings.NewReader(input)); err != nil {
+		t.Fatalf("LoadReader() error = %v", err)
+	}
+
+	if c.Mode != "check" {
+		t.Errorf("Mode = %q, want %q", c.Mode, "check")
+	}
+	if c.Lint != "off" {
+		t.Errorf("Lint = %q, want %q", c.Lint, "off")
+	}
+	if c.Warnings != "native-cc-binary" {
+		t.Errorf("Warnings = %q, want %q", c.Warnings, "native-cc-binary")
+	}
+}
+
+func TestLoadReaderJSONCErrors(t *testing.T) {
+	for _, in := range []string{
+		`{"mode": /* unterminated`,
+		`{"list": [,]}`,
+		`{"list": [1,,2]}`,
+		`{,}`,
+	} {
+		c := New()
+		if err := c.LoadReader(strings.NewReader(in)); err == nil {
+			t.Errorf("LoadReader(%q) succeeded, want error", in)
+		}
 	}
 }

@@ -157,7 +157,7 @@ func (c *Config) LoadFile() error {
 }
 
 // LoadReader unmarshals JSON data from the given reader. JSON with comments
-// (JSONC) is supported.
+// and trailing commas (JSONC) is supported.
 func (c *Config) LoadReader(in io.Reader) error {
 	data, err := io.ReadAll(in)
 	if err != nil {
@@ -171,6 +171,131 @@ func (c *Config) LoadReader(in io.Reader) error {
 		return fmt.Errorf("unmarshaling config: %w", err)
 	}
 	return nil
+}
+
+// parseJSONC converts JWCC/JSONC input (JSON with // and /* */ comments and
+// trailing commas) into standard JSON while preserving line numbers.
+func parseJSONC(src []byte) ([]byte, error) {
+	out := make([]byte, 0, len(src))
+	var prevToken byte
+	for i := 0; i < len(src); {
+		switch src[i] {
+		case '"':
+			out = append(out, '"')
+			i++
+			for i < len(src) {
+				if src[i] == '\\' {
+					out = append(out, src[i])
+					i++
+					if i < len(src) {
+						out = append(out, src[i])
+						i++
+					}
+					continue
+				}
+				c := src[i]
+				out = append(out, c)
+				i++
+				if c == '"' {
+					break
+				}
+			}
+			prevToken = '"'
+
+		case '/':
+			if i+1 < len(src) && src[i+1] == '/' {
+				i += 2
+				for i < len(src) && src[i] != '\n' {
+					i++
+				}
+				continue
+			}
+			if i+1 < len(src) && src[i+1] == '*' {
+				i += 2
+				closed := false
+				for i+1 < len(src) {
+					if src[i] == '*' && src[i+1] == '/' {
+						out = append(out, ' ')
+						i += 2
+						closed = true
+						break
+					}
+					if src[i] == '\n' {
+						out = append(out, '\n')
+					}
+					i++
+				}
+				if !closed {
+					return nil, fmt.Errorf("unterminated block comment")
+				}
+				continue
+			}
+			out = append(out, src[i])
+			prevToken = src[i]
+			i++
+
+		case ',':
+			if prevToken != 0 && prevToken != '{' && prevToken != '[' && prevToken != ',' {
+				next, err := nextJSONCToken(src, i+1)
+				if err != nil {
+					return nil, err
+				}
+				if next == '}' || next == ']' {
+					i++
+					continue
+				}
+			}
+			out = append(out, ',')
+			prevToken = ','
+			i++
+
+		default:
+			c := src[i]
+			out = append(out, c)
+			if c != ' ' && c != '\t' && c != '\r' && c != '\n' {
+				prevToken = c
+			}
+			i++
+		}
+	}
+	return out, nil
+}
+
+func nextJSONCToken(src []byte, i int) (byte, error) {
+	for i < len(src) {
+		switch src[i] {
+		case ' ', '\t', '\r', '\n':
+			i++
+		case '/':
+			if i+1 < len(src) && src[i+1] == '/' {
+				i += 2
+				for i < len(src) && src[i] != '\n' {
+					i++
+				}
+				continue
+			}
+			if i+1 < len(src) && src[i+1] == '*' {
+				i += 2
+				closed := false
+				for i+1 < len(src) {
+					if src[i] == '*' && src[i+1] == '/' {
+						i += 2
+						closed = true
+						break
+					}
+					i++
+				}
+				if !closed {
+					return 0, fmt.Errorf("unterminated block comment")
+				}
+				continue
+			}
+			return src[i], nil
+		default:
+			return src[i], nil
+		}
+	}
+	return 0, nil
 }
 
 // FlagSet returns a flag.FlagSet that can be used to override the config.
