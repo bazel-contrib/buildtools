@@ -1061,10 +1061,6 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 	if mode == modeSeq {
 		return true
 	}
-	// An empty parameter list has nothing to put on its own line.
-	if mode == modeDef && len(*list) == 0 {
-		return true
-	}
 	// Use compact mode for empty call expressions or type applications if ForceMultiLine is not set
 	if (mode == modeCall || mode == modeTypeApp) && len(*list) == 0 && !forceMultiLine {
 		return true
@@ -1093,7 +1089,8 @@ func (p *printer) useCompactMode(start *Position, list *[]Expr, end *End, mode s
 		}
 		if end != nil {
 			isNewSeq = isNewSeq && end.Pos.Line == 0
-			if isDifferentLines(previousEnd, &end.Pos) {
+			// In modeDef, we try to keep the closing parenthesis on the same line.
+			if mode != modeDef && isDifferentLines(previousEnd, &end.Pos) {
 				return false
 			}
 		}
@@ -1160,19 +1157,6 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		indentation = defIndentation
 	}
 	p.margin += indentation
-	closeOnNewLine := mode != modeDef || (end != nil && len(end.Before) > 0)
-	if !closeOnNewLine && end != nil {
-		// Generated parameters have no source position. Look back to the
-		// last original parameter to locate the closing parenthesis.
-		lastEnd := *start
-		for i := len(*args) - 1; i >= 0; i-- {
-			if _, pos := (*args)[i].Span(); pos.Line != 0 {
-				lastEnd = pos
-				break
-			}
-		}
-		closeOnNewLine = isDifferentLines(&lastEnd, &end.Pos)
-	}
 
 	for i, x := range *args {
 		// If we are about to break the line before the first
@@ -1190,20 +1174,22 @@ func (p *printer) seq(brack string, start *Position, list *[]Expr, end *End, mod
 		p.newline()
 		p.expr(x, precLow)
 
-		if i+1 == len(*args) && len(p.comment) > 0 {
-			closeOnNewLine = true
-		}
-		if i+1 < len(*args) || closeOnNewLine && needsTrailingComma(mode) {
+		if i+1 < len(*args) || needsTrailingComma(mode, x) {
 			p.printc(',')
 		}
 	}
 	// Final comments.
+	printedFinalComments := false
 	if end != nil {
 		for _, com := range end.Before {
 			p.newline()
 			p.prints(strings.TrimSpace(com.Token))
+			printedFinalComments = true
 		}
 	}
+	// In modeDef, keep the closing bracket on the same line unless doing so
+	// would move a parameter's comment outside the parameter list.
+	closeOnNewLine := mode != modeDef || printedFinalComments || len(p.comment) > 0
 	// Flush the last element's end-of-line comments before dedenting so that
 	// any further comments line up with the element, not the closing bracket.
 	p.flushComments()
@@ -1228,13 +1214,23 @@ func (p *printer) optionalTypeParams(typeParams Expr) {
 	}
 }
 
-func needsTrailingComma(mode seqMode) bool {
+func needsTrailingComma(mode seqMode, v Expr) bool {
 	switch mode {
+	case modeDef:
+		return false
 	case modeParen:
 		return false
 	case modeTypeApp:
 		// Syntax error!
 		return false
+	case modeCall:
+		// *args and **kwargs in fn calls
+		switch v := v.(type) {
+		case *UnaryExpr:
+			if v.Op == "*" || v.Op == "**" {
+				return false
+			}
+		}
 	}
 	return true
 }
