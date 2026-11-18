@@ -199,13 +199,14 @@ var NamePriority = map[string]int{
 	"of":                                    -84, // for check_dependencies
 	"baseline":                              -83, // for searchbox_library
 	// All others sort here, at 0.
-	"destdir":        1,
-	"exports":        2,
-	"runtime_deps":   3,
-	"deps":           4,
-	"implementation": 5,
-	"implements":     6,
-	"alwayslink":     7,
+	"destdir":             1,
+	"exports":             2,
+	"runtime_deps":        3,
+	"deps":                4,
+	"implementation_deps": 4,
+	"implementation":      5,
+	"implements":          6,
+	"alwayslink":          7,
 }
 
 var StripLabelLeadingSlashes = false
