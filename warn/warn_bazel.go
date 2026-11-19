@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/bzlenv"
 )
 
 // locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.
@@ -280,5 +281,160 @@ func makeLocationVariableWarning(f *build.File) []*LinterFinding {
 					`The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`))
 		}
 	})
+	return findings
+}
+
+func collectTopLevelDeclCounts(stmts []build.Expr, counts map[string]int) {
+	for _, stmt := range stmts {
+		switch node := stmt.(type) {
+		case *build.LoadStmt:
+			for _, ident := range node.To {
+				counts[ident.Name]++
+			}
+		case *build.TypeAliasStmt:
+			counts[node.GetIdent().Name]++
+		case *build.AssignExpr:
+			for _, id := range bzlenv.CollectLValues(node.LHS) {
+				counts[id.Name]++
+			}
+		case *build.TypedIdent:
+			counts[node.GetIdent().Name]++
+		case *build.DefStmt:
+			counts[node.Name]++
+		case *build.IfStmt:
+			collectTopLevelDeclCounts(node.True, counts)
+			collectTopLevelDeclCounts(node.False, counts)
+		case *build.ForStmt:
+			for _, id := range bzlenv.CollectLValues(node.Vars) {
+				counts[id.Name]++
+			}
+			collectTopLevelDeclCounts(node.Body, counts)
+		}
+	}
+}
+
+func isConstantStringExpr(expr build.Expr, env *bzlenv.Environment, constStrings map[string]bool) bool {
+	switch node := expr.(type) {
+	case *build.StringExpr:
+		return true
+	case *build.ParenExpr:
+		return isConstantStringExpr(node.X, env, constStrings)
+	case *build.BinaryExpr:
+		if node.Op != "+" {
+			return false
+		}
+		return isConstantStringExpr(node.X, env, constStrings) && isConstantStringExpr(node.Y, env, constStrings)
+	case *build.Ident:
+		if env != nil {
+			binding := env.Get(node.Name)
+			if binding == nil || binding.Kind != bzlenv.Global {
+				return false
+			}
+		}
+		return constStrings[node.Name]
+	default:
+		return false
+	}
+}
+
+func isNoneExpr(expr build.Expr, env *bzlenv.Environment, constNone map[string]bool, topLevelDecls map[string]int) bool {
+	switch node := expr.(type) {
+	case *build.ParenExpr:
+		return isNoneExpr(node.X, env, constNone, topLevelDecls)
+	case *build.Ident:
+		if node.Name == "None" {
+			if env != nil {
+				return env.Get("None") == nil
+			}
+			return topLevelDecls["None"] == 0
+		}
+		if env != nil {
+			binding := env.Get(node.Name)
+			if binding == nil || binding.Kind != bzlenv.Global {
+				return false
+			}
+		}
+		return constNone[node.Name]
+	default:
+		return false
+	}
+}
+
+func isCtxActions(expr build.Expr, types map[build.Expr]Type) bool {
+	if types[expr] == CtxActions {
+		return true
+	}
+	dot, ok := expr.(*build.DotExpr)
+	if !ok || dot.Name != "actions" {
+		return false
+	}
+	ident, ok := dot.X.(*build.Ident)
+	return ok && ident.Name == "ctx"
+}
+
+func nonConstantProgressMessageWarning(f *build.File) []*LinterFinding {
+	if f.Type != build.TypeBzl {
+		return nil
+	}
+
+	topLevelDecls := make(map[string]int)
+	collectTopLevelDeclCounts(f.Stmt, topLevelDecls)
+
+	constStrings := make(map[string]bool)
+	constNone := make(map[string]bool)
+	for _, stmt := range f.Stmt {
+		assign, ok := stmt.(*build.AssignExpr)
+		if !ok || assign.Op != "=" {
+			continue
+		}
+		ident, ok := assign.LHSIdent()
+		if !ok || topLevelDecls[ident.Name] != 1 {
+			continue
+		}
+		if isConstantStringExpr(assign.RHS, nil, constStrings) {
+			constStrings[ident.Name] = true
+		} else if isNoneExpr(assign.RHS, nil, constNone, topLevelDecls) {
+			constNone[ident.Name] = true
+		}
+	}
+
+	types := DetectTypes(f)
+	findings := []*LinterFinding{}
+
+	var walk func(e *build.Expr, env *bzlenv.Environment)
+	walk = func(e *build.Expr, env *bzlenv.Environment) {
+		defer bzlenv.WalkOnceWithEnvironment(*e, env, walk)
+
+		call, ok := (*e).(*build.CallExpr)
+		if !ok {
+			return
+		}
+		dot, ok := call.X.(*build.DotExpr)
+		if !ok {
+			return
+		}
+		switch dot.Name {
+		case "run", "run_shell", "symlink":
+		default:
+			return
+		}
+		if !isCtxActions(dot.X, types) {
+			return
+		}
+
+		_, _, param := getParam(call.List, "progress_message")
+		if param == nil {
+			return
+		}
+		if isConstantStringExpr(param.RHS, env, constStrings) || isNoneExpr(param.RHS, env, constNone, topLevelDecls) {
+			return
+		}
+
+		findings = append(findings,
+			makeLinterFinding(param,
+				`"progress_message" should be a constant string. Use "%{label}", "%{input}", or "%{output}" instead of dynamic string formatting.`))
+	}
+	var expr build.Expr = f
+	walk(&expr, bzlenv.NewEnvironment())
 	return findings
 }
