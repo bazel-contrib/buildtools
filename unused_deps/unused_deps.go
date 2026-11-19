@@ -290,7 +290,10 @@ func printCommands(label string, deps map[string]bool) (anyCommandPrinted bool) 
 					fmt.Printf("buildozer 'move deps runtime_deps %s' %s\n", str.Value, label)
 				} else {
 					// add dep's exported dependencies to label before removing dep
-					fmt.Printf("buildozer \"add deps $(%s query 'labels(exports, %s)' | tr '\\n' ' ')\" %s\n", *buildTool, str.Value, label)
+					fmt.Printf(
+						"deps=$(%s query 'labels(exports, %s)' | tr '\\n' ' '); [ -n \"$deps\" ] && buildozer \"add deps $deps\" %s\n",
+						*buildTool, str.Value, label,
+					)
 					fmt.Printf("buildozer 'remove deps %s' %s\n", str.Value, label)
 				}
 				anyCommandPrinted = true
