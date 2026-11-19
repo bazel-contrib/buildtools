@@ -1421,7 +1421,16 @@ func editFloats(f *File, _ *Rewriter) {
 			// Invalid float, skip rewriting.
 			return
 		}
-		l.Token = parts[0] + "e" + strings.TrimLeft(parts[1], "0+")
+		exp := strings.TrimLeft(parts[1], "0+")
+		if exp == "" {
+			if !strings.Contains(parts[1], "0") {
+				// Invalid float without exponent digits, skip rewriting.
+				return
+			}
+			// An exponent of zero, such as in 1.5e0 or 1.5e+00, must keep its digit.
+			exp = "0"
+		}
+		l.Token = parts[0] + "e" + exp
 	})
 }
 

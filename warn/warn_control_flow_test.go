@@ -385,6 +385,20 @@ def foo():
 `,
 		[]string{":5:"},
 		scopeEverywhere)
+
+	checkFindings(t, "no-effect", `
+toolchain_type(name = "x") if cond else alias(name = "x", actual = "//foo:x")
+foo() if cond else None
+None if cond else foo()
+a if cond else (b if other else foo())
+a if cond else b  # 5
+
+def f():
+    foo() if cond else bar()
+    a if cond else b  # 9
+`,
+		[]string{":5:", ":9:"},
+		scopeEverywhere)
 }
 
 func TestWarnUnusedVariable(t *testing.T) {
@@ -1032,7 +1046,7 @@ f()
 `,
 			want: `def f(
         x,
-        y  # @unused
+        y,  # @unused
 ):
     pass
 
@@ -1052,7 +1066,8 @@ f()
 `,
 			want: `def f(
         x,
-        y):  # @unused
+        y,
+):  # @unused
     pass
 
 f()

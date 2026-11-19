@@ -87,6 +87,26 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+go_binary(
+    name = "buildifier-freebsd-amd64",
+    out = "buildifier-freebsd_amd64",
+    embed = [":buildifier_lib"],
+    goarch = "amd64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "buildifier-freebsd-arm64",
+    out = "buildifier-freebsd_arm64",
+    embed = [":buildifier_lib"],
+    goarch = "arm64",
+    goos = "freebsd",
+    pure = "on",
+    visibility = ["//visibility:public"],
+)
+
 # Test that the buildifier binary works
 sh_test(
     name = "buildifier_integration_test",

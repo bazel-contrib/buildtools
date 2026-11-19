@@ -1569,7 +1569,7 @@ x = [1, 2] # @unused
 # @unused
 def f(
         x,
-        y  # @unused
+        y,  # @unused
 ):
     pass
 ```

@@ -3,7 +3,7 @@ foo(
     c + d,
     a = b,
     *f,
-    **e
+    **e,
 )
 
 foo(
@@ -17,12 +17,12 @@ foo(a, **e)
 
 foo(
     b = c,
-    *d
+    *d,
 )
 
 foo(
     b = c,
-    **e
+    **e,
 )
 
 foo(*d, **e)
@@ -33,7 +33,7 @@ foo(
     b = c,
     b2 = c2,
     *d,
-    **e
+    **e,
 )
 
 foo(

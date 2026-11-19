@@ -44,12 +44,12 @@ jobs:
         close-issue-message: >
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please post `@bazelbuild/triage` in a comment here and we'll take a look. Thanks!
 
-        days-before-pr-stale: 430
-        days-before-pr-close: 90
+        days-before-pr-stale: 90
+        days-before-pr-close: 30
         stale-pr-message: >
           Thank you for contributing to the Bazel Buildtools repository!
           
-          This pull request has been marked as stale since it has not had any activity in the last 1+ years. It will be closed in the next 90 days unless any other activity occurs. 
+          This pull request has been marked as stale since it has not had any activity in the last 90 days. It will be closed in the next 30 days unless any other activity occurs. 
           If you think this pull request is still relevant and should stay open, please make sure it is up to date with the "main" branch and that a reviewer is assigned from the @bazelbuild/buildtools-team.
 
         close-pr-message: >
