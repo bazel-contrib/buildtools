@@ -16,6 +16,9 @@ package devtools.buildozer;
 
 option go_package = "api_proto";
 
+option java_package = "com.google.devtools.buildozer";
+option java_outer_classname = "BuildozerProtos";
+
 message Output {
   repeated Record records = 1;
   message Record {
