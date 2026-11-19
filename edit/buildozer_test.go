@@ -743,6 +743,59 @@ func TestCmdSubstitute(t *testing.T) {
 	}
 }
 
+var newIfAbsentTests = []struct {
+	args      []string
+	buildFile string
+	expected  string
+}{
+	{[]string{"go_library", "new_rule"},
+		``,
+		`go_library(name = "new_rule")`,
+	},
+	{[]string{"go_library", "new_rule"},
+		`go_library(name = "existing_rule")`,
+		`go_library(name = "existing_rule")
+
+go_library(name = "new_rule")`,
+	},
+	{[]string{"go_library", "existing_rule"},
+		`go_library(name = "existing_rule")`,
+		`go_library(name = "existing_rule")`,
+	},
+}
+
+func TestCmdNewIfAbsent(t *testing.T) {
+	for i, tt := range newIfAbsentTests {
+		bld, err := build.Parse("BUILD", []byte(tt.buildFile))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		expectedBld, err := build.Parse("BUILD", []byte(tt.expected))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		expected := strings.TrimSpace(string(build.Format(expectedBld)))
+		env := CmdEnvironment{
+			File: bld,
+			Args: tt.args,
+		}
+		result, err := cmdNewIfAbsent(NewOpts(), env)
+		if err != nil {
+			t.Errorf("cmdNewIfAbsent(%d) returned an unexpected error: %v", i, err)
+			continue
+		}
+		if result != nil {
+			bld = result
+		}
+		got := strings.TrimSpace(string(build.Format(bld)))
+		if got != expected {
+			t.Errorf("cmdNewIfAbsent(%d):\ngot:\n%s\nexpected:\n%s", i, got, expected)
+		}
+	}
+}
+
 func TestCmdDictAddSet_missingColon(t *testing.T) {
 	for _, tc := range []struct {
 		name string
