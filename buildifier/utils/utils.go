@@ -19,6 +19,8 @@ limitations under the License.
 package utils
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,9 +110,102 @@ func GetParser(inputType string) func(filename string, data []byte) (*build.File
 	}
 }
 
+// Linter calls the linter on files. A Linter is not safe for concurrent use.
+type Linter struct {
+	// dirs caches directory listings and lookups across all files linted by
+	// this Linter. They don't change while buildifier is running, but may
+	// change during the lifetime of a long-lived process, so the cache is
+	// scoped to a Linter rather than to the process.
+	dirs map[string]*dirCache
+}
+
+// dirCache caches the entries of a directory and the results of looking up
+// names in it.
+type dirCache struct {
+	entries map[string]fs.DirEntry
+	err     error
+	lookups map[string]lookupResult
+}
+
+type lookupResult struct {
+	entry fs.DirEntry
+	err   error
+}
+
+// NewLinter returns a new Linter.
+func NewLinter() *Linter {
+	return &Linter{dirs: make(map[string]*dirCache)}
+}
+
+// lookup returns the entry of the directory dir in the local filesystem that
+// name refers to, with the type of the file it refers to after following
+// symlinks and junctions.
+func (l *Linter) lookup(dir, name string) (fs.DirEntry, error) {
+	d, ok := l.dirs[dir]
+	if !ok {
+		d = &dirCache{lookups: make(map[string]lookupResult)}
+		var entries []fs.DirEntry
+		entries, d.err = os.ReadDir(dir)
+		d.entries = make(map[string]fs.DirEntry, len(entries))
+		for _, entry := range entries {
+			d.entries[entry.Name()] = entry
+		}
+		l.dirs[dir] = d
+	}
+	if d.err != nil {
+		return nil, d.err
+	}
+	if r, ok := d.lookups[name]; ok {
+		return r.entry, r.err
+	}
+	entry, err := lookupUncached(dir, name, d.entries)
+	d.lookups[name] = lookupResult{entry, err}
+	return entry, err
+}
+
+// lookupUncached returns the entry among the entries of the directory dir that
+// name refers to, with the type of the file it refers to after following
+// symlinks and junctions.
+func lookupUncached(dir, name string, entries map[string]fs.DirEntry) (fs.DirEntry, error) {
+	entry, ok := entries[name]
+	if !ok {
+		// The file system may still resolve name to an entry stored under a
+		// different name, e.g. one that differs in case on a case-insensitive
+		// file system. Find that entry by comparing file identities, which
+		// leaves the rules for matching names to the file system.
+		info, err := os.Lstat(filepath.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		for candidateName, candidate := range entries {
+			candidateInfo, err := os.Lstat(filepath.Join(dir, candidateName))
+			if err != nil || !os.SameFile(info, candidateInfo) {
+				continue
+			}
+			if entry != nil {
+				return nil, fmt.Errorf("%q refers to multiple entries of %q", name, dir)
+			}
+			entry = candidate
+		}
+		if entry == nil {
+			return nil, fmt.Errorf("%q doesn't refer to an entry of %q", name, dir)
+		}
+	}
+	// Resolve symlinks as well as Windows junctions, which are reported as
+	// irregular files.
+	if entry.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
+		info, err := os.Stat(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		entry = fs.FileInfoToDirEntry(info)
+	}
+	return entry, nil
+}
+
 // getFileReader returns a *FileReader object that reads files from the local
 // filesystem if the workspace root is known.
-func getFileReader(workspaceRoot string) *warn.FileReader {
+func (l *Linter) getFileReader(workspaceRoot string) *warn.FileReader {
 	if workspaceRoot == "" {
 		return nil
 	}
@@ -123,12 +218,16 @@ func getFileReader(workspaceRoot string) *warn.FileReader {
 		return os.ReadFile(path)
 	}
 
-	return warn.NewFileReader(readFile)
+	lookup := func(dir, name string) (fs.DirEntry, error) {
+		return l.lookup(filepath.Join(workspaceRoot, filepath.FromSlash(dir)), name)
+	}
+
+	return warn.NewFileReaderWithLookup(readFile, lookup)
 }
 
 // Lint calls the linter and returns a list of unresolved findings
-func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
-	fileReader := getFileReader(f.WorkspaceRoot)
+func (l *Linter) Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
+	fileReader := l.getFileReader(f.WorkspaceRoot)
 
 	switch lint {
 	case "warn":
@@ -137,4 +236,9 @@ func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*w
 		warn.FixWarnings(f, *warningsList, verbose, fileReader)
 	}
 	return nil
+}
+
+// Lint calls the linter and returns a list of unresolved findings
+func Lint(f *build.File, lint string, warningsList *[]string, verbose bool) []*warn.Finding {
+	return NewLinter().Lint(f, lint, warningsList, verbose)
 }

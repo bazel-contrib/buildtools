@@ -158,7 +158,7 @@ func main() {
 		}
 	}
 
-	b := buildifier{c, differ}
+	b := buildifier{c, differ, utils.NewLinter()}
 	exitCode := b.run(args)
 
 	os.Exit(exitCode)
@@ -167,6 +167,7 @@ func main() {
 type buildifier struct {
 	config *config.Config
 	differ *differ.Differ
+	linter *utils.Linter
 }
 
 func (b *buildifier) run(args []string) int {
@@ -308,7 +309,7 @@ func (b *buildifier) processFile(filename string, data []byte, displayFileNames 
 		f.WorkspaceRoot, f.Pkg, f.Label = wspace.SplitFilePath(absoluteFilename)
 	}
 
-	warnings := utils.Lint(f, b.config.Lint, &b.config.LintWarnings, b.config.Verbose)
+	warnings := b.linter.Lint(f, b.config.Lint, &b.config.LintWarnings, b.config.Verbose)
 	if len(warnings) > 0 {
 		exitCode = 4
 	}

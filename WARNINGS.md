@@ -33,6 +33,7 @@ Warning categories supported by buildifier's linter:
   * [`http-archive`](#http-archive)
   * [`integer-division`](#integer-division)
   * [`keyword-positional-params`](#keyword-positional-params)
+  * [`label-case`](#label-case)
   * [`list-append`](#list-append)
   * [`load`](#load)
   * [`load-on-top`](#load-on-top)
@@ -639,6 +640,61 @@ d //= e
 Some parameters for builtin functions in Starlark are keyword for legacy reasons;
 their names are not meaningful (e.g. `x`). Making them positional-only will improve
 the readability.
+
+--------------------------------------------------------------------------------
+
+## <a name="label-case"></a>Label doesn't match the spelling of the directories on disk
+
+  * Category name: `label-case`
+  * Automatic fix: yes
+  * [Suppress the warning](#suppress): `# buildifier: disable=label-case`
+
+Bazel compares package names case-sensitively, even on case-insensitive file
+systems such as the default ones on macOS and Windows. A label such as
+`//Lib:hello-lib` that refers to a package in the directory `lib` thus
+refers to a different package than `//lib:hello-lib`, even though both are
+loaded from the same directory
+([bazelbuild/bazel#6401](https://github.com/bazelbuild/bazel/issues/6401)).
+As a result, the same target can be built multiple times with outputs that
+clash on disk, which can poison caches
+([bazelbuild/bazel#8009](https://github.com/bazelbuild/bazel/issues/8009))
+and cause slow, flaky or failing builds
+([bazelbuild/bazel#32729](https://github.com/bazelbuild/bazel/issues/32729)).
+The same applies to directories in target names, such as `//lib:Src/hello.cc`
+for the file `lib/src/hello.cc`.
+
+Example that triggers this warning if the directory of the package is `lib`:
+
+```python
+cc_binary(
+    name = "main",
+    deps = ["//Lib:hello-lib"],
+)
+```
+
+Spell the package name in the same way as its directory instead:
+
+```python
+cc_binary(
+    name = "main",
+    deps = ["//lib:hello-lib"],
+)
+```
+
+The warning applies to all string literals that are labels or target patterns
+in the main repository (starting with `//`, `@//` or `@@//`), including `load`
+statements. Buildifier asks the file system whether the package path or a
+directory in the target name refers to a directory that is stored under a
+different name, usually one that differs in case. The warning is thus only
+emitted on case-insensitive file systems: on case-sensitive ones, such labels
+refer to directories that don't exist, which Bazel already reports as an
+error. It also requires buildifier to know the workspace root.
+
+The automatic fix only changes the names of directories. Since `//Lib` is
+short for `//Lib:Lib`, it is fixed to `//lib:Lib`, except for package
+specifications in `package_group`. Directories in a target name are only
+fixed if the target exists as a file or directory, since it may also be a rule
+or an output file.
 
 --------------------------------------------------------------------------------
 

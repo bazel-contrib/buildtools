@@ -16,7 +16,12 @@ limitations under the License.
 
 package warn
 
-import "testing"
+import (
+	"fmt"
+	"io/fs"
+	"testing"
+	"testing/fstest"
+)
 
 func TestConstantGlob(t *testing.T) {
 	checkFindings(t, "constant-glob", `
@@ -274,4 +279,297 @@ def generate_targets(name, src1, src2):
 			`:21: The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`,
 		},
 		scopeBuild | scopeBzl)
+}
+
+func TestLabelCase(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD":              "",
+		"lib/defs.bzl":           "",
+		"foo/bar/BUILD":          "",
+		"foo/bar/baz/file.txt":   "",
+		"foo/bar/baz/deep/x.txt": "",
+		"Upper/BUILD":            "",
+		"config/BUILD":           "",
+		"sub/file.txt":           "",
+	})()
+
+	checkFindingsAndFix(t, "label-case", `
+load("//Lib:defs.bzl", "x")
+load("//lib:defs.bzl", "y")
+
+package_group(
+    name = "group",
+    packages = [
+        "//Lib",
+        "-//Foo/bar/...",
+    ],
+)
+
+cc_library(
+    name = "a",
+    srcs = [
+        "//Foo/Bar:Baz/file.txt",
+        "//foo/bar:Baz/Deep/x.txt",
+        "//:Sub/file.txt",
+    ],
+    deps = [
+        "//Lib:hello-lib",
+        "//lib:hello-lib",
+        "@//FOO/bar",
+        "@@//foo/Bar:Baz",
+        "//upper",
+        "//Upper",
+    ] + select({
+        "//Config:opt": ["//LIB/..."],
+        "//conditions:default": ["-//Foo/Bar/...:all"],
+    }),
+)
+`, `
+load("//lib:defs.bzl", "x")
+load("//lib:defs.bzl", "y")
+
+package_group(
+    name = "group",
+    packages = [
+        "//lib",
+        "-//foo/bar/...",
+    ],
+)
+
+cc_library(
+    name = "a",
+    srcs = [
+        "//foo/bar:baz/file.txt",
+        "//foo/bar:baz/deep/x.txt",
+        "//:sub/file.txt",
+    ],
+    deps = [
+        "//lib:hello-lib",
+        "//lib:hello-lib",
+        "@//foo/bar",
+        "@@//foo/bar:Baz",
+        "//Upper:upper",
+        "//Upper",
+    ] + select({
+        "//config:opt": ["//lib/..."],
+        "//conditions:default": ["-//foo/bar/...:all"],
+    }),
+)
+`, []string{
+		`:1: "//Lib:defs.bzl" doesn't match the spelling of the directories on disk. Use "//lib:defs.bzl" instead.`,
+		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:8: "-//Foo/bar/..." doesn't match the spelling of the directories on disk. Use "-//foo/bar/..." instead.`,
+		`:15: "//Foo/Bar:Baz/file.txt" doesn't match the spelling of the directories on disk. Use "//foo/bar:baz/file.txt" instead.`,
+		`:16: "//foo/bar:Baz/Deep/x.txt" doesn't match the spelling of the directories on disk. Use "//foo/bar:baz/deep/x.txt" instead.`,
+		`:17: "//:Sub/file.txt" doesn't match the spelling of the directories on disk. Use "//:sub/file.txt" instead.`,
+		`:20: "//Lib:hello-lib" doesn't match the spelling of the directories on disk. Use "//lib:hello-lib" instead.`,
+		`:22: "@//FOO/bar" doesn't match the spelling of the directories on disk. Use "@//foo/bar" instead.`,
+		`:23: "@@//foo/Bar:Baz" doesn't match the spelling of the directories on disk. Use "@@//foo/bar:Baz" instead.`,
+		`:24: "//upper" doesn't match the spelling of the directories on disk. Use "//Upper:upper" instead.`,
+		`:27: "//Config:opt" doesn't match the spelling of the directories on disk. Use "//config:opt" instead.`,
+		`:27: "//LIB/..." doesn't match the spelling of the directories on disk. Use "//lib/..." instead.`,
+		`:28: "-//Foo/Bar/...:all" doesn't match the spelling of the directories on disk. Use "-//foo/bar/...:all" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseNoFindings(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD":            "",
+		"lib/file.txt":         "",
+		"file.txt":             "",
+		"foo/bar/baz/file.txt": "",
+		"amb/BUILD":            "",
+		"AMB/BUILD":            "",
+	})()
+
+	checkFindings(t, "label-case", `
+x = [
+    "//lib:defs.bzl",
+    "//lib",
+    "//:Lib",
+    "//",
+    "//...",
+    ":Lib",
+    "Lib",
+    "Lib/file.txt",
+    "@lib//Lib:x",
+    "@Lib//lib",
+    "//Missing:x",
+    "//Lib/missing:x",
+    "//Lib//missing:x",
+    "//./Lib:x",
+    "//Lib/../Lib:x",
+    "//File.txt:x",
+    "//lib:File.txt",
+    "//foo/bar:Baz/missing.txt",
+    "//foo/bar:Baz/",
+    "//foo/bar:Baz/../x",
+    "//foo/bar:baz/File.txt",
+    "//visibility:public",
+    "//conditions:default",
+    "//Amb:x",
+    "//AMB:x",
+]
+`, []string{}, scopeEverywhere)
+}
+
+func TestLabelCaseConcatenation(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	// Strings that are concatenated with others are only parts of labels.
+	checkFindings(t, "label-case", `
+cc_library(
+    name = "a",
+    deps = [
+        "//Lib" + ":x",
+        "@repo" + "//Lib:y",
+        "//Lib:" + NAME,
+        ("//Lib") + ":z",
+        "@repo" + ("//Lib:w"),
+    ],
+)
+`, []string{}, scopeEverywhere)
+}
+
+func TestLabelCaseSpecialLabels(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"Conditions/BUILD": "",
+		"Visibility/BUILD": "",
+	})()
+
+	// Labels with a special meaning are left alone, even if a directory with a
+	// differently spelled name exists.
+	checkFindingsAndFix(t, "label-case", `
+x = [
+    "//conditions:default",
+    "@//conditions:default",
+    "//visibility:public",
+    "@@//visibility:private",
+    "//conditions:other",
+]
+`, `
+x = [
+    "//conditions:default",
+    "@//conditions:default",
+    "//visibility:public",
+    "@@//visibility:private",
+    "//Conditions:other",
+]
+`, []string{
+		`:6: "//conditions:other" doesn't match the spelling of the directories on disk. Use "//Conditions:other" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseNoSpecialLabelsIntroduced(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"conditions/BUILD": "",
+		"visibility/BUILD": "",
+	})()
+
+	// Fixing these labels would give them a special meaning.
+	checkFindings(t, "label-case", `
+x = [
+    "//Conditions:default",
+    "//Visibility:public",
+]
+`, []string{}, scopeEverywhere)
+}
+
+func TestLabelCaseVisibilityFunction(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	// visibility() in .bzl files takes package specifications rather than labels.
+	checkFindingsAndFix(t, "label-case", `
+visibility(["//Lib", "//Lib/..."])
+
+visibility("//Lib")
+`, `
+visibility(["//lib", "//lib/..."])
+
+visibility("//lib")
+`, []string{
+		`:1: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:1: "//Lib/..." doesn't match the spelling of the directories on disk. Use "//lib/..." instead.`,
+		`:3: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseWrappedPackageSpecifications(t *testing.T) {
+	defer setUpFileReader(map[string]string{
+		"lib/BUILD": "",
+	})()
+
+	// Package specifications stay package specifications when wrapped in other
+	// calls, while includes of a package_group are labels.
+	checkFindingsAndFix(t, "label-case", `
+package_group(
+    name = "group",
+    includes = ["//Lib"],
+    packages = sorted(["//Lib"]),
+)
+
+visibility(sorted(["//Lib"]))
+
+visibility([Label("//Lib").package])
+`, `
+package_group(
+    name = "group",
+    includes = ["//lib:Lib"],
+    packages = sorted(["//lib"]),
+)
+
+visibility(sorted(["//lib"]))
+
+visibility([Label("//lib:Lib").package])
+`, []string{
+		`:3: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib:Lib" instead.`,
+		`:4: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:7: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib" instead.`,
+		`:9: "//Lib" doesn't match the spelling of the directories on disk. Use "//lib:Lib" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseSymlinks(t *testing.T) {
+	defer setUpFileReaderFS(fstest.MapFS{
+		"lib/BUILD": {},
+		"linked":    {Mode: fs.ModeSymlink, Data: []byte("lib")},
+		"broken":    {Mode: fs.ModeSymlink, Data: []byte("missing")},
+		"filelink":  {Mode: fs.ModeSymlink, Data: []byte("lib/BUILD")},
+	})()
+
+	checkFindingsAndFix(t, "label-case", `
+x = [
+    "//Linked:x",
+    "//Broken:x",
+    "//FileLink:x",
+]
+`, `
+x = [
+    "//linked:x",
+    "//Broken:x",
+    "//FileLink:x",
+]
+`, []string{
+		`:2: "//Linked:x" doesn't match the spelling of the directories on disk. Use "//linked:x" instead.`,
+	}, scopeEverywhere)
+}
+
+func TestLabelCaseWithoutLookup(t *testing.T) {
+	// No FileReader at all.
+	checkFindings(t, "label-case", `
+x = "//Lib:x"
+`, []string{}, scopeEverywhere)
+
+	// A FileReader that can read files, but not look up directory entries.
+	testFileReader = NewFileReader(func(string) ([]byte, error) {
+		return nil, fmt.Errorf("file not found")
+	})
+	defer func() { testFileReader = nil }()
+	checkFindings(t, "label-case", `
+x = "//Lib:x"
+`, []string{}, scopeEverywhere)
 }

@@ -19,8 +19,11 @@ package warn
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
+	"path"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
 	"github.com/bazel-contrib/buildtools/v10/testutils"
@@ -51,14 +54,52 @@ var testPackage string = "test/package"
 var fileReaderRequests []string
 
 func setUpFileReader(data map[string]string) (cleanup func()) {
+	fsys := fstest.MapFS{}
+	for filename, contents := range data {
+		fsys[filename] = &fstest.MapFile{Data: []byte(contents)}
+	}
+	return setUpFileReaderFS(fsys)
+}
+
+// setUpFileReaderFS is like setUpFileReader, but reads files from fsys and
+// looks up directory entries in it as if it were a case-insensitive file
+// system.
+func setUpFileReaderFS(fsys fstest.MapFS) (cleanup func()) {
 	readFile := func(filename string) ([]byte, error) {
 		fileReaderRequests = append(fileReaderRequests, filename)
-		if contents, ok := data[filename]; ok {
-			return []byte(contents), nil
-		}
-		return nil, fmt.Errorf("file not found")
+		return fs.ReadFile(fsys, filename)
 	}
-	testFileReader = NewFileReader(readFile)
+	lookup := func(dir, name string) (fs.DirEntry, error) {
+		if dir == "" {
+			dir = "."
+		}
+		entries, err := fs.ReadDir(fsys, dir)
+		if err != nil {
+			return nil, err
+		}
+		var match fs.DirEntry
+		for _, entry := range entries {
+			if entry.Name() == name {
+				match = entry
+				break
+			}
+			if strings.EqualFold(entry.Name(), name) {
+				if match != nil {
+					return nil, fmt.Errorf("%q refers to multiple entries of %q", name, dir)
+				}
+				match = entry
+			}
+		}
+		if match == nil {
+			return nil, fs.ErrNotExist
+		}
+		info, err := fs.Stat(fsys, path.Join(dir, match.Name()))
+		if err != nil {
+			return nil, err
+		}
+		return fs.FileInfoToDirEntry(info), nil
+	}
+	testFileReader = NewFileReaderWithLookup(readFile, lookup)
 	fileReaderRequests = nil
 	// The cached mapping depends on the file reader, so we need to reset it as well.
 	moduleToApparentRepoName = nil

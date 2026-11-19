@@ -17,6 +17,8 @@ limitations under the License.
 package warn
 
 import (
+	"io/fs"
+
 	"github.com/bazel-contrib/buildtools/v10/build"
 )
 
@@ -25,6 +27,7 @@ import (
 type FileReader struct {
 	cache    map[string]*build.File
 	readFile func(string) ([]byte, error)
+	lookup   func(dir, name string) (fs.DirEntry, error)
 }
 
 // NewFileReader creates and initializes a FileReader instance with a
@@ -36,6 +39,21 @@ func NewFileReader(readFile func(string) ([]byte, error)) *FileReader {
 		cache:    make(map[string]*build.File),
 		readFile: readFile,
 	}
+}
+
+// NewFileReaderWithLookup is like NewFileReader, but additionally accepts a
+// custom lookup function that returns the entry of a directory in the
+// repository that a name refers to according to the file system. The directory
+// is given as a path relative to the workspace root (OS-independent, with
+// forward slashes, empty for the workspace root itself). The returned entry has
+// the name stored in the directory, which can differ from the name that was
+// looked up, e.g. in case on a case-insensitive file system, and the type of
+// the file it refers to after following symlinks. lookup returns an error if
+// the name doesn't refer to exactly one entry.
+func NewFileReaderWithLookup(readFile func(string) ([]byte, error), lookup func(dir, name string) (fs.DirEntry, error)) *FileReader {
+	fr := NewFileReader(readFile)
+	fr.lookup = lookup
+	return fr
 }
 
 // retrieveFile reads a Starlark file using only the readFile method
@@ -74,4 +92,23 @@ func (fr *FileReader) GetFile(pkg, label string) *build.File {
 	}
 	fr.cache[filename] = file
 	return file
+}
+
+// canLookUp returns whether the FileReader is able to look up directory
+// entries.
+func (fr *FileReader) canLookUp() bool {
+	return fr != nil && fr.lookup != nil
+}
+
+// lookUpEntry returns the entry of a directory in the repository that name
+// refers to according to the file system, or nil if there is no such entry.
+func (fr *FileReader) lookUpEntry(dir, name string) fs.DirEntry {
+	if !fr.canLookUp() {
+		return nil
+	}
+	entry, err := fr.lookup(dir, name)
+	if err != nil {
+		return nil
+	}
+	return entry
 }
