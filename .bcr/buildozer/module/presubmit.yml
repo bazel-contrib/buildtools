@@ -1,0 +1,25 @@
+bcr_test_module:
+  module_path: tests/bcr
+  matrix:
+    platform:
+      - debian10
+      - ubuntu2004
+      - macos
+      - macos_arm64
+      - windows
+    bazel: [7.*, 8.*, 9.*]
+  tasks:
+    run_test_module:
+      name: Run test module
+      platform: ${{ platform }}
+      bazel: ${{ bazel }}
+      batch_commands:
+        # Workaround for https://github.com/bazelbuild/bazel/issues/3268
+        - echo bazel-bcr/>> .bazelignore
+      run_targets:
+        - //:buildozer_alias
+        - //:run_buildozer
+      build_targets:
+        - //...
+      test_targets:
+        - //...

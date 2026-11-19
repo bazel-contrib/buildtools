@@ -1,0 +1,4 @@
+test_suite(
+    name = "repo_rule_test",
+    tests = ["@repo_rule_repo//:repo_rule_test"],
+)

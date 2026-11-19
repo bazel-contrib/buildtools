@@ -1,0 +1,13 @@
+bazel_dep(name = "buildozer", version = "")
+local_path_override(
+    module_name = "buildozer",
+    path = "../..",
+)
+
+bazel_dep(name = "rules_shell", version = "0.3.0")
+
+repo_ext = use_extension("//:deps.bzl", "repo_ext")
+use_repo(repo_ext, "repo_rule_repo")
+
+buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
+use_repo(buildozer_binary, "buildozer_binary")

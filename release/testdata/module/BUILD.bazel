@@ -1,0 +1,10 @@
+filegroup(
+    name = "module_files",
+    srcs = glob(["**"]),
+    visibility = ["//release:__pkg__"],
+)
+
+exports_files(
+    ["MODULE.bazel"],
+    visibility = ["//release:__pkg__"],
+)

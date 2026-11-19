@@ -4,4 +4,8 @@
 .ijwb
 *.iml
 /.bazelrc.user
+/buildozer/module/MODULE.bazel.lock
+/buildozer/module/bazel-*
+/buildozer/module/tests/bcr/MODULE.bazel.lock
+/buildozer/module/tests/bcr/bazel-*
 MODULE.bazel.lock

@@ -1,0 +1,17 @@
+{
+  "homepage": "https://github.com/bazel-contrib/buildtools/tree/main/buildozer/module",
+  "maintainers": [
+    {
+      "email": "fabian@meumertzhe.im",
+      "github": "fmeum",
+      "github_user_id": 4312191,
+      "name": "Fabian Meumertzheim"
+    }
+  ],
+  "repository": [
+    "github:fmeum/buildozer",
+    "github:bazel-contrib/buildtools"
+  ],
+  "versions": [],
+  "yanked_versions": {}
+}
