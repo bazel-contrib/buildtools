@@ -963,7 +963,9 @@ func cmdImplUseRepo(env CmdEnvironment, mode string) (*build.File, error) {
 	}
 
 	if mode == "use_repo_add" {
-		bzlmod.AddRepoUsages(useRepos, repos...)
+		if err := bzlmod.AddRepoUsages(useRepos, repos...); err != nil {
+			return nil, fmt.Errorf("%s: %w", mode, err)
+		}
 	} else {
 		bzlmod.RemoveRepoUsages(useRepos, repos...)
 	}

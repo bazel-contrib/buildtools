@@ -18,6 +18,7 @@ package bzlmod
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -162,7 +163,6 @@ func TestProxies(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			for _, extBzlFile := range tc.extBzlFiles {
 				t.Run("label_"+extBzlFile, func(t *testing.T) {
-
 					f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
 					if err != nil {
 						t.Fatal(err)
@@ -449,6 +449,164 @@ use_repo(
 use_repo(prox, "repo3", "repo4")
 `,
 		},
+		// Mapped repo names with valid identifiers.
+		{
+			`use_repo(prox)`,
+			[]string{"foo", "bar=baz"},
+			`use_repo(prox, "foo", bar = "baz")
+`,
+		},
+		{
+			`use_repo(prox)`,
+			[]string{"my_repo=actual_repo"},
+			`use_repo(prox, my_repo = "actual_repo")
+`,
+		},
+		// Buildozer does not validate local names: names that are not valid Starlark identifiers
+		// (dots, hyphens, reserved keywords, ...) are emitted verbatim as keyword arguments.
+		{
+			`use_repo(prox)`,
+			[]string{"foo.2=foo"},
+			`use_repo(prox, foo.2 = "foo")
+`,
+		},
+		{
+			`use_repo(prox)`,
+			[]string{"for=my_repo"},
+			`use_repo(prox, for = "my_repo")
+`,
+		},
+		// Mixed positional and keyword arguments.
+		{
+			`use_repo(prox)`,
+			[]string{"simple", "valid_key=value", "invalid.key=value2"},
+			`use_repo(prox, "simple", invalid.key = "value2", valid_key = "value")
+`,
+		},
+		// Duplicates (by repository value) are not added again.
+		{
+			`use_repo(prox, "repo1")`,
+			[]string{"repo1", "repo2"},
+			`use_repo(prox, "repo1", "repo2")
+`,
+		},
+		// An existing value (under any local name) is left untouched too.
+		{
+			`use_repo(proxy, foo = "bar")`,
+			[]string{"qux=bar"},
+			`use_repo(proxy, foo = "bar")
+`,
+		},
+		{
+			`use_repo(proxy, foo = "bar", "other")`,
+			[]string{"qux=bar", "new"},
+			`use_repo(proxy, "new", "other", foo = "bar")
+`,
+		},
+		{
+			`use_repo(prox, my_repo = "actual")`,
+			[]string{"my_other=actual", "new=other"},
+			`use_repo(prox, my_repo = "actual", new = "other")
+`,
+		},
+		// Adding a positional name whose value is already imported under a mapping is a no-op.
+		{
+			`use_repo(image, my_ubuntu = "img_12345")`,
+			[]string{"img_12345"},
+			`use_repo(image, my_ubuntu = "img_12345")
+`,
+		},
+		{
+			`use_repo(ext, custom_name = "repo_value")`,
+			[]string{"repo_value", "other_repo"},
+			`use_repo(ext, "other_repo", custom_name = "repo_value")
+`,
+		},
+		{
+			`use_repo(ext, my_mapping = "actual_repo", "existing")`,
+			[]string{"actual_repo", "new_repo"},
+			`use_repo(ext, "existing", "new_repo", my_mapping = "actual_repo")
+`,
+		},
+		// foo=foo is simplified to the positional form.
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo"},
+			`use_repo(proxy, "foo")
+`,
+		},
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo", "bar=baz"},
+			`use_repo(proxy, "foo", bar = "baz")
+`,
+		},
+		{
+			`use_repo(proxy)`,
+			[]string{"foo=foo", "bar=bar", "baz=qux"},
+			`use_repo(proxy, "bar", "foo", baz = "qux")
+`,
+		},
+		{
+			`use_repo(proxy, "existing")`,
+			[]string{"foo=foo"},
+			`use_repo(proxy, "existing", "foo")
+`,
+		},
+		// Bazel placeholders ({name}, {version}) in repository values are preserved.
+		// See https://github.com/bazelbuild/bazel/pull/27890 for the Bazel feature.
+		{
+			`use_repo(ext)`,
+			[]string{"custom={name}_suffix"},
+			`use_repo(ext, custom = "{name}_suffix")
+`,
+		},
+		{
+			`use_repo(ext)`,
+			[]string{"my_repo={name}-v{version}"},
+			`use_repo(ext, my_repo = "{name}-v{version}")
+`,
+		},
+		{
+			`use_repo(ext)`,
+			[]string{"local_name={version}_tag"},
+			`use_repo(ext, local_name = "{version}_tag")
+`,
+		},
+		// A placeholder mapping that is already present is not duplicated.
+		{
+			`use_repo(ext, custom = "{name}-v{version}")`,
+			[]string{"custom={name}-v{version}"},
+			`use_repo(ext, custom = "{name}-v{version}")
+`,
+		},
+		// Mixed scenarios with placeholders and regular repos.
+		{
+			`use_repo(ext)`,
+			[]string{"regular_repo", "alias={version}_tag"},
+			`use_repo(ext, "regular_repo", alias = "{version}_tag")
+`,
+		},
+		{
+			`use_repo(ext, "existing")`,
+			[]string{"custom={name}-{version}", "other"},
+			`use_repo(ext, "existing", "other", custom = "{name}-{version}")
+`,
+		},
+		// Re-adding an existing mapping under the same local name is a no-op.
+		{
+			`use_repo(ext, foo = "a", qux = "b")`,
+			[]string{"qux=b", "foo=a"},
+			`use_repo(ext, foo = "a", qux = "b")
+`,
+		},
+		// Repeating a repo within the same call adds it only once.
+		{
+			`use_repo(ext)`,
+			[]string{"foo=a", "foo=a", "a"},
+			`use_repo(ext, foo = "a")
+`,
+		},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
@@ -459,12 +617,82 @@ use_repo(prox, "repo3", "repo4")
 			for _, stmt := range f.Stmt {
 				useRepos = append(useRepos, stmt.(*build.CallExpr))
 			}
-			AddRepoUsages(useRepos, tc.repos...)
+			if err := AddRepoUsages(useRepos, tc.repos...); err != nil {
+				t.Fatal(err)
+			}
 			actualContent := string(build.Format(f))
 			if !reflect.DeepEqual(actualContent, tc.expectedContent) {
 				t.Errorf("want:\n%q\ngot:\n%q\n", tc.expectedContent, actualContent)
 			}
 		})
+	}
+}
+
+func TestAddRepoUsagesErrors(t *testing.T) {
+	for i, tc := range []struct {
+		content string
+		repos   []string
+	}{
+		// Malformed specs.
+		{`use_repo(prox, "repo1")`, []string{""}},
+		{`use_repo(prox, "repo1")`, []string{"=bar"}},
+		{`use_repo(prox, "repo1")`, []string{"foo="}},
+		{`use_repo(prox, "repo1")`, []string{"="}},
+		// Valid specs given alongside a malformed one are not added either.
+		{`use_repo(prox, "repo1")`, []string{"repo2", "foo="}},
+		// The local name is already bound to a different repo by an existing keyword argument.
+		{`use_repo(proxy, foo = "bar")`, []string{"foo=baz"}},
+		{`use_repo(proxy, foo = "bar", "other")`, []string{"new", "foo=baz"}},
+		{`use_repo(ext, my_name = "{name}_old")`, []string{"my_name={name}_new"}},
+		// After use_repo_remove ext a, renaming a to a local name that is still taken by b.
+		{`use_repo(ext, qux = "b")`, []string{"qux=a"}},
+		// The local name is already bound by an existing positional argument.
+		{`use_repo(ext, "foo")`, []string{"foo=bar"}},
+		// The local name is bound to different repos within the same call.
+		{`use_repo(ext)`, []string{"foo=a", "foo=b"}},
+		{`use_repo(ext)`, []string{"foo", "foo=b"}},
+	} {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			f, err := build.ParseModule("MODULE.bazel", []byte(tc.content))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := string(build.Format(f))
+			useRepos := []*build.CallExpr{f.Stmt[0].(*build.CallExpr)}
+			if err := AddRepoUsages(useRepos, tc.repos...); err == nil {
+				t.Errorf("AddRepoUsages(%q): want error, got nil", tc.repos)
+			}
+			if got := string(build.Format(f)); got != want {
+				t.Errorf("want unmodified:\n%q\ngot:\n%q\n", want, got)
+			}
+		})
+	}
+}
+
+func TestNewUseRepoDoesNotModifyInput(t *testing.T) {
+	const content = `bazel_dep(name = "a", version = "1")
+ext = use_extension("@foo//:e.bzl", "e")
+ext.tag()
+bazel_dep(name = "b", version = "1")
+bazel_dep(name = "c", version = "1")
+`
+	f, err := build.ParseModule("MODULE.bazel", []byte(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Leave spare capacity so that an in-place insertion would go unnoticed by the caller.
+	f.Stmt = slices.Grow(f.Stmt, 1)
+	want := string(build.Format(f))
+
+	newFile, useRepo := NewUseRepo(f, []string{"ext"})
+	if useRepo == nil {
+		t.Fatal("NewUseRepo returned no use_repo call")
+	}
+	if got := len(newFile.Stmt); got != len(f.Stmt)+1 {
+		t.Errorf("new file has %d statements, want %d", got, len(f.Stmt)+1)
+	}
+	if got := string(build.Format(f)); got != want {
+		t.Errorf("input file was modified:\nwant:\n%q\ngot:\n%q\n", want, got)
 	}
 }
 
