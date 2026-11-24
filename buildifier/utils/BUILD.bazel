@@ -4,6 +4,7 @@ go_library(
     name = "utils",
     srcs = [
         "diagnostics.go",
+        "exclude.go",
         "sarif.go",
         "tempfile.go",
         "utils.go",
@@ -13,12 +14,14 @@ go_library(
     deps = [
         "//build",
         "//warn",
+        "//wspace",
     ],
 )
 
 go_test(
     name = "utils_test",
     srcs = [
+        "exclude_test.go",
         "sarif_test.go",
         "utils_test.go",
     ],
