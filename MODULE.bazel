@@ -1,6 +1,8 @@
 module(
     name = "buildtools",
-    version = "0.0.0",
+    # Replaced with the release version by Publish to BCR, which requires this
+    # attribute to be present. Empty to avoid reporting a bogus version locally.
+    version = "",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
