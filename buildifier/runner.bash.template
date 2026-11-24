@@ -51,6 +51,8 @@ find . \
     -o -name '*.bazel' \
     -o -name BUILD \
     -o -name '*.BUILD' \
+    -o -name '*.BUILD.bazel' \
+    -o -name 'BUILD.*.bazel' \
     -o -name BUILD.oss \
     -o -name 'BUILD.*.oss' \
     -o -name WORKSPACE \
