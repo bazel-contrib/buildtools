@@ -43,8 +43,8 @@ fi
 
 # Run buildifier on all starlark files
 find . \
-  -type "${FIND_FILE_TYPE:-f}" \
   @@EXCLUDE_PATTERNS@@ \
+  -type "${FIND_FILE_TYPE:-f}" \
   \( -name '*.bzl' \
     -o -name '*.sky' \
     -o -name BUILD.bazel \
