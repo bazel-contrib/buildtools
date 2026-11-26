@@ -48,7 +48,7 @@ def buildifier_attr_factory(test_rule = False):
         ),
         "exclude_patterns": attr.string_list(
             allow_empty = True,
-            doc = "A list of glob patterns passed to the find command. Matching paths are pruned, so find does not descend into them. E.g. './vendor/*' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute.",
+            doc = "A list of glob patterns passed to the find command. Matching paths are pruned, so find does not descend into them. E.g. './vendor' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute.",
         ),
         "mode": attr.string(
             default = "fix" if not test_rule else "diff",
