@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/bazel-contrib/buildtools/v10/build"
+	"github.com/bazel-contrib/buildtools/v10/edit"
 )
 
 // locationMakeVariableRe matches deprecated $(location) and $(locations) make variables.
@@ -32,18 +33,20 @@ import (
 //     args = ["$(location " + src + ")", "$(location " + gen + ")"],
 var locationMakeVariableRe = regexp.MustCompile(`\$\(locations?(?:\s[^)]*)?`)
 
-func constantGlobPatternWarning(patterns *build.ListExpr) []*LinterFinding {
+func constantGlobPatternWarning(expr build.Expr) []*LinterFinding {
 	findings := []*LinterFinding{}
-	for _, expr := range patterns.List {
-		str, ok := expr.(*build.StringExpr)
-		if !ok {
-			continue
-		}
-		if !strings.Contains(str.Value, "*") {
-			message := fmt.Sprintf(
-				`Glob pattern %q has no wildcard ('*'). Constant patterns can be error-prone, move the file outside the glob.`, str.Value)
-			findings = append(findings, makeLinterFinding(expr, message))
-			return findings // at most one warning per glob
+	for _, patterns := range edit.AllLists(expr) {
+		for _, expr := range patterns.List {
+			str, ok := expr.(*build.StringExpr)
+			if !ok {
+				continue
+			}
+			if !strings.Contains(str.Value, "*") {
+				message := fmt.Sprintf(
+					`Glob pattern %q has no wildcard ('*'). Constant patterns can be error-prone, move the file outside the glob.`, str.Value)
+				findings = append(findings, makeLinterFinding(expr, message))
+				return findings // at most one warning per glob
+			}
 		}
 	}
 	return findings
@@ -67,28 +70,19 @@ func constantGlobWarning(f *build.File) []*LinterFinding {
 		if !ok || ident.Name != "glob" {
 			return
 		}
-		patterns, ok := call.List[0].(*build.ListExpr)
-		if ok {
-			// first arg is unnamed and is a list
-			findings = append(findings, constantGlobPatternWarning(patterns)...)
-			return // at most one warning per glob
-		}
-
-		// look for named args called include
 		for _, arg := range call.List {
 			assignExpr, ok := arg.(*build.AssignExpr)
 			if !ok {
-				continue
+				// first arg is unnamed
+				findings = append(findings, constantGlobPatternWarning(arg)...)
+				return // at most one warning per glob
 			}
 			str, ok := assignExpr.LHS.(*build.Ident)
 			if !ok || str.Name != "include" {
 				continue
 			}
-			patterns, ok := assignExpr.RHS.(*build.ListExpr)
-			if ok {
-				findings = append(findings, constantGlobPatternWarning(patterns)...)
-				return // at most one warning per glob
-			}
+			findings = append(findings, constantGlobPatternWarning(assignExpr.RHS)...)
+			return // at most one warning per glob
 		}
 	})
 	return findings
