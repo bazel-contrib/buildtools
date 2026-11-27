@@ -48,7 +48,7 @@ def buildifier_attr_factory(test_rule = False):
         ),
         "exclude_patterns": attr.string_list(
             allow_empty = True,
-            doc = "A list of glob patterns passed to the find command. E.g. './vendor/*' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute.",
+            doc = "A list of glob patterns passed to the find command. Matching paths are pruned, so find does not descend into them. E.g. './vendor' to exclude the Go vendor directory. In test rules, this attribute requires the use of the no_sandbox attribute. Not supported by the Windows runner, which ignores this attribute.",
         ),
         "mode": attr.string(
             default = "fix" if not test_rule else "diff",
@@ -159,8 +159,10 @@ def buildifier_impl_factory(ctx, test_rule = False):
     if ctx.attr.exclude_patterns:
         if test_rule and not ctx.attr.no_sandbox:
             fail("Cannot use 'exclude_patterns' in a test rule without 'no_sandbox'")
-        exclude_patterns = ["\\! -path %s" % shell.quote(pattern) for pattern in ctx.attr.exclude_patterns]
-        exclude_patterns_str = " ".join(exclude_patterns)
+
+        # Prune matching paths so that find does not descend into them.
+        exclude_patterns = ["-path %s" % shell.quote(pattern) for pattern in ctx.attr.exclude_patterns]
+        exclude_patterns_str = "\\( " + " -o ".join(exclude_patterns) + " \\) -prune -o"
 
     workspace = ""
     if test_rule and ctx.attr.no_sandbox:
