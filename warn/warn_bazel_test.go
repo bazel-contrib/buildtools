@@ -33,12 +33,24 @@ cc_library(srcs =
 cc_library(srcs = glob(["*.cc"]))
 cc_library(srcs = glob(["*.cc"], exclude = ["bar.cc"]))
 cc_library(srcs = glob(include = ["*.cc"], exclude = ["bar.cc"]))
-cc_library(srcs = glob(exclude = ["bar.cc"], include = ["*.cc"]))`,
+cc_library(srcs = glob(exclude = ["bar.cc"], include = ["*.cc"]))
+cc_library(srcs = glob(["*.cc"] + ["foo.cc"]))
+cc_library(srcs = glob(["foo.cc"] + ["*.cc"]))
+cc_library(srcs = glob(include = ["*.cc"] + ["foo.cc"]))
+cc_library(srcs = glob(["*.cc"] + ["*.cpp"]))
+cc_library(srcs = glob([foo, "foo.cc"]))
+cc_library(srcs = glob(["*.cc"] + ["*.h"] + ["foo.cc"]))
+`,
 		[]string{`:1: Glob pattern "foo.cc" has no wildcard`,
 			`:2: Glob pattern "foo.cc" has no wildcard`,
 			`:3: Glob pattern "foo.cc" has no wildcard`,
 			`:4: Glob pattern "foo.cc" has no wildcard`,
-			`:8: Glob pattern "test.cpp" has no wildcard`},
+			`:8: Glob pattern "test.cpp" has no wildcard`,
+			`:15: Glob pattern "foo.cc" has no wildcard`,
+			`:16: Glob pattern "foo.cc" has no wildcard`,
+			`:17: Glob pattern "foo.cc" has no wildcard`,
+			`:19: Glob pattern "foo.cc" has no wildcard`,
+			`:20: Glob pattern "foo.cc" has no wildcard`},
 		scopeBuild|scopeBzl|scopeWorkspace)
 }
 
