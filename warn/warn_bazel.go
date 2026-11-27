@@ -20,6 +20,7 @@ package warn
 
 import (
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
 
@@ -272,6 +273,204 @@ func makeLocationVariableWarning(f *build.File) []*LinterFinding {
 			findings = append(findings,
 				makeLinterFinding(stringExpr,
 					`The "$(location)" and "$(locations)" make variables are deprecated. Use "$(execpath ...)" or "$(rootpath ...)" instead.`))
+		}
+	})
+	return findings
+}
+
+// splitMainRepoLabel splits a string that looks like a label or a target
+// pattern referring to the main repository, e.g. "//pkg:target", "@//pkg",
+// "@@//pkg" or "-//pkg/...", into the prefix up to and including "//", the
+// package path and the remainder of the string. A trailing "/..." wildcard is
+// not considered to be part of the package path.
+func splitMainRepoLabel(value string) (prefix, pkg, suffix string, ok bool) {
+	rest := strings.TrimPrefix(value, "-")
+	if strings.HasPrefix(rest, "@@") {
+		rest = rest[2:]
+	} else if strings.HasPrefix(rest, "@") {
+		rest = rest[1:]
+	}
+	if !strings.HasPrefix(rest, "//") {
+		return "", "", "", false
+	}
+	rest = rest[2:]
+	prefix = value[:len(value)-len(rest)]
+	pkg = rest
+	if i := strings.IndexByte(rest, ':'); i >= 0 {
+		pkg, suffix = rest[:i], rest[i:]
+	}
+	if pkg == "..." {
+		return "", "", "", false
+	}
+	if strings.HasSuffix(pkg, "/...") {
+		pkg = strings.TrimSuffix(pkg, "/...")
+		suffix = "/..." + suffix
+	}
+	return prefix, pkg, suffix, true
+}
+
+// isValidPathComponent returns whether a component of a path in a label can
+// be looked up in a directory.
+func isValidPathComponent(component string) bool {
+	return component != "" && component != "." && component != ".."
+}
+
+// spellDirs returns the path rel of a directory relative to the directory base
+// as spelled by the entries stored in the file system. Returns false if rel
+// doesn't refer to a directory.
+func spellDirs(fileReader *FileReader, base, rel string) (string, bool) {
+	if rel == "" {
+		return "", true
+	}
+	components := strings.Split(rel, "/")
+	dir := base
+	for i, component := range components {
+		if !isValidPathComponent(component) {
+			return "", false
+		}
+		entry := fileReader.lookUpEntry(dir, component)
+		if entry == nil || !entry.IsDir() {
+			return "", false
+		}
+		components[i] = entry.Name()
+		dir = path.Join(dir, components[i])
+	}
+	return strings.Join(components, "/"), true
+}
+
+// spellTargetDirs returns the name of a target in the package pkg with the
+// directories it contains spelled as the entries stored in the file system.
+// The last component of the target name is never changed as the target may be
+// a rule.
+func spellTargetDirs(fileReader *FileReader, pkg, target string) string {
+	i := strings.LastIndexByte(target, '/')
+	if i < 0 {
+		return target
+	}
+	dirs, name := target[:i], target[i+1:]
+	spelledDirs, ok := spellDirs(fileReader, pkg, dirs)
+	// Rule names may contain slashes and output files don't exist in the source
+	// tree, so only change the spelling if the target exists on disk.
+	if !ok || !isValidPathComponent(name) || fileReader.lookUpEntry(path.Join(pkg, spelledDirs), name) == nil {
+		return target
+	}
+	return spelledDirs + "/" + name
+}
+
+// isPackageSpecification returns whether the innermost node in stack is a
+// package specification such as "//pkg" rather than a label, i.e. part of the
+// packages attribute of a package_group or of the arguments of visibility() in
+// a .bzl file, possibly wrapped in other calls such as sorted(), but not in an
+// explicit Label().
+func isPackageSpecification(stack []build.Expr) bool {
+	for i := len(stack) - 1; i >= 0; i-- {
+		call, ok := stack[i].(*build.CallExpr)
+		if !ok {
+			continue
+		}
+		switch (&build.Rule{Call: call}).Kind() {
+		case "Label":
+			return false
+		case "visibility":
+			return true
+		case "package_group", "native.package_group":
+			if i+1 < len(stack) {
+				if assign, ok := stack[i+1].(*build.AssignExpr); ok {
+					if lhs, ok := assign.LHS.(*build.Ident); ok && lhs.Name == "packages" {
+						return true
+					}
+				}
+			}
+			return false
+		}
+	}
+	return false
+}
+
+// specialLabels are labels in the main repository that have a special meaning
+// in Bazel and don't refer to a package in the repository, without the leading
+// "//".
+var specialLabels = map[string]bool{
+	"conditions:default": true,
+	"visibility:private": true,
+	"visibility:public":  true,
+}
+
+func labelCaseWarning(f *build.File, fileReader *FileReader) []*LinterFinding {
+	if !fileReader.canLookUp() {
+		return nil
+	}
+
+	// check returns the finding for a string literal whose spelling doesn't
+	// match the file system as well as the string literal with the fixed
+	// spelling.
+	check := func(str *build.StringExpr, stack []build.Expr) (*LinterFinding, *build.StringExpr) {
+		// A string that is concatenated with others is only part of a label,
+		// e.g. in "//pkg" + ":target" or "@repo" + "//pkg:target". The full
+		// label is unknown, so leave it alone.
+		for i := len(stack) - 1; i >= 0; i-- {
+			if _, ok := stack[i].(*build.ParenExpr); ok {
+				continue
+			}
+			if concat, ok := stack[i].(*build.BinaryExpr); ok && concat.Op == "+" {
+				return nil, nil
+			}
+			break
+		}
+		prefix, pkg, suffix, ok := splitMainRepoLabel(str.Value)
+		if !ok || specialLabels[pkg+suffix] {
+			return nil, nil
+		}
+		spelledPkg, ok := spellDirs(fileReader, "", pkg)
+		if !ok {
+			return nil, nil
+		}
+		if target, ok := strings.CutPrefix(suffix, ":"); ok {
+			suffix = ":" + spellTargetDirs(fileReader, spelledPkg, target)
+		} else if suffix == "" && path.Base(spelledPkg) != path.Base(pkg) && !isPackageSpecification(stack) {
+			// "//pkg" is short for "//pkg:pkg", keep the original target name.
+			suffix = ":" + path.Base(pkg)
+		}
+		value := prefix + spelledPkg + suffix
+		// Don't turn a label into one with a special meaning.
+		if value == str.Value || specialLabels[spelledPkg+suffix] {
+			return nil, nil
+		}
+		fixed := *str
+		fixed.Value = value
+		fixed.Token = ""
+		return makeLinterFinding(str, fmt.Sprintf(
+			"%q doesn't match the spelling of the directories on disk. Use %q instead.",
+			str.Value, value)), &fixed
+	}
+
+	var findings []*LinterFinding
+	build.WalkPointers(f, func(expr *build.Expr, stack []build.Expr) {
+		switch node := (*expr).(type) {
+		case *build.LoadStmt:
+			finding, fixed := check(node.Module, nil)
+			if finding == nil {
+				return
+			}
+			// The module of a load statement can't be replaced via a pointer to
+			// an expression, replace the whole statement instead.
+			load := *node
+			load.Module = fixed
+			finding.Replacement = []LinterReplacement{{expr, &load}}
+			findings = append(findings, finding)
+		case *build.StringExpr:
+			if len(stack) > 0 {
+				if _, ok := stack[len(stack)-1].(*build.LoadStmt); ok {
+					// Already handled above.
+					return
+				}
+			}
+			finding, fixed := check(node, stack)
+			if finding == nil {
+				return
+			}
+			finding.Replacement = []LinterReplacement{{expr, fixed}}
+			findings = append(findings, finding)
 		}
 	})
 	return findings

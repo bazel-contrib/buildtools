@@ -175,6 +175,7 @@ var MultiFileWarningMap = map[string]func(f *build.File, fileReader *FileReader)
 	"deprecated-function":                deprecatedFunctionWarning,
 	"git-repository":                     nativeGitRepositoryWarning,
 	"http-archive":                       nativeHTTPArchiveWarning,
+	"label-case":                         labelCaseWarning,
 	"native-android":                     nativeAndroidRulesWarning,
 	"native-cc-binary":                   NativeCcRulesWarning("cc_binary"),
 	"native-cc-import":                   NativeCcRulesWarning("cc_import"),

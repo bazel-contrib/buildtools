@@ -307,6 +307,7 @@ cat > golden/.buildifier.example.json <<EOF
     "http-archive",
     "integer-division",
     "keyword-positional-params",
+    "label-case",
     "list-append",
     "load",
     "make-location",
@@ -1008,6 +1009,70 @@ EOF
 
 $buildifier --lint=warn --warnings=allowed-symbol-load-locations -tables=buildifier.tables BUILD 2> report || true
 diff -u report_golden report || die "$1: wrong console output for allowed symbol load locations"
+
+cd ../..
+
+# Test the label-case warning, which compares labels to the directories in the workspace
+
+mkdir test_dir/label_case
+cd test_dir/label_case
+
+touch MODULE.bazel
+mkdir -p lib/sub
+touch lib/sub/file.txt
+
+cat > BUILD <<'EOF'
+load("//Lib:defs.bzl", "foo")
+
+foo(
+    name = "foo",
+    srcs = ["//lib:Sub/file.txt"],
+    deps = [
+        "//Lib/Sub:a",
+        "//lib/sub:b",
+        "//missing:c",
+    ],
+)
+EOF
+
+if [[ -d LIB ]]; then
+  # The file system is case-insensitive, so the labels refer to existing directories.
+  cat > BUILD.golden <<'EOF'
+load("//lib:defs.bzl", "foo")
+
+foo(
+    name = "foo",
+    srcs = ["//lib:sub/file.txt"],
+    deps = [
+        "//lib/sub:a",
+        "//lib/sub:b",
+        "//missing:c",
+    ],
+)
+EOF
+
+  cat > report_golden <<'EOF'
+BUILD:1: label-case: "//Lib:defs.bzl" doesn't match the spelling of the directories on disk. Use "//lib:defs.bzl" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
+BUILD:5: label-case: "//lib:Sub/file.txt" doesn't match the spelling of the directories on disk. Use "//lib:sub/file.txt" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
+BUILD:7: label-case: "//Lib/Sub:a" doesn't match the spelling of the directories on disk. Use "//lib/sub:a" instead. (https://github.com/bazel-contrib/buildtools/blob/main/WARNINGS.md#label-case)
+EOF
+  expected_ret=4
+else
+  # The file system is case-sensitive, so the labels refer to directories that don't exist.
+  cp BUILD BUILD.golden
+  touch report_golden
+  expected_ret=0
+fi
+
+ret=0
+$buildifier --lint=warn --warnings=label-case BUILD 2> report || ret=$?
+if [[ $ret -ne $expected_ret ]]; then
+  die "label-case: Expected buildifier to exit with $expected_ret, actual: $ret"
+fi
+diff -u report_golden report || die "label-case: wrong console output for --lint=warn"
+
+$buildifier --lint=fix --warnings=label-case BUILD || die "label-case: Expected buildifier to succeed with --lint=fix"
+diff -u BUILD.golden BUILD || die "label-case: wrong file output for --lint=fix"
 
 cd ../..
 
